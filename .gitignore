@@ -1,0 +1,44 @@
+# ---- 3D game: not published yet ----
+play3d.html
+3d.html
+lib/three.min.js
+src/cull3d.js
+src/furniture3d.js
+src/geom3d.js
+src/graphics3d.js
+src/life3d.js
+src/sky3d.js
+src/sound3d.js
+src/walk3d.js
+src/world3d.js
+src/models3d.js
+test-3d-walls.js
+test-geom3d.js
+test-physics.js
+test-graphics.js
+
+# ---- private / local-only ----
+my-house.house.json
+*.house.json
+_realhouse.json
+_inject.js.txt
+_save_payload.txt
+_*.png
+_*.txt
+shot-*.png
+AGENTS.md
+.devin/
+
+# ---- dev junk / OS accidents ----
+NUL
+nul
+false
+({name
+fetch-*.ps1
+debug-*.js
+floor-test.html
+floor-zoom.html
+grass-options.html
+open-port.bat
+start-server.bat
+node_modules/
