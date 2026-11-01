@@ -266,6 +266,7 @@ HP.itemAt = function (cx, cy, px, py) {
   const fx = px !== undefined ? px / HP.CELL : cx + 0.5;
   const fy = py !== undefined ? py / HP.CELL : cy + 0.5;
   const list = HP.cur().furniture;
+  let floorHit = null;
   for (let i = list.length - 1; i >= 0; i--) {
     const it = list[i], f = HP.footprint(it);
     if (!(fx >= f.x && fx < f.x + f.w && fy >= f.y && fy < f.y + f.h)) continue;
@@ -280,10 +281,12 @@ HP.itemAt = function (cx, cy, px, py) {
       if (hs === 's' && fy < f.y + f.h - S) continue;
       if (hs === 'w' && fx >= f.x + S) continue;
       if (hs === 'e' && fx < f.x + f.w - S) continue;
+      return it;
     }
-    return it;
+    if (d && d.onTop) return it;
+    if (!floorHit) floorHit = it;
   }
-  return null;
+  return floorHit;
 };
 /* cells that must stay clear so doors can open (both sides of each door seg) */
 HP.doorCells = function () {
@@ -299,7 +302,7 @@ HP.doorCells = function () {
 };
 
 /* flat-topped furniture a tabletop (onTop) item may sit on */
-const SURFACE_T = /table|desk|counter|dresser|nightstand|vanity|island|shelf|bookcase|cabinet|sideboard|bench|chest|console|drawer|fridge|washer|dryer|stove|machine|piano|stand|bar\b|coffeetable|ottoman/i;
+const SURFACE_T = /table|desk|counter|dresser|nightstand|vanity|island|shelf|bookcase|cabinet|sideboard|buffet|bench|chest|console|drawer|fridge|washer|dryer|stove|dishwash|ksink|kitcart|credenza|worktop|machine|piano|stand|bar\b|coffeetable|ottoman/i;
 HP.isSurface = function (it) {
   const d = HP.itemDef(it.type);
   return d && !d.hangs && !d.onTop && SURFACE_T.test(it.type + ' ' + (d.name || ''));

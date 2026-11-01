@@ -1159,7 +1159,7 @@ HP.CATALOG = [
       });
     } },
   { id: 'chair', name: 'Chair', cat: 'Kitchen', w: 1, h: 1, colors: ['#9a774f', '#7d8fa3', '#a06558'], draw: chairDraw(true) },
-  { id: 'microwave', name: 'Microwave', cat: 'Kitchen', w: 1, h: 1, colors: ['#454a52', '#c9ced4', '#2f333a'],
+  { id: 'microwave', name: 'Microwave', cat: 'Kitchen', w: 1, h: 1, onTop: true, colors: ['#454a52', '#c9ced4', '#2f333a'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
       p.box(g, 5, 8, W - 10, H - 16, 3, p.lg(g, 5, 8, W - 10, H - 16, HP.shade(c, 1.1), HP.shade(c, 0.8)));
@@ -4229,7 +4229,7 @@ HP.CATALOG = [
       g.beginPath(); g.arc(W / 2, H * 0.78, W * 0.13, 0, 7); g.fillStyle = '#3a2a1a'; g.fill(); // coffee
       g.fillStyle = '#555c66'; g.fillRect(W * 0.46, H * 0.56, W * 0.08, H * 0.08); // spout
     } },
-  { id: 'blender', name: 'Blender', cat: 'Kitchen', brand: 'CasaModa', w: 1, h: 1, colors: ['#dfe5ea', '#e8963c', '#a06558', '#3a3f47'],
+  { id: 'blender', name: 'Blender', cat: 'Kitchen', brand: 'CasaModa', w: 1, h: 1, onTop: true, colors: ['#dfe5ea', '#e8963c', '#a06558', '#3a3f47'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
       p.box(g, W * 0.28, H * 0.62, W * 0.44, H * 0.3, 4,
@@ -4240,7 +4240,7 @@ HP.CATALOG = [
       g.fillStyle = '#e8963c'; g.fillRect(W * 0.38, H * 0.34, W * 0.24, H * 0.22); // juice
       g.fillStyle = '#3a3f47'; g.fillRect(W * 0.36, H * 0.08, W * 0.28, H * 0.06); // lid
     } },
-  { id: 'airfryer', name: 'Air Fryer', cat: 'Kitchen', brand: 'UrbanForm', w: 1, h: 1, colors: ['#3a3f47', '#dfe5ea', '#a06558'],
+  { id: 'airfryer', name: 'Air Fryer', cat: 'Kitchen', brand: 'UrbanForm', w: 1, h: 1, onTop: true, colors: ['#3a3f47', '#dfe5ea', '#a06558'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
       p.box(g, W * 0.2, H * 0.15, W * 0.6, H * 0.7, 10,
@@ -4251,7 +4251,7 @@ HP.CATALOG = [
       g.fillStyle = '#22252a'; g.fillRect(W * 0.3, H * 0.2, W * 0.4, H * 0.12);   // panel
       g.fillStyle = '#4fc3f7'; g.fillRect(W * 0.38, H * 0.23, W * 0.24, H * 0.05);
     } },
-  { id: 'mixer', name: 'Stand Mixer', cat: 'Kitchen', brand: 'Heritage', w: 1, h: 1, colors: ['#a03a3a', '#dfe5ea', '#3a5f8a', '#5d8a5d', '#e8c832'],
+  { id: 'mixer', name: 'Stand Mixer', cat: 'Kitchen', brand: 'Heritage', w: 1, h: 1, onTop: true, colors: ['#a03a3a', '#dfe5ea', '#3a5f8a', '#5d8a5d', '#e8c832'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
       p.box(g, W * 0.22, H * 0.6, W * 0.56, H * 0.28, 4, HP.shade(c, 0.8));       // base
@@ -4263,7 +4263,7 @@ HP.CATALOG = [
       g.strokeStyle = '#555c66'; g.lineWidth = 2;
       g.beginPath(); g.moveTo(W * 0.6, H * 0.42); g.lineTo(W * 0.68, H * 0.55); g.stroke(); // arm
     } },
-  { id: 'ricecooker', name: 'Rice Cooker', cat: 'Kitchen', brand: 'Aria', w: 1, h: 1, colors: ['#f0f2f4', '#dfe5ea', '#e8a0b8'],
+  { id: 'ricecooker', name: 'Rice Cooker', cat: 'Kitchen', brand: 'Aria', w: 1, h: 1, onTop: true, colors: ['#f0f2f4', '#dfe5ea', '#e8a0b8'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
       g.beginPath(); g.ellipse(W / 2, H * 0.55, W * 0.3, H * 0.32, 0, 0, 7);

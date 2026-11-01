@@ -2064,7 +2064,10 @@ HP.drawFenceSeg = drawFenceSeg;
 
 /* ================= DYNAMIC ================= */
 function drawItems(g) {
-  for (const it of HP.cur().furniture) HP.drawItem(g, it);
+  const list = HP.cur().furniture;
+  for (const it of list) { const d = HP.itemDef(it.type); if (!d.onTop && !d.hangs) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (d.onTop) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (d.hangs) HP.drawItem(g, it); }
 }
 
 /* warm light pools under lamps that are switched on (walk-mode interact).
