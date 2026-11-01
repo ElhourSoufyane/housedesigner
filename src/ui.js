@@ -59,7 +59,7 @@ HP.showDialog = showDialog;
 
 /* ---------- tool rail ---------- */
 const TOOL_HINTS = {
-  select: 'Tap a room to edit it, or drag furniture to move it. Drag empty space to box-select several items (middle-drag pans).',
+  select: 'Tap a room to edit it, drag empty space to pan around, or drag furniture to move it (Shift+drag to box-select).',
   wall: 'Tap/drag between grid lines to draw walls.',
   door: 'Tap a wall to place a door. Two adjacent doors merge into a double door.',
   window: 'Tap a wall to place a window.',

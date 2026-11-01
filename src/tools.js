@@ -50,13 +50,13 @@ const selectTool = {
         ox: (fine ? p.fx : p.cx) - f.x, oy: (fine ? p.fy : p.cy) - f.y,
         origs: members.map(m => ({ m, x: m.x, y: m.y })), moved: false, valid: true
       };
-    } else if (mouse && (!p.e || p.e.button === 0)) {
-      /* desktop: left-drag on empty space = box select (middle = pan)   */
+    } else if (p.e && p.e.shiftKey) {
+      /* Shift + drag on empty space = box select; normal drag = pan     */
       HP.selected = null;
       drag = { kind: 'marquee', ax: p.wx, ay: p.wy, sx: p.sx, sy: p.sy,
                roomCell: HP.regionAt(p.cx, p.cy) ? { cx: p.cx, cy: p.cy } : null };
     } else {
-      HP.selected = null;
+      HP.selected = null; HP.selectedSet = [];
       drag = { kind: 'pan', sx: p.sx, sy: p.sy, cam: { ...HP.camera },
                roomCell: HP.regionAt(p.cx, p.cy) ? { cx: p.cx, cy: p.cy } : null };
     }
