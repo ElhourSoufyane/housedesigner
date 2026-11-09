@@ -209,6 +209,18 @@ t('canPlace respects new bounds', HP.canPlace('bedQueen', 90, 55, 0) && !HP.canP
 const m = HP.migrate({ walls: {}, floors: {}, fences: {}, roomNames: {}, furniture: [] });
 t('migrate defaults plot size', m.w === 64 && m.h === 44);
 
+// --- wall painting (per-room interior faces & per-side brush) ---
+load(HP.PRESETS[0].build());
+const rs0 = HP.computeRegions().regions;
+const rm0 = rs0[0];
+const paintedCount = HP.paintRoomWalls(rm0, '#9cb29b');
+t('paintRoomWalls paints bounding faces', paintedCount > 4 && HP.roomWallColor(rm0) === '#9cb29b');
+const [rx0, ry0] = rm0.cells[0];
+const nw = HP.cur().walls[HP.wallKey('h', rx0, ry0)];
+if (nw) t('room paint sets interior face only', nw.cb === '#9cb29b' && !nw.ca);
+HP.paintRoomWalls(rm0, '');
+t('paintRoomWalls reset clears colour', HP.roomWallColor(rm0) === '');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
 }

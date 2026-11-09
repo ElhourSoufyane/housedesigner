@@ -125,11 +125,41 @@ const selectTool = {
   cancel() { HP.marquee = null; drag = null; }
 };
 
-/* ---------------- wall draw / erase ---------------- */
+/* ---------------- wall draw / paint ---------------- */
 const wallTool = {
-  down(p) { drag = { a: HP.nearestVertex(p.wx, p.wy), b: null }; },
+  down(p) {
+    if (HP.wallMode === 'room') {
+      const r = HP.regionAt(p.cx, p.cy);
+      if (!r) { HP.status('That area is outside — switch to Paint Wall to paint an exterior wall, or enclose a room first'); return; }
+      HP.pushUndo();
+      const n = HP.paintRoomWalls(r, HP.wallColor);
+      HP.saveState(); HP.invalidateRegions();
+      HP.status((HP.wallColor ? 'Room walls painted' : 'Room walls reset to default') + ' (' + n + ' faces)');
+      return;
+    }
+    if (HP.wallMode === 'wall') {
+      drag = { kind: 'paint', pushed: false, seen: new Set() };
+      wallTool.move(p);
+      return;
+    }
+    drag = { kind: 'draw', a: HP.nearestVertex(p.wx, p.wy), b: null };
+  },
   move(p) {
     if (!drag) return;
+    if (drag.kind === 'paint') {
+      const k = HP.nearestWallSeg(p.wx, p.wy, 0.75);
+      if (!k) return;
+      const s = HP.parseWallKey(k), w = HP.cur().walls[k];
+      const side = s.d === 'h' ? (p.wy < s.y * HP.CELL ? 'ca' : 'cb')
+                               : (p.wx < s.x * HP.CELL ? 'ca' : 'cb');
+      const tag = k + ':' + side;
+      if (drag.seen.has(tag)) return;
+      if (!drag.pushed) { HP.pushUndo(); drag.pushed = true; }
+      drag.seen.add(tag);
+      if (HP.wallColor) w[side] = HP.wallColor; else delete w[side];
+      HP.invalidateRegions();
+      return;
+    }
     drag.b = HP.nearestVertex(p.wx, p.wy);
     HP.wallPreview = HP.segmentsBetween(drag.a, drag.b);
     const n = HP.wallPreview.length;
@@ -141,10 +171,25 @@ const wallTool = {
     HP.markDirty();
   },
   up() {
+    if (drag && drag.kind === 'paint') {
+      if (drag.pushed) {
+        HP.saveState();
+        HP.status((HP.wallColor ? 'Painted ' : 'Reset ') + drag.seen.size + ' wall face(s)');
+      } else {
+        HP.status('No wall there — drag along a wall to paint that side');
+      }
+      drag = null;
+      return;
+    }
     if (drag && HP.wallPreview && HP.wallPreview.length) {
       HP.pushUndo();
-      for (const k of HP.wallPreview)
+      for (const k of HP.wallPreview) {
         if (!HP.cur().walls[k]) HP.cur().walls[k] = { f: null };
+        if (HP.wallColor) {
+          HP.cur().walls[k].ca = HP.wallColor;
+          HP.cur().walls[k].cb = HP.wallColor;
+        }
+      }
       HP.saveState();
       HP.status('Wall added — ' + HP.wallPreview.length + ' segments');
     }

@@ -1670,6 +1670,30 @@ function wallThick(seg) {                    // exterior → thicker
   return (out(seg.x - 1, seg.y) || out(seg.x, seg.y)) ? 0.44 : 0.3;
 }
 
+function drawWallCore(g, s, t, w) {
+  const C = HP.CELL, ca = w && w.ca, cb = w && w.cb;
+  const painted = !!(ca || cb);
+  const ti = Math.max(painted ? 4.6 : 2, t - (painted ? 4.6 : 8));
+  if (!painted || ca === cb) {
+    g.fillStyle = ca || '#f5f3ec';
+    if (s.d === 'h') g.fillRect(s.x * C + 2, s.y * C - ti / 2, C - 3.4, ti);
+    else g.fillRect(s.x * C - ti / 2, s.y * C + 2, ti, C - 3.4);
+    return;
+  }
+  const h = ti / 2;
+  if (s.d === 'h') {
+    g.fillStyle = ca || '#f5f3ec';
+    g.fillRect(s.x * C + 2, s.y * C - h, C - 3.4, h);
+    g.fillStyle = cb || '#f5f3ec';
+    g.fillRect(s.x * C + 2, s.y * C, C - 3.4, h);
+  } else {
+    g.fillStyle = ca || '#f5f3ec';
+    g.fillRect(s.x * C - h, s.y * C + 2, h, C - 3.4);
+    g.fillStyle = cb || '#f5f3ec';
+    g.fillRect(s.x * C, s.y * C + 2, h, C - 3.4);
+  }
+}
+
 function drawWalls(g) {
   const C = HP.CELL;
   const lvl = HP.cur();
@@ -1677,15 +1701,24 @@ function drawWalls(g) {
     const s = HP.parseWallKey(k);
     const feat = lvl.walls[k].f;
     if (feat === 'door') continue;              // doors draw dynamically (open/close state)
+    // Garage doors replace wall segments in the 2D editor plan
+    const gdIntersect = (lvl.furniture || []).some(it => {
+      if (!/garagedoor/i.test(it.type)) return false;
+      const bw = it.w || 3, bh = it.h || 1, rot = (it.rot || 0) % 4;
+      const w = rot % 2 === 0 ? bw : bh, h = rot % 2 === 0 ? bh : bw;
+      if (s.d === 'h') {
+        return (s.y === it.y || s.y === it.y + h) && (s.x >= it.x && s.x < it.x + w);
+      } else {
+        return (s.x === it.x || s.x === it.x + w) && (s.y >= it.y && s.y < it.y + h);
+      }
+    });
+    if (gdIntersect) continue;
     const t = wallThick(s) * C;
-    // body: dark shell + light core (architectural plan look)
+    // body: dark shell + light/painted core (architectural plan look)
     g.fillStyle = '#2e3138';
     if (s.d === 'h') g.fillRect(s.x * C, s.y * C - t / 2, C + 0.6, t);
     else g.fillRect(s.x * C - t / 2, s.y * C, t, C + 0.6);
-    const ti = Math.max(2, t - 8);
-    g.fillStyle = '#f5f3ec';
-    if (s.d === 'h') g.fillRect(s.x * C + 2, s.y * C - ti / 2, C - 3.4, ti);
-    else g.fillRect(s.x * C - ti / 2, s.y * C + 2, ti, C - 3.4);
+    drawWallCore(g, s, t, lvl.walls[k]);
     if (feat) drawGap(g, s, t, false);       // cut opening after body
     if (feat === 'window') drawWindow(g, s, t);
   }
@@ -1710,10 +1743,7 @@ function drawDoors(g) {
     g.fillStyle = '#2e3138';
     if (s.d === 'h') g.fillRect(s.x * C, s.y * C - t / 2, C + 0.6, t);
     else g.fillRect(s.x * C - t / 2, s.y * C, t, C + 0.6);
-    const ti = Math.max(2, t - 8);
-    g.fillStyle = '#f5f3ec';
-    if (s.d === 'h') g.fillRect(s.x * C + 2, s.y * C - ti / 2, C - 3.4, ti);
-    else g.fillRect(s.x * C - ti / 2, s.y * C + 2, ti, C - 3.4);
+    drawWallCore(g, s, t, lvl.walls[k]);
     drawGap(g, s, t, pair);
     (pair ? drawDoubleDoor : drawDoor)(g, s, t);
   }
