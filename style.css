@@ -204,6 +204,22 @@ button { font-family: inherit; color: inherit; }
 }
 #play-hint.hidden { display: none; }
 
+#interior-banner {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 35;
+  background: var(--panel-2); border: 2px solid var(--border); border-radius: 14px;
+  box-shadow: var(--sh-lg); padding: 8px 14px;
+  display: flex; align-items: center; gap: 14px;
+  backdrop-filter: blur(8px);
+}
+#interior-banner.hidden { display: none; }
+#interior-banner .ib-info { display: flex; align-items: center; gap: 8px; }
+#interior-banner .ib-icon { font-size: 18px; }
+#interior-banner .ib-title { font-weight: 700; font-size: 13px; color: var(--text); white-space: nowrap; }
+#interior-banner .ib-actions { display: flex; align-items: center; gap: 8px; }
+#interior-banner .tbtn { padding: 5px 12px; font-size: 12px; height: 32px; border-radius: 8px; cursor: pointer; }
+#interior-banner .tbtn.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+#interior-banner .tbtn.danger:hover { filter: brightness(1.1); }
+
 /* on-screen joystick (walk mode, touch) */
 #joy {
   position: absolute; z-index: 25; width: 96px; height: 96px; border-radius: 50%;

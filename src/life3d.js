@@ -553,8 +553,10 @@ L.build = function (g, entries) {
       // 65" 16:9 OLED TV screen on lowline credenza: exact bezel width=32.8, height=18.4, y=25.2
       addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep - 0.65, 25.2);
     }
-    else if (/lamp|torch|lantern|light|candle/.test(t)) {
-      addLampBulb(cx, /torch/.test(t) ? 30 : (/nightlight/.test(t) ? 6 : Math.max(12, e.h * 0.8)), cz);
+    else if (/lamp|torch|lantern|light/i.test(t) && !/candle/i.test(t)) {
+      const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
+      const bulbY = bY + (/torch/i.test(t) ? 30 : (/nightlight/i.test(t) ? 6 : Math.max(12, e.h * 0.8)));
+      addLampBulb(cx, bulbY, cz);
     }
     if (hi && /flower|veggie|tomato|seedling|rose/i.test(t)) spots.push({ x: cx, z: cz });
     if (/doghouse|petbed|kennel/.test(t)) dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };

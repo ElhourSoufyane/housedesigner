@@ -16,6 +16,22 @@ HP.pushUndo = function () { HP.pushUndoSnap(HP.snap()); };
 function restore(snap) {
   HP.state = HP.migrate(JSON.parse(snap));
   HP.state.level = Math.min(HP.state.level, HP.state.levels.length - 1);
+  if (HP.editingInterior && HP.editingInterior.item) {
+    const targetId = HP.editingInterior.item.id;
+    let found = null;
+    for (const l of HP.state.levels) {
+      for (const it of l.furniture) {
+        if (it.id === targetId) { found = it; break; }
+      }
+      if (found) break;
+    }
+    if (found && found.interior) {
+      HP.editingInterior.item = found;
+      HP.editingInterior.interior = found.interior;
+    } else {
+      HP.exitInterior();
+    }
+  }
   HP.selected = null; HP.pending = null; HP.ghost = null; HP.selectedRoom = null; HP.selectedSet = [];
   HP.invalidateRegions(); HP.refreshContext();
   if (HP.updateFloorUI) HP.updateFloorUI();

@@ -142,7 +142,11 @@ HP.initInput = function () {
       case 'delete': case 'backspace': HP.deleteSelected(); break;
       case 'escape':
         if (HP.pending) HP.cancelPending();
-        else { HP.selected = null; HP.selectedRoom = null; HP.selectedSet = []; HP.measureLine = null; HP.refreshContext(); HP.markDirty(); }
+        else if (HP.selected || (HP.selectedSet && HP.selectedSet.length) || HP.selectedRoom || HP.measureLine) {
+          HP.selected = null; HP.selectedRoom = null; HP.selectedSet = []; HP.measureLine = null; HP.refreshContext(); HP.markDirty();
+        } else if (HP.editingInterior) {
+          HP.exitInterior();
+        }
         break;
       case 'v': HP.setTool('select'); break;
       case 'w': HP.setTool('wall'); break;

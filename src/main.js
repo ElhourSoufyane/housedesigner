@@ -7,7 +7,7 @@ let dpr = 1;
 const _inv = HP.invalidateRegions;
 HP.invalidateRegions = function () { staticDirty = true; _inv(); };
 
-HP.resetLayers = function () { staticLayer = null; belowLayer = null; };
+HP.resetLayers = function () { staticLayer = null; belowLayer = null; staticDirty = true; };
 
 /* ================= STATIC LAYER ================= */
 let staticScale = 1;                                 // bake res factor — big plots bake at 0.5
@@ -2095,7 +2095,8 @@ HP.drawFenceSeg = drawFenceSeg;
 /* ================= DYNAMIC ================= */
 function drawItems(g) {
   const list = HP.cur().furniture;
-  for (const it of list) { const d = HP.itemDef(it.type); if (!d.onTop && !d.hangs) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (!d.onTop && !d.hangs && !(HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (!d.onTop && !d.hangs && (HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
   for (const it of list) { const d = HP.itemDef(it.type); if (d.onTop) HP.drawItem(g, it); }
   for (const it of list) { const d = HP.itemDef(it.type); if (d.hangs) HP.drawItem(g, it); }
 }

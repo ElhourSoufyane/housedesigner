@@ -310,7 +310,7 @@ const eraseTool = {
       HP.cur().furniture = HP.cur().furniture.filter(f => !members.includes(f));
       if (members.includes(HP.selected)) HP.selected = null;
     }
-    if (k) delete HP.cur().walls[k];
+    if (k && !HP.editingInterior) delete HP.cur().walls[k];
     if (fk) delete HP.cur().fences[fk];
     if (pathK) delete HP.cur().floors[pathK];
     HP.saveState(); HP.invalidateRegions(); HP.refreshContext();

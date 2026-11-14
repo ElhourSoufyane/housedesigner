@@ -138,11 +138,25 @@ HP.applyGridSize = function () {
   HP.invalidateRegions();
 };
 /* the level currently being edited */
-HP.cur = function () { return HP.state.levels[HP.state.level]; };
+HP.editingInterior = null;
+HP.interiorContext = null;
+HP.cur = function () {
+  if (HP.editingInterior && HP.editingInterior.interior) return HP.editingInterior.interior;
+  return HP.state ? HP.state.levels[HP.state.level] : null;
+};
 HP.maxFurnitureId = function () {
   let m = 0;
-  for (const l of HP.state.levels)
-    for (const it of l.furniture) if (it.id > m) m = it.id;
+  if (!HP.state || !HP.state.levels) return m;
+  for (const l of HP.state.levels) {
+    for (const it of l.furniture) {
+      if (it.id > m) m = it.id;
+      if (it.interior && it.interior.furniture) {
+        for (const sub of it.interior.furniture) {
+          if (sub.id > m) m = sub.id;
+        }
+      }
+    }
+  }
   return m;
 };
 
@@ -350,7 +364,7 @@ HP.itemAt = function (cx, cy, px, py) {
       if (hs === 'e' && fx < f.x + f.w - S) continue;
       return it;
     }
-    if (d && d.onTop) return it;
+    if (d && (d.onTop || (HP.canSitOnSurface && HP.canSitOnSurface(it.type)))) return it;
     if (!floorHit) floorHit = it;
   }
   return floorHit;
@@ -373,6 +387,18 @@ const SURFACE_T = /table|desk|counter|dresser|nightstand|vanity|island|shelf|boo
 HP.isSurface = function (it) {
   const d = HP.itemDef(it.type);
   return d && !d.hangs && !d.onTop && SURFACE_T.test(it.type + ' ' + (d.name || ''));
+};
+
+/* items that can sit on surfaces (e.g. potted plants, herbs, tomatoes, flowers, gnomes, lanterns, decor) */
+const SIT_ON_SURF_T = /plant|flower|pot|veggie|tomato|gnome|candle|lantern|herb|succulent|seed|bonsai|orchid|cactus|flowerbox|top|decor|lamp|clock|alarm|diffuser|books|vase|bowl|terra|frame|tray|mug|cup|bottle|cloche|mister|can\b/i;
+HP.canSitOnSurface = function (type) {
+  if (!type) return false;
+  const d = HP.itemDef(type);
+  if (!d || d.hangs || HP.isSurface({ type })) return false;
+  if (/treehouse|greenhouse|shed|swingset|gazebo|carport|pergola/i.test(type)) return false;
+  const bw = d.w || 1, bh = d.h || 1;
+  if (bw * bh > 2) return false;
+  return d.onTop || SIT_ON_SURF_T.test(type + ' ' + (d.name || ''));
 };
 
 /* which footprint edge touches the most wall — for hangs:true items.
@@ -399,6 +425,7 @@ HP.hangSide = function (type, x, y, rot, sz) {
 };
 
 HP.canPlace = function (type, x, y, rot, ignore, sz) {
+  if (HP.editingInterior && (type === 'greenhouse' || type === 'treehouse')) return false;
   const d = HP.itemDef(type);
   const bw = (sz && sz.w) || d.w, bh = (sz && sz.h) || d.h;   // sz = unrotated size
   const w = (rot % 2 === 0) ? bw : bh, h = (rot % 2 === 0) ? bh : bw;
@@ -441,12 +468,14 @@ HP.canPlace = function (type, x, y, rot, ignore, sz) {
     return true;
   }
   const isSurf = HP.isSurface({ type });
+  const canSit = HP.canSitOnSurface && HP.canSitOnSurface(type);
   for (const it of HP.cur().furniture) {
     if (Array.isArray(ignore) ? ignore.includes(it) : it === ignore) continue;
     const fd = HP.itemDef(it.type);
-    if (fd && (fd.hangs || (isSurf && fd.onTop))) continue;  // wall/top items share the cell with their surface
+    if (fd && (fd.hangs || (isSurf && fd.onTop) || (isSurf && HP.canSitOnSurface && HP.canSitOnSurface(it.type)))) continue;  // wall/top items share the cell with their surface
     const f = HP.footprint(it);
     if (x < f.x + f.w && x + w > f.x && y < f.y + f.h && y + h > f.y) {
+      if (canSit && HP.isSurface(it)) continue; // small plants/decor sit happily on surface furniture
       if (HP.itemsClash ? HP.itemsClash({ type, x, y, rot }, it) : true) return false;
     }
   }
@@ -749,6 +778,12 @@ HP.itemsClash = function (a, b) {
   const ad = HP.itemDef(a.type), bd = HP.itemDef(b.type);
   if (!ad || !bd) return true;
   const at = (a.type || '').toLowerCase(), bt = (b.type || '').toLowerCase();
+  // Allow plants/decor to sit on flat surfaces (benches, tables, potting desks, counters)
+  const aCanSit = HP.canSitOnSurface && HP.canSitOnSurface(a.type);
+  const bCanSit = HP.canSitOnSurface && HP.canSitOnSurface(b.type);
+  const aSurf = HP.isSurface(a);
+  const bSurf = HP.isSurface(b);
+  if ((aCanSit && bSurf) || (bCanSit && aSurf)) return false;
   // Allow garden/plant/flower/tree/potting items inside greenhouse
   if (at === 'greenhouse' || bt === 'greenhouse') {
     const other = at === 'greenhouse' ? b : a;
@@ -855,4 +890,277 @@ HP.itemSeatSpots = function (it, def) {
     }
     return { x: wx, y: wz, z: wz };
   });
+};
+
+/* ================= STRUCTURE INTERIOR MANAGEMENT ================= */
+HP.createDefaultInterior = function (it) {
+  if (!it) return null;
+  if (it.type === 'greenhouse') {
+    const inLvl = {
+      w: 10, h: 12,
+      ox: 2, oy: 2, rw: 6, rh: 8,
+      walls: {}, floors: {}, fences: {}, roomNames: {}, furniture: [],
+      customized: true
+    };
+    const ox = inLvl.ox, oy = inLvl.oy, rw = inLvl.rw, rh = inLvl.rh;
+    for (let x = ox; x < ox + rw; x++) inLvl.walls[HP.wallKey('h', x, oy)] = { f: 'window' };
+    for (let x = ox; x < ox + rw; x++) {
+      if (x === 4 || x === 5) inLvl.walls[HP.wallKey('h', x, oy + rh)] = { f: 'door' };
+      else inLvl.walls[HP.wallKey('h', x, oy + rh)] = { f: 'window' };
+    }
+    for (let y = oy; y < oy + rh; y++) inLvl.walls[HP.wallKey('v', ox, y)] = { f: 'window' };
+    for (let y = oy; y < oy + rh; y++) inLvl.walls[HP.wallKey('v', ox + rw, y)] = { f: 'window' };
+
+    for (let y = oy; y < oy + rh; y++) {
+      for (let x = ox; x < ox + rw; x++) {
+        inLvl.roomNames[HP.cellKey(x, y)] = 'Glasshouse';
+        if (x === 4 || x === 5) inLvl.floors[HP.cellKey(x, y)] = 'flagstone';
+        else inLvl.floors[HP.cellKey(x, y)] = 'brick';
+      }
+    }
+
+    let nextId = HP.nextId;
+    // Staging benches flush against east (x=7) and west (x=2) glasshouse perimeter walls
+    inLvl.furniture.push({ id: nextId++, type: 'ghbench', x: 2, y: 3, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'ghbench', x: 2, y: 5, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'ghbench', x: 2, y: 7, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'ghbench', x: 7, y: 3, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'ghbench', x: 7, y: 5, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'ghbench', x: 7, y: 7, rot: 1, v: 0, oid: HP.oid });
+    // Master potting workstation at rear center (x=4, y=2)
+    inLvl.furniture.push({ id: nextId++, type: 'potting', x: 4, y: 2, rot: 0, v: 0, oid: HP.oid });
+    // Potted plants, herbs, tomato vine, orchid, and warm candle lanterns placed DIRECTLY ON TOP of the benches!
+    inLvl.furniture.push({ id: nextId++, type: 'lampcandle', x: 7, y: 3, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'tomato', x: 7, y: 4, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'seedlings', x: 7, y: 5, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'plantSm', x: 7, y: 6, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'flowerbox', x: 7, y: 7, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'plorchid', x: 2, y: 3, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'plantSm', x: 2, y: 4, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'plcactus', x: 2, y: 5, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'topsucculent', x: 2, y: 6, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'gnome', x: 2, y: 7, rot: 0, v: 0, oid: HP.oid });
+
+    HP.nextId = Math.max(HP.nextId, nextId);
+    return inLvl;
+  } else if (it.type === 'treehouse') {
+    const inLvl = {
+      w: 9, h: 9,
+      ox: 2, oy: 2, rw: 5, rh: 5,
+      walls: {}, floors: {}, fences: {}, roomNames: {}, furniture: [],
+      customized: true
+    };
+    const ox = inLvl.ox, oy = inLvl.oy, rw = inLvl.rw, rh = inLvl.rh;
+    for (let x = ox; x < ox + rw; x++) inLvl.walls[HP.wallKey('h', x, oy)] = { f: 'window' };
+    for (let x = ox; x < ox + rw; x++) {
+      if (x === 4) inLvl.walls[HP.wallKey('h', x, oy + rh)] = { f: 'door' };
+      else inLvl.walls[HP.wallKey('h', x, oy + rh)] = { f: 'window' };
+    }
+    for (let y = oy; y < oy + rh; y++) inLvl.walls[HP.wallKey('v', ox, y)] = { f: 'window' };
+    for (let y = oy; y < oy + rh; y++) inLvl.walls[HP.wallKey('v', ox + rw, y)] = { f: 'window' };
+
+    for (let y = oy; y < oy + rh; y++) {
+      for (let x = ox; x < ox + rw; x++) {
+        inLvl.roomNames[HP.cellKey(x, y)] = 'Cabin Interior';
+        inLvl.floors[HP.cellKey(x, y)] = 'wood';
+      }
+    }
+
+    let nextId = HP.nextId;
+    inLvl.furniture.push({ id: nextId++, type: 'daybed', x: 2, y: 2, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'nightstand', x: 5, y: 2, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'shelfunit', x: 2, y: 4, rot: 1, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'rugRound', x: 3, y: 3, rot: 0, v: 0, oid: HP.oid });
+    inLvl.furniture.push({ id: nextId++, type: 'lampcandle', x: 4, y: 3, rot: 0, v: 0, oid: HP.oid });
+
+    HP.nextId = Math.max(HP.nextId, nextId);
+    return inLvl;
+  }
+  return null;
+};
+
+HP.interiorToWorld = function (it, sub) {
+  if (!it || !sub) return null;
+  const inLvl = it.interior;
+  if (!inLvl) return null;
+  const subDef = HP.itemDef(sub.type);
+  if (!subDef) return null;
+
+  const ox = inLvl.ox !== undefined ? inLvl.ox : 2;
+  const oy = inLvl.oy !== undefined ? inLvl.oy : 2;
+  const rw = inLvl.rw || (inLvl.w - ox * 2);
+  const rh = inLvl.rh || (inLvl.h - oy * 2);
+
+  const subF = HP.footprint(sub);
+  const subCX = subF.x + subF.w / 2;
+  const subCY = subF.y + subF.h / 2;
+
+  const roomCX = ox + rw / 2;
+  const roomCY = oy + rh / 2;
+  const rx = subCX - roomCX;
+  const ry = subCY - roomCY;
+
+  const parentF = HP.footprint(it);
+  const parentCX = parentF.x + parentF.w / 2;
+  const parentCY = parentF.y + parentF.h / 2;
+
+  const R = ((it.rot || 0) % 4 + 4) % 4;
+  let dx, dz;
+  if (R === 0) {
+    dx = rx; dz = ry;
+  } else if (R === 1) {
+    dx = -ry; dz = rx;
+  } else if (R === 2) {
+    dx = -rx; dz = -ry;
+  } else {
+    dx = ry; dz = -rx;
+  }
+
+  const worldRot = ((sub.rot || 0) + R) % 4;
+  const bw = sub.w || subDef.w;
+  const bh = sub.h || subDef.h;
+  const worldW = (worldRot % 2 === 0) ? bw : bh;
+  const worldH = (worldRot % 2 === 0) ? bh : bw;
+
+  const worldCX = parentCX + dx;
+  const worldCY = parentCY + dz;
+  const worldX = worldCX - worldW / 2;
+  const worldY = worldCY - worldH / 2;
+
+  let baseY = 0;
+  if (it.type === 'treehouse') {
+    baseY = 54.0;
+  }
+
+  return {
+    id: sub.id || HP.nextId++,
+    type: sub.type,
+    x: worldX,
+    y: worldY,
+    rot: worldRot,
+    v: sub.v || 0,
+    w: sub.w || subDef.w,
+    h: sub.h || subDef.h,
+    colors: sub.colors,
+    _baseY: baseY,
+    _interiorOf: it
+  };
+};
+
+HP.interiorCellToWorld = function (it, ix, iy) {
+  if (!it || !it.interior) return null;
+  const inLvl = it.interior;
+  const ox = inLvl.ox !== undefined ? inLvl.ox : 2;
+  const oy = inLvl.oy !== undefined ? inLvl.oy : 2;
+  const rw = inLvl.rw || (inLvl.w - ox * 2);
+  const rh = inLvl.rh || (inLvl.h - oy * 2);
+
+  const roomCX = ox + rw / 2;
+  const roomCY = oy + rh / 2;
+  const rx = (ix + 0.5) - roomCX;
+  const ry = (iy + 0.5) - roomCY;
+
+  const parentF = HP.footprint(it);
+  const parentCX = parentF.x + parentF.w / 2;
+  const parentCY = parentF.y + parentF.h / 2;
+
+  const R = ((it.rot || 0) % 4 + 4) % 4;
+  let dx, dz;
+  if (R === 0) {
+    dx = rx; dz = ry;
+  } else if (R === 1) {
+    dx = -ry; dz = rx;
+  } else if (R === 2) {
+    dx = -rx; dz = -ry;
+  } else {
+    dx = ry; dz = -rx;
+  }
+
+  const worldCX = parentCX + dx;
+  const worldCY = parentCY + dz;
+  return {
+    x: Math.floor(worldCX - 0.5),
+    y: Math.floor(worldCY - 0.5),
+    fx: worldCX - 0.5,
+    fy: worldCY - 0.5
+  };
+};
+
+HP.enterInterior = function (it) {
+  if (!it || (it.type !== 'greenhouse' && it.type !== 'treehouse')) return;
+  if (HP.editingInterior) HP.exitInterior();
+
+  HP.interiorContext = {
+    level: HP.state ? HP.state.level : 0,
+    camera: { x: HP.camera.x, y: HP.camera.y, zoom: HP.camera.zoom },
+    tool: HP.tool,
+    GRID_W: HP.GRID_W,
+    GRID_H: HP.GRID_H,
+    item: it
+  };
+
+  if (!it.interior) {
+    it.interior = HP.createDefaultInterior(it);
+  }
+
+  HP.editingInterior = { item: it, interior: it.interior };
+  HP.GRID_W = it.interior.w;
+  HP.GRID_H = it.interior.h;
+
+  HP.camera.x = (HP.GRID_W * HP.CELL) / 2;
+  HP.camera.y = (HP.GRID_H * HP.CELL) / 2;
+  const r = HP.canvas ? HP.canvas.getBoundingClientRect() : { width: 800, height: 600 };
+  const cw = (r.width > 300 ? r.width : 1000) - 160;
+  const ch = (r.height > 300 ? r.height : 700) - 160;
+  const fitZ = Math.min(cw / (HP.GRID_W * HP.CELL), ch / (HP.GRID_H * HP.CELL));
+  HP.camera.zoom = Math.max(1.2, Math.min(HP.MAX_ZOOM, fitZ || 1.8));
+
+  HP.selected = null;
+  HP.selectedSet = [];
+  HP.pending = null;
+  HP.ghost = null;
+
+  HP.invalidateRegions();
+  if (HP.resetLayers) HP.resetLayers();
+  if (HP.markDirty) HP.markDirty();
+  if (HP.showInteriorUI) HP.showInteriorUI(it);
+  if (HP.refreshContext) HP.refreshContext();
+  if (HP.status) HP.status(`Entered ${it.type === 'greenhouse' ? 'Glasshouse' : 'Cabin'} interior — customize freely!`);
+};
+
+HP.exitInterior = function () {
+  if (!HP.editingInterior) return;
+  const ctx = HP.interiorContext;
+  const it = HP.editingInterior.item;
+
+  if (it && it.interior) {
+    it.interior.customized = true;
+  }
+
+  if (ctx) {
+    HP.GRID_W = ctx.GRID_W;
+    HP.GRID_H = ctx.GRID_H;
+    HP.camera.x = ctx.camera.x;
+    HP.camera.y = ctx.camera.y;
+    HP.camera.zoom = ctx.camera.zoom;
+    HP.tool = ctx.tool || 'select';
+  } else {
+    HP.GRID_W = (HP.state && HP.state.w) || 64;
+    HP.GRID_H = (HP.state && HP.state.h) || 44;
+  }
+
+  HP.editingInterior = null;
+  HP.interiorContext = null;
+  HP.selected = it || null;
+  HP.selectedSet = [];
+  HP.pending = null;
+  HP.ghost = null;
+
+  HP.invalidateRegions();
+  if (HP.resetLayers) HP.resetLayers();
+  if (HP.markDirty) HP.markDirty();
+  if (HP.saveState) HP.saveState();
+  if (HP.hideInteriorUI) HP.hideInteriorUI();
+  if (HP.refreshContext) HP.refreshContext();
+  if (HP.status) HP.status('Returned to yard');
 };

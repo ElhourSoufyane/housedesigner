@@ -2817,6 +2817,20 @@ HP.CATALOG = [
       p.box(g, W * 0.42, H * 0.55, W * 0.16, H * 0.4, 1, HP.shade(c, 0.6));        // door
       g.fillStyle = '#d8d2c6'; g.beginPath(); g.arc(W * 0.55, H * 0.75, 2, 0, 7); g.fill();
     } },
+  { id: 'ghbench', name: 'Greenhouse Bench', cat: 'Garden', w: 2, h: 1,
+    colors: ['#c28b58', '#1b4332', '#475569', '#3e2723'], joins: true,
+    draw(g, W, H, v, m) {
+      const p = P(), c = this.colors[v % this.colors.length];
+      const x0 = (m & 4) ? 0 : 3, x1 = (m & 1) ? W : W - 3;
+      p.box(g, x0, 3, x1 - x0, H - 6, 2, c);
+      g.strokeStyle = HP.shade(c, 0.65); g.lineWidth = 1;
+      for (let py = 6; py < H - 4; py += 4) {
+        g.beginPath(); g.moveTo(x0 + 2, py); g.lineTo(x1 - 2, py); g.stroke();
+      }
+      g.fillStyle = HP.shade(c, 0.75);
+      if (!(m & 4)) { g.fillRect(1, 2, 3, 4); g.fillRect(1, H - 6, 3, 4); }
+      if (!(m & 1)) { g.fillRect(W - 4, 2, 3, 4); g.fillRect(W - 4, H - 6, 3, 4); }
+    } },
   { id: 'potting', name: 'Potting Bench', cat: 'Garden', w: 2, h: 1, colors: ['#8a6844', '#5d6a5a', '#a89885'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];

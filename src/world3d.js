@@ -217,6 +217,7 @@ const H3D = [
   [/lamptable/i, 22],
   [/stfount/i, 22],
   [/hamster/i, 20],
+  [/ghbench/i, 20],
   [/plorchid/i, 20],
   [/entrybench/i, 18],
   [/plcactus/i, 18],
@@ -511,6 +512,7 @@ const FLAT = t => /rug|mat|carpet|runner|path/i.test(t);
 const PUSHABLE_T = /chair|stool|bench|ottoman|seat|pouf|plant|bush|flower|cactus|palm|lamp|bin|basket|cushion|pillow|toy|nightstand|endtable|sidetable|hamper|cart/i;
 const FIXED_T = /toilet|bidet|urinal|sink|basin|stove|oven|washer|dryer|dishwasher|bath|tub|jacuzzi|hottub|shower|fridge|counter|island|vanity|pool|pond|stairs|piano|tv|monitor|bed|sofa|couch|wardrobe|closet|shelf|bookcase|cabinet|pantry|locker|armoire|dresser|desk|counter|buffet|sideboard|china|barcounter|coffeer|coffee.*table|bookshelf/i;
 function pushable(it, d, f, h) {
+  if (it._interiorOf || (it._baseY && it._baseY > 0)) return false; // interior & tabletop items stay solidly placed
   if (h <= 10 || h > 34) return false;                  // flat or too tall = stays
   if (f.w * f.h > 4) return false;                      // big footprint = heavy
   const s = it.type + ' ' + (d.name || '');
@@ -663,6 +665,44 @@ W3.buildLevel = function () {
     const material = HP.graphics3d ? HP.graphics3d.floorMaterial(id) :
       new THREE.MeshLambertMaterial({ color: floorColor(id) });
     V.instanced(g, floorQuad(), material, list.map(c => cellPart(c, 0)), { receive: true });
+  }
+  // Custom structure interior floors (greenhouse brick/flagstone, cabin wood floor)
+  // Wall-to-wall guaranteed coverage: all cells inside the structure room perimeter receive authentic flooring!
+  const interiorFloorGroups = new Map();
+  for (const it of (lvl.furniture || [])) {
+    if (it.interior && it.interior.customized) {
+      const inLvl = it.interior;
+      const isTH = it.type === 'treehouse';
+      const floorH = isTH ? 54.1 : 0.05;
+      const ox = inLvl.ox !== undefined ? inLvl.ox : 2;
+      const oy = inLvl.oy !== undefined ? inLvl.oy : 2;
+      const rw = inLvl.rw || (inLvl.w - ox * 2);
+      const rh = inLvl.rh || (inLvl.h - oy * 2);
+      for (let iy = oy; iy < oy + rh; iy++) {
+        for (let ix = ox; ix < ox + rw; ix++) {
+          const k = ix + ',' + iy;
+          let matId = (inLvl.floors && inLvl.floors[k]) || null;
+          if (!matId) {
+            if (it.type === 'greenhouse') {
+              matId = (ix === 4 || ix === 5) ? 'flagstone' : 'brick';
+            } else if (it.type === 'treehouse') {
+              matId = 'wood';
+            }
+          }
+          if (!matId) continue;
+          const wCoord = HP.interiorCellToWorld ? HP.interiorCellToWorld(it, ix, iy) : null;
+          if (!wCoord) continue;
+          const groupKey = matId + '@' + floorH;
+          if (!interiorFloorGroups.has(groupKey)) interiorFloorGroups.set(groupKey, { matId, floorH, cells: [] });
+          interiorFloorGroups.get(groupKey).cells.push(wCoord);
+        }
+      }
+    }
+  }
+  for (const [key, { matId, floorH, cells: iCells }] of interiorFloorGroups) {
+    const material = HP.graphics3d ? HP.graphics3d.floorMaterial(matId) :
+      new THREE.MeshLambertMaterial({ color: floorColor(matId) });
+    V.instanced(g, floorQuad(), material, iCells.map(c => cellPart(c, floorH)), { receive: true });
   }
   /* ceilings cap INTERIOR cells only — open-top rooms leaked sky
      through the top of every doorway (the "gap above the door");
@@ -833,7 +873,17 @@ W3.buildLevel = function () {
   }
 
   /* ---- physics footprints + batched furniture visuals ---- */
-  const known = lvl.furniture.filter(it => HP.itemDef(it.type));
+  const allFurniture = [];
+  for (const it of (lvl.furniture || [])) {
+    allFurniture.push(it);
+    if (it.interior && it.interior.customized && it.interior.furniture && it.interior.furniture.length > 0) {
+      for (const sub of it.interior.furniture) {
+        const wSub = HP.interiorToWorld ? HP.interiorToWorld(it, sub) : null;
+        if (wSub) allFurniture.push(wSub);
+      }
+    }
+  }
+  const known = allFurniture.filter(it => HP.itemDef(it.type));
   const items = known.filter(it => !HP.itemDef(it.type).hangs);
   const hangs = known.filter(it => HP.itemDef(it.type).hangs);
   const fit2 = new THREE.InstancedMesh(unitBox(), new THREE.MeshLambertMaterial({ color: 0xffffff }), items.length + hangs.length);
@@ -847,10 +897,10 @@ W3.buildLevel = function () {
   items.forEach((it, i) => {
     const d = HP.itemDef(it.type), f = HP.footprint(it);
     const h = itemH3D(d, it);
-    lifeItems.push({ it, f, h });
     const c = (it.colors && it.colors[0]) || (d.colors && d.colors[0]) || '#999';
-    let baseY = 0;
-    if (d.onTop) {                                   // sit on the highest surface under it
+    let baseY = it._baseY !== undefined ? it._baseY : 0;
+    const canSit = d.onTop || (HP.canSitOnSurface && HP.canSitOnSurface(it.type));
+    if (canSit) {                                   // sit on the highest surface under it
       const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
       for (const o of items) {
         if (o === it || !HP.isSurface(o)) continue;
@@ -869,13 +919,18 @@ W3.buildLevel = function () {
           if (/treehouse/i.test(o.type)) {
             baseY = Math.max(baseY, 54.0);
           } else if (/greenhouse/i.test(o.type)) {
-            const relX = (cx - (of.x + of.w / 2)) / of.w;
-            const ghH = itemH3D(HP.itemDef(o.type), o);
-            if (Math.abs(relX) > 0.20) baseY = Math.max(baseY, Math.round(ghH * 0.22));
+            // Only elevate small tabletop items (d.onTop) if greenhouse is using default built-in benches
+            if (d.onTop && (!o.interior || !o.interior.customized)) {
+              const relX = (cx - (of.x + of.w / 2)) / of.w;
+              const ghH = itemH3D(HP.itemDef(o.type), o);
+              if (Math.abs(relX) > 0.20) baseY = Math.max(baseY, Math.round(ghH * 0.22));
+            }
           }
         }
       }
     }
+    it._baseY = baseY;
+    lifeItems.push({ it, f, h, baseY });
     if (/garagedoor/i.test(it.type)) {
       // Build dynamic articulated overhead roll-up sectional garage door
       // Designed for ZERO-GAP seamless connection to adjacent walls and adjacent garage doors!
@@ -1322,13 +1377,15 @@ W3.buildLevel = function () {
     const isNight = /nightlight/i.test(it.type);
     const isCandle = /candle/i.test(it.type);
     const lightPower = isPost ? 1.6 : (isPath ? 0.9 : (isNight ? 0.8 : (isCandle ? 0.75 : 1.4)));
-    const lightY = /fireplace/i.test(it.type) ? 10 : (isNight ? 6 : Math.max(12, h * 0.85));
+    const bY = it._baseY !== undefined ? it._baseY : 0;
+    const lightY = bY + (/fireplace/i.test(it.type) ? 10 : (isNight ? 6 : (isCandle ? Math.max(3.5, Math.min(6.5, h * 0.38)) : Math.max(12, h * 0.85))));
     W3.lamps.push({ x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: lightY, power: lightPower });
   }
   for (const it of items) {
     if (/^greenhouse/i.test(it.type)) {
       const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
-      W3.lamps.push({ x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: h * 0.65, power: 1.3 });
+      const bY = it._baseY !== undefined ? it._baseY : 0;
+      W3.lamps.push({ x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: bY + Math.round(h * 0.56), power: 1.3 });
     }
   }
   for (const it of items) {

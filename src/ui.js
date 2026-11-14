@@ -127,8 +127,22 @@ function itemUI(it) {
   const row2 = document.createElement('div');
   row2.appendChild(btn('Connect', '', () => HP.connectSelected()));
   if (it.g) row2.appendChild(btn('Disconnect', '', () => HP.disconnectSelected()));
-  s.appendChild(row);
   s.appendChild(row2);
+  if ((it.type === 'greenhouse' || it.type === 'treehouse') && !HP.editingInterior) {
+    const editRow = document.createElement('div');
+    editRow.style.marginTop = '8px';
+    const isGH = it.type === 'greenhouse';
+    const b = btn(isGH ? '🌿 Edit Greenhouse Interior' : '🏡 Edit Cabin Interior', 'primary', () => HP.enterInterior(it));
+    b.style.width = '100%';
+    b.style.fontWeight = '700';
+    b.style.padding = '8px 10px';
+    b.style.justifyContent = 'center';
+    b.style.display = 'flex';
+    b.style.alignItems = 'center';
+    b.style.gap = '6px';
+    editRow.appendChild(b);
+    s.appendChild(editRow);
+  }
   // size steppers (visual footprint, shown in metres)
   const f = HP.footprint(it);
   const sizeF = document.createElement('div');
@@ -738,10 +752,61 @@ HP.initUI = function () {
   });
   eh.addEventListener('pointerup', () => { epd = null; });
 
+  const ibDone = $('#ib-done');
+  if (ibDone) ibDone.onclick = () => HP.exitInterior();
+  const ibReset = $('#ib-reset');
+  if (ibReset) ibReset.onclick = () => {
+    if (!HP.editingInterior) return;
+    HP.pushUndo();
+    const it = HP.editingInterior.item;
+    it.interior = HP.createDefaultInterior(it);
+    HP.editingInterior.interior = it.interior;
+    HP.selected = null; HP.selectedSet = [];
+    HP.invalidateRegions();
+    if (HP.resetLayers) HP.resetLayers();
+    HP.markDirty();
+    refreshInspector();
+    HP.status('Interior layout reset to default');
+  };
+  const ibClear = $('#ib-clear');
+  if (ibClear) ibClear.onclick = () => {
+    if (!HP.editingInterior) return;
+    HP.pushUndo();
+    HP.cur().furniture = [];
+    HP.cur().floors = {};
+    HP.selected = null; HP.selectedSet = [];
+    HP.invalidateRegions();
+    if (HP.resetLayers) HP.resetLayers();
+    HP.markDirty();
+    refreshInspector();
+    HP.status('Interior furniture and floors cleared');
+  };
+
   HP.updateFloorUI();
   HP.updateZoomUI();
   HP.updateUndoButtons();
   refreshInspector();
   markAutosaved();
+};
+
+HP.showInteriorUI = function (it) {
+  const banner = $('#interior-banner');
+  const flCtrl = $('#floor-ctrl');
+  if (flCtrl) flCtrl.style.display = 'none';
+  if (banner) {
+    banner.classList.remove('hidden');
+    const isGH = it.type === 'greenhouse';
+    const titleEl = $('#ib-title');
+    const iconEl = $('#ib-icon');
+    if (titleEl) titleEl.textContent = isGH ? 'Editing Greenhouse Interior' : 'Editing Cabin Interior';
+    if (iconEl) iconEl.textContent = isGH ? '🌿' : '🏡';
+  }
+};
+
+HP.hideInteriorUI = function () {
+  const banner = $('#interior-banner');
+  const flCtrl = $('#floor-ctrl');
+  if (flCtrl) flCtrl.style.display = '';
+  if (banner) banner.classList.add('hidden');
 };
 })();

@@ -134,7 +134,7 @@
     <button id="btn-zoomin" aria-label="Zoom in"><svg class="ic"><use href="#i-plus"/></svg></button>
   </div>
   <button class="tbtn primary" id="btn-play"><svg class="ic"><use href="#i-play"/></svg>Play</button>
-  <button class="tbtn primary" id="btn-3d" title="Walk your house in 3D" onclick="try{localStorage.setItem('homeplanner_save_v1',JSON.stringify({state:HP.state,nextId:HP.nextId}))}catch(e){}var r=(window.HP&&HP.sync&&HP.sync.roomCode)||(window.HP&&HP.coop&&HP.coop.roomCode)||(new URLSearchParams(location.search).get('room'))||'';location.href='play3d.html'+(r?'?room='+encodeURIComponent(r):'');"><svg class="ic"><use href="#i-play"/></svg>Play 3D</button>
+  <button class="tbtn primary" id="btn-3d" title="Walk your house in 3D" onclick="if(window.HP&&HP.editingInterior)HP.exitInterior();try{localStorage.setItem('homeplanner_save_v1',JSON.stringify({state:HP.state,nextId:HP.nextId}))}catch(e){}var r=(window.HP&&HP.sync&&HP.sync.roomCode)||(window.HP&&HP.coop&&HP.coop.roomCode)||(new URLSearchParams(location.search).get('room'))||'';location.href='play3d.html'+(r?'?room='+encodeURIComponent(r):'');"><svg class="ic"><use href="#i-play"/></svg>Play 3D</button>
   <script>fetch('play3d.html',{method:'HEAD'}).then(r=>{if(r.ok)document.getElementById('btn-3d').hidden=false}).catch(()=>{})</script>
 </header>
 
@@ -170,6 +170,17 @@
       <div id="coop-body"></div>
     </div>
     <button id="catalog-fab"><svg class="ic"><use href="#i-grid"/></svg>Catalog</button>
+    <div id="interior-banner" class="hidden">
+      <div class="ib-info">
+        <span class="ib-icon" id="ib-icon">🌿</span>
+        <span class="ib-title" id="ib-title">Editing Greenhouse Interior</span>
+      </div>
+      <div class="ib-actions">
+        <button class="tbtn" id="ib-reset" title="Reset to default interior layout">Reset Layout</button>
+        <button class="tbtn danger" id="ib-clear" title="Clear all interior items">Clear All</button>
+        <button class="tbtn primary" id="ib-done" title="Save and return to yard">✓ Done & Back to Yard</button>
+      </div>
+    </div>
     <div id="play-hint" class="hidden">WASD / arrows to walk &nbsp;·&nbsp; Esc to exit</div>
     <div id="stairs-ui" class="hidden"></div>
     <div id="use-ui" class="hidden"></div>

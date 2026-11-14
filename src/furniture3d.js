@@ -4616,34 +4616,36 @@ F.builder = function (group) {
         pBox('fabric', cx + 4.5, ridgeY + 10.5, cz + cabD * 0.25, 9, 4, 0.5, '#ef4444');
 
         // 10. Cabin Interior Details: Built-in Bunk Daybed, Bookshelf, Chest & Glowing Lantern
-        // Built-in bunk daybed (matching HP.itemSeatSpots { x: -0.14 * W, z: -0.32 * D })
-        const bx = -0.14 * width, bz = -0.32 * depth;
-        pBox('wood', bx, deckY + 3.5, bz, 30, 6, 22, '#5c3417');
-        pBox('fabric', bx, deckY + 7.5, bz, 28, 3, 20, '#fef3c7'); // cream mattress
-        pBox('fabric', bx - 8, deckY + 10, bz, 8, 2.5, 15, '#ffffff'); // pillow
-        pBox('fabric', bx + 3, deckY + 8.5, bz, 18, 2.2, 20.2, '#b91c1c'); // plaid quilt
-        // Toy / Treasure Chest
-        pBox('wood', cx + cabW * 0.22, deckY + 4, cz - cabD * 0.28, 14, 7, 10, '#6d3916');
-        pCylX('wood', cx + cabW * 0.22, deckY + 8, cz - cabD * 0.28, 9, 14, '#5c3417');
-        pBox('dark', cx + cabW * 0.22, deckY + 5, cz - cabD * 0.28 + 5.2, 2, 3, 1, '#1e293b');
-        // Bookshelf on left wall
-        pBox('wood', cx - cabW / 2 + 3, deckY + 22, cz - 2, 4, 1.5, 22, '#5c3417');
-        pBox('fabric', cx - cabW / 2 + 3, deckY + 25.5, cz - 7, 3.5, 5.5, 3, '#b91c1c');
-        pBox('fabric', cx - cabW / 2 + 3, deckY + 26, cz - 3, 3.5, 6.5, 3.5, '#1e40af');
-        pBox('fabric', cx - cabW / 2 + 3, deckY + 25, cz + 1, 3.5, 4.5, 3, '#15803d');
-        pCyl('glass', cx - cabW / 2 + 3, deckY + 25, cz + 6, 3, 4.5, '#92bbc0');
-        // Hanging glowing storm lantern
-        pCyl('metal', cx, deckY + cabH - 2, cz, 0.8, 8, '#78350f', true);
-        pBox('metal', cx, deckY + cabH - 7.5, cz, 4, 1.2, 4, '#1e293b', true);
-        pCyl('glow', cx, deckY + cabH - 10, cz, 3.2, 3.8, '#fef08a');
-        pBox('metal', cx, deckY + cabH - 12.5, cz, 4, 1.2, 4, '#1e293b', true);
+        if (!(it && it.interior && it.interior.customized)) {
+          // Built-in bunk daybed (matching HP.itemSeatSpots { x: -0.14 * W, z: -0.32 * D })
+          const bx = -0.14 * width, bz = -0.32 * depth;
+          pBox('wood', bx, deckY + 3.5, bz, 30, 6, 22, '#5c3417');
+          pBox('fabric', bx, deckY + 7.5, bz, 28, 3, 20, '#fef3c7'); // cream mattress
+          pBox('fabric', bx - 8, deckY + 10, bz, 8, 2.5, 15, '#ffffff'); // pillow
+          pBox('fabric', bx + 3, deckY + 8.5, bz, 18, 2.2, 20.2, '#b91c1c'); // plaid quilt
+          // Toy / Treasure Chest
+          pBox('wood', cx + cabW * 0.22, deckY + 4, cz - cabD * 0.28, 14, 7, 10, '#6d3916');
+          pCylX('wood', cx + cabW * 0.22, deckY + 8, cz - cabD * 0.28, 9, 14, '#5c3417');
+          pBox('dark', cx + cabW * 0.22, deckY + 5, cz - cabD * 0.28 + 5.2, 2, 3, 1, '#1e293b');
+          // Bookshelf on left wall
+          pBox('wood', cx - cabW / 2 + 3, deckY + 22, cz - 2, 4, 1.5, 22, '#5c3417');
+          pBox('fabric', cx - cabW / 2 + 3, deckY + 25.5, cz - 7, 3.5, 5.5, 3, '#b91c1c');
+          pBox('fabric', cx - cabW / 2 + 3, deckY + 26, cz - 3, 3.5, 6.5, 3.5, '#1e40af');
+          pBox('fabric', cx - cabW / 2 + 3, deckY + 25, cz + 1, 3.5, 4.5, 3, '#15803d');
+          pCyl('glass', cx - cabW / 2 + 3, deckY + 25, cz + 6, 3, 4.5, '#92bbc0');
+          // Hanging glowing storm lantern
+          pCyl('metal', cx, deckY + cabH - 2, cz, 0.8, 8, '#78350f', true);
+          pBox('metal', cx, deckY + cabH - 7.5, cz, 4, 1.2, 4, '#1e293b', true);
+          pCyl('glow', cx, deckY + cabH - 10, cz, 3.2, 3.8, '#fef08a');
+          pBox('metal', cx, deckY + cabH - 12.5, cz, 4, 1.2, 4, '#1e293b', true);
+          // Cozy circular woven rug on cabin floor
+          pCyl('fabric', cx + 6, deckY + 1.0, cz + 2, 22, 0.4, '#0284c7');
+          pCyl('fabric', cx + 6, deckY + 1.1, cz + 2, 17, 0.3, '#f59e0b');
+          pCyl('fabric', cx + 6, deckY + 1.2, cz + 2, 12, 0.3, '#dc2626');
+        }
         // Timber collar tie ceiling rafters (safely vaulted at y=107px)
         pBox('wood', cx, eaveY + 3, cz - cabD * 0.22, cabW - 4, 2, 3, '#45210b');
         pBox('wood', cx, eaveY + 3, cz + cabD * 0.22, cabW - 4, 2, 3, '#45210b');
-        // Cozy circular woven rug on cabin floor
-        pCyl('fabric', cx + 6, deckY + 1.0, cz + 2, 22, 0.4, '#0284c7');
-        pCyl('fabric', cx + 6, deckY + 1.1, cz + 2, 17, 0.3, '#f59e0b');
-        pCyl('fabric', cx + 6, deckY + 1.2, cz + 2, 12, 0.3, '#dc2626');
 
         // 11. Multi-Tiered Volumetric Lush Oak Canopy (Grand Expansive Balanced Crown)
         // High crown central summit & apex (sy - R >= 117px, clearing roof ridge at 114px)
@@ -5016,16 +5018,18 @@ F.builder = function (group) {
         const fwW = 0.48 - doorHalfW; // front wall wing width
 
         // 1. Flooring & Walkway
-        // Weathered flagstone central walking aisle
-        box('stone', 0, 0.006, 0, 0.34, 0.012, 0.96, '#78716c');
-        // Cast-iron ornate drainage grates inset along the central path
-        box('metal', 0, 0.013, -0.15, 0.22, 0.004, 0.12, '#334155', true);
-        box('metal', 0, 0.013,  0.20, 0.22, 0.004, 0.12, '#334155', true);
-        // Under-bench planting soil & pea gravel beds
-        box('soil', -0.34, 0.005, 0, 0.26, 0.01, 0.96, '#3e2723');
-        box('soil',  0.34, 0.005, 0, 0.26, 0.01, 0.96, '#3e2723');
-        // Welcome coir boot mat at entrance
-        box('fabric', 0, 0.012, 0.42, 0.28, 0.01, 0.12, '#b45309');
+        if (!(it && it.interior && it.interior.customized && it.interior.floors && Object.keys(it.interior.floors).length)) {
+          // Weathered flagstone central walking aisle
+          box('stone', 0, 0.006, 0, 0.34, 0.012, 0.96, '#78716c');
+          // Cast-iron ornate drainage grates inset along the central path
+          box('metal', 0, 0.013, -0.15, 0.22, 0.004, 0.12, '#334155', true);
+          box('metal', 0, 0.013,  0.20, 0.22, 0.004, 0.12, '#334155', true);
+          // Under-bench planting soil & pea gravel beds
+          box('soil', -0.34, 0.005, 0, 0.26, 0.01, 0.96, '#3e2723');
+          box('soil',  0.34, 0.005, 0, 0.26, 0.01, 0.96, '#3e2723');
+          // Welcome coir boot mat at entrance
+          box('fabric', 0, 0.012, 0.42, 0.28, 0.01, 0.12, '#b45309');
+        }
 
         // 2. Weathered Terracotta Brick Dwarf Wall Perimeter with Sandstone Sill Coping
         // Left dwarf wall
@@ -5094,14 +5098,63 @@ F.builder = function (group) {
         box('glass', 0, (doorHeaderY + eaveY) / 2, 0.48, doorHalfW * 2 - 0.02, eaveY - doorHeaderY, 0.005, glassCol);
 
         // 5. Open French Double Doors (welcoming the player inside)
-        // Left door leaf (swung inward into interior)
-        boxRot('metal', -doorHalfW * 0.72, doorHeaderY * 0.48, 0.41, 0.016, doorHeaderY * 0.96, doorHalfW * 0.92, 0.65, frameCol);
-        boxRot('glass', -doorHalfW * 0.72, doorHeaderY * 0.50, 0.41, 0.004, doorHeaderY * 0.82, doorHalfW * 0.78, 0.65, glassCol);
-        cyl('metal', -doorHalfW * 0.55, doorHeaderY * 0.48, 0.36, 0.012, 0.05, 0.012, '#f59e0b', true); // brass handle
-        // Right door leaf (swung inward into interior)
-        boxRot('metal',  doorHalfW * 0.72, doorHeaderY * 0.48, 0.41, 0.016, doorHeaderY * 0.96, doorHalfW * 0.92, -0.65, frameCol);
-        boxRot('glass',  doorHalfW * 0.72, doorHeaderY * 0.50, 0.41, 0.004, doorHeaderY * 0.82, doorHalfW * 0.78, -0.65, glassCol);
-        cyl('metal',  doorHalfW * 0.55, doorHeaderY * 0.48, 0.36, 0.012, 0.05, 0.012, '#f59e0b', true);
+        const drawFrenchLeaf = (hx, hz, theta, isLeft) => {
+          const L = doorHalfW * 0.94;
+          const dH = doorHeaderY * 0.96;
+          const th = 0.012; // slender metal frame thickness
+          const glassTh = 0.004;
+          const kickH = 0.08;
+          const midY = dH * 0.44;
+          const midH = 0.024;
+          const topH = 0.024;
+          const topY = dH - topH / 2;
+
+          // Helper: rotated segment along the door leaf
+          const rotPiece = (kind, dist, py, len, ph, pth, col, det, mat) => {
+            const px = hx + (dist + len / 2) * Math.sin(theta);
+            const pz = hz + (dist + len / 2) * Math.cos(theta);
+            boxRot(kind, px, py, pz, pth, ph, len, theta, col, det, mat);
+          };
+
+          // Slender Stiles & Rails:
+          // 1. Hinge Stile (vertical post at hinge edge)
+          rotPiece('metal', 0, dH / 2, 0.016, dH, 0.016, frameCol);
+          // 2. Latch Stile (vertical post at outer swing edge)
+          rotPiece('metal', L - 0.016, dH / 2, 0.016, dH, 0.016, frameCol);
+          // 3. Top Rail
+          rotPiece('metal', 0.016, topY, L - 0.032, topH, th, frameCol);
+          // 4. Bottom Kickplate (solid lower rail)
+          rotPiece('metal', 0.016, kickH / 2, L - 0.032, kickH, th, frameCol);
+          // 5. Mid Lock Rail
+          rotPiece('metal', 0.016, midY, L - 0.032, midH, th, frameCol);
+
+          // Crystal Clear Glazing Panels (filling between rails and stiles):
+          const glassW = L - 0.032;
+          const upGlassH = topY - topH / 2 - (midY + midH / 2);
+          const upGlassY = (midY + midH / 2 + topY - topH / 2) / 2;
+          rotPiece('glass', 0.016, upGlassY, glassW, upGlassH, glassTh, glassCol);
+
+          const lowGlassH = midY - midH / 2 - kickH;
+          const lowGlassY = (kickH + midY - midH / 2) / 2;
+          rotPiece('glass', 0.016, lowGlassY, glassW, lowGlassH, glassTh, glassCol);
+
+          // Delicate Glazing Bars (Mullions dividing into classic French panes)
+          rotPiece('metal', 0.016 + glassW / 2 - 0.004, upGlassY, 0.008, upGlassH, th * 0.8, frameCol);
+          rotPiece('metal', 0.016 + glassW / 2 - 0.004, lowGlassY, 0.008, lowGlassH, th * 0.8, frameCol);
+          rotPiece('metal', 0.016, upGlassY, glassW, 0.008, th * 0.8, frameCol);
+
+          // Polished Brass Lever Handle and Escutcheon Plate
+          const hX = hx + (L - 0.010) * Math.sin(theta);
+          const hZ = hz + (L - 0.010) * Math.cos(theta);
+          boxRot('metal', hX, midY, hZ, 0.018, 0.05, 0.014, theta, '#f59e0b', true);
+          cyl('metal', hX, midY, hZ, 0.014, 0.02, 0.014, '#d97706');
+          rotPiece('metal', L - 0.025, midY, 0.024, 0.008, 0.008, '#f59e0b', true);
+        };
+
+        // Left door leaf (hinged at -doorHalfW, swung open neatly against left entrance jamb)
+        drawFrenchLeaf(-doorHalfW, 0.475, Math.PI - 0.28, true);
+        // Right door leaf (hinged at +doorHalfW, swung open neatly against right entrance jamb)
+        drawFrenchLeaf(doorHalfW, 0.475, -(Math.PI - 0.28), false);
 
         // 6. Steep Vaulted Victorian Glass Roof: Connected Slopes, Triangular Gables & Rafters
         // High central roof ridge beam
@@ -5164,118 +5217,120 @@ F.builder = function (group) {
         cyl('metal', -0.22, (eaveY + ridgeY) / 2 + 0.01, -0.16, 0.008, 0.04, 0.008, '#f59e0b', true);
 
         // 7. Interior Two-Tier Cedar Staging Benches & Back Potting Table
-        // Left cedar staging bench
-        box('wood', -0.34, 0.22, 0, 0.25, 0.020, 0.92, '#c28b58');
-        box('wood', -0.34, 0.08, 0, 0.23, 0.016, 0.90, '#9a633a'); // under-shelf
-        box('wood', -0.41, 0.32, 0, 0.11, 0.016, 0.88, '#d97706'); // upper tier riser shelf
-        // Right cedar staging bench
-        box('wood',  0.34, 0.22, 0, 0.25, 0.020, 0.92, '#c28b58');
-        box('wood',  0.34, 0.08, 0, 0.23, 0.016, 0.90, '#9a633a');
-        box('wood',  0.41, 0.32, 0, 0.11, 0.016, 0.88, '#d97706'); // upper tier riser shelf
-        // Bench legs
-        for (const lz of [-0.40, -0.15, 0.15, 0.40]) {
-          box('wood', -0.44, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
-          box('wood', -0.24, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
-          box('wood',  0.44, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
-          box('wood',  0.24, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
+        if (!(it && it.interior && it.interior.customized)) {
+          // Left cedar staging bench
+          box('wood', -0.34, 0.22, 0, 0.25, 0.020, 0.92, '#c28b58');
+          box('wood', -0.34, 0.08, 0, 0.23, 0.016, 0.90, '#9a633a'); // under-shelf
+          box('wood', -0.41, 0.32, 0, 0.11, 0.016, 0.88, '#d97706'); // upper tier riser shelf
+          // Right cedar staging bench
+          box('wood',  0.34, 0.22, 0, 0.25, 0.020, 0.92, '#c28b58');
+          box('wood',  0.34, 0.08, 0, 0.23, 0.016, 0.90, '#9a633a');
+          box('wood',  0.41, 0.32, 0, 0.11, 0.016, 0.88, '#d97706'); // upper tier riser shelf
+          // Bench legs
+          for (const lz of [-0.40, -0.15, 0.15, 0.40]) {
+            box('wood', -0.44, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
+            box('wood', -0.24, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
+            box('wood',  0.44, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
+            box('wood',  0.24, 0.11, lz, 0.022, 0.22, 0.022, '#9a633a');
+          }
+          // Back master potting workstation
+          box('wood', 0, 0.22, -0.41, 0.36, 0.022, 0.14, '#b45309');
+          box('wood', 0, 0.25, -0.41, 0.30, 0.040, 0.12, '#9a633a');
+          box('soil', 0, 0.26, -0.41, 0.28, 0.025, 0.10, '#3e2723');
+          box('wood', 0, 0.38, -0.47, 0.36, 0.025, 0.015, '#c28b58'); // tool rack
+          // Hand tools on back table: trowel & secateurs
+          box('metal', -0.08, 0.24, -0.41, 0.025, 0.006, 0.05, '#94a3b8', true);
+          cylZ('wood', -0.08, 0.24, -0.37, 0.010, 0.010, 0.035, '#78350f');
+          box('metal',  0.08, 0.24, -0.41, 0.030, 0.006, 0.05, '#dc2626', true);
+
+          // 8. Potted Plants, Flowers, Herbs, Succulents & Conservatory Decor
+          // ON LEFT BENCH:
+          // Potted coral pink geranium
+          pCyl('ceramic', -0.32 * width, 0.22 * height + 3, -0.28 * depth, 15, 6, '#c26d38');
+          pSphere('foliage', -0.32 * width, 0.22 * height + 8, -0.28 * depth, 16, '#15803d');
+          pSphere('ceramic', -0.32 * width, 0.22 * height + 14, -0.28 * depth, 6, '#f43f5e');
+          // Potted scarlet red geranium
+          pCyl('ceramic', -0.32 * width, 0.22 * height + 3, 0.10 * depth, 15, 6, '#c26d38');
+          pSphere('foliage', -0.32 * width, 0.22 * height + 8, 0.10 * depth, 16, '#166534');
+          pSphere('ceramic', -0.32 * width, 0.22 * height + 14, 0.10 * depth, 6, '#ef4444');
+          // English purple lavender pot
+          pCyl('ceramic', -0.32 * width, 0.22 * height + 3, -0.08 * depth, 14, 6, '#c26d38');
+          pSphere('foliage', -0.32 * width, 0.22 * height + 8, -0.08 * depth, 14, '#3b7a57');
+          pCyl('fabric', -0.32 * width, 0.22 * height + 13, -0.08 * depth, 7, 6, '#a855f7');
+          // Spreading lush Boston fern
+          pCyl('ceramic', -0.32 * width, 0.22 * height + 3, 0.28 * depth, 16, 6, '#c26d38');
+          pSphere('foliage', -0.32 * width, 0.22 * height + 9, 0.28 * depth, 20, '#15803d');
+          // Vintage hammered copper watering can with brass rose
+          pCyl('metal', -0.32 * width, 0.22 * height + 4.5, 0.38 * depth, 13, 9, '#b45309', true);
+          pCyl('metal', -0.32 * width, 0.22 * height + 10, 0.38 * depth, 4, 3, '#f59e0b', true);
+          cylX('metal', -0.26, 0.29, 0.38, 0.012, 0.055, 0.012, '#f59e0b', true);
+
+          // ON LEFT UPPER SHELF:
+          // Blooming magenta orchid in white ceramic pot
+          pCyl('ceramic', -0.41 * width, 0.32 * height + 3, -0.20 * depth, 10, 6, '#f8fafc');
+          pCyl('metal', -0.41 * width, 0.32 * height + 8, -0.20 * depth, 1.5, 7, '#166534');
+          pSphere('ceramic', -0.41 * width, 0.32 * height + 13, -0.20 * depth, 6, '#ec4899');
+          // African violet in sky-blue pot
+          pCyl('ceramic', -0.41 * width, 0.32 * height + 2.5, 0.00 * depth, 10, 5, '#38bdf8');
+          pSphere('foliage', -0.41 * width, 0.32 * height + 6.5, 0.00 * depth, 11, '#15803d');
+          pSphere('ceramic', -0.41 * width, 0.32 * height + 10.5, 0.00 * depth, 5, '#8b5cf6');
+          // Miniature jade plant
+          pCyl('ceramic', -0.41 * width, 0.32 * height + 2.5, 0.18 * depth, 10, 5, '#c26d38');
+          pSphere('foliage', -0.41 * width, 0.32 * height + 7, 0.18 * depth, 11, '#22c55e');
+
+          // UNDER LEFT BENCH:
+          // Stack of 3 nested terracotta pots
+          pCyl('ceramic', -0.34 * width, 0.08 * height + 2, -0.20 * depth, 16, 4, '#c26d38');
+          pCyl('ceramic', -0.34 * width, 0.08 * height + 5, -0.20 * depth, 14, 4, '#c26d38');
+          pCyl('ceramic', -0.34 * width, 0.08 * height + 8, -0.20 * depth, 12, 4, '#c26d38');
+          // Burlap jute sack of potting soil
+          box('fabric', -0.34, 0.12, 0.12, 0.14, 0.08, 0.18, '#d4b483');
+          box('soil', -0.34, 0.155, 0.12, 0.10, 0.02, 0.14, '#3e2723');
+
+          // ON RIGHT BENCH:
+          // Seedling propagation flat with bright lime-green sprouts
+          box('dark', 0.32, 0.24, -0.28, 0.16, 0.020, 0.22, '#181b20');
+          box('soil', 0.32, 0.25, -0.28, 0.14, 0.010, 0.20, '#451a03');
+          box('foliage', 0.32, 0.265, -0.28, 0.12, 0.014, 0.18, '#84cc16');
+          // Staked tomato vine with ripe red tomatoes
+          pCyl('ceramic', 0.32 * width, 0.22 * height + 3, -0.06 * depth, 16, 6, '#c26d38');
+          pCyl('wood', 0.32 * width, 0.22 * height + 13, -0.06 * depth, 2, 20, '#78350f');
+          pSphere('foliage', 0.32 * width, 0.22 * height + 12, -0.06 * depth, 18, '#16a34a');
+          pSphere('ceramic', 0.32 * width + 4, 0.22 * height + 10, -0.06 * depth + 3, 5, '#ef4444');
+          pSphere('ceramic', 0.32 * width - 4, 0.22 * height + 14, -0.06 * depth - 2, 5, '#ef4444');
+          pSphere('ceramic', 0.32 * width + 2, 0.22 * height + 17, -0.06 * depth + 3, 4.5, '#ef4444');
+          // Glazed ceramic pot with culinary basil & rosemary
+          pCyl('ceramic', 0.32 * width, 0.22 * height + 3, 0.12 * depth, 16, 6, '#e2ddd6');
+          pSphere('foliage', 0.32 * width, 0.22 * height + 9, 0.12 * depth, 17, '#22c55e');
+          // Victorian glass bell jar cloche covering tender sprout on saucer
+          pCyl('ceramic', 0.32 * width, 0.22 * height + 2, 0.28 * depth, 15, 2, '#e2ddd6');
+          pSphere('foliage', 0.32 * width, 0.22 * height + 4.5, 0.28 * depth, 6, '#84cc16');
+          pCyl('glass', 0.32 * width, 0.22 * height + 6.5, 0.28 * depth, 13, 8, glassCol);
+          pSphere('glass', 0.32 * width, 0.22 * height + 11.5, 0.28 * depth, 6, glassCol);
+          // Amber glass mister bottle with brass thumb lever
+          pCyl('glass', 0.32 * width, 0.22 * height + 3.5, 0.38 * depth, 7, 7, '#78350f', true);
+          pCyl('metal', 0.32 * width, 0.22 * height + 8, 0.38 * depth, 3, 3, '#f59e0b', true);
+
+          // ON RIGHT UPPER SHELF:
+          // Round ball golden barrel cactus with yellow bloom
+          pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, -0.22 * depth, 10, 5, '#c26d38');
+          pSphere('foliage', 0.41 * width, 0.32 * height + 6.5, -0.22 * depth, 10, '#15803d');
+          pSphere('ceramic', 0.41 * width, 0.32 * height + 11, -0.22 * depth, 4, '#f59e0b');
+          // Blue-green echeveria rosette succulent
+          pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, -0.05 * depth, 10, 5, '#e2ddd6');
+          pSphere('foliage', 0.41 * width, 0.32 * height + 6, -0.05 * depth, 11, '#0d9488');
+          // Aloe vera with pointed foliage
+          pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, 0.12 * depth, 10, 5, '#c26d38');
+          pCone('foliage', 0.41 * width, 0.32 * height + 7, 0.12 * depth, 9, 8, '#15803d');
+          // Trailing string-of-pearls pot
+          pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, 0.26 * depth, 10, 5, '#f8fafc');
+          pSphere('foliage', 0.41 * width, 0.32 * height + 6, 0.26 * depth, 11, '#84cc16');
+          pCyl('foliage', 0.41 * width - 2, 0.32 * height + 2, 0.26 * depth, 4, 7, '#65a30d');
+
+          // Wall-mounted brass thermometer & hygrometer dial
+          pCyl('metal', -0.19 * width, 0.46 * height, 0.47 * depth, 7, 2, '#f59e0b', true);
+          pCyl('ceramic', -0.19 * width, 0.46 * height, 0.465 * depth, 6, 1.5, '#ffffff');
         }
-        // Back master potting workstation
-        box('wood', 0, 0.22, -0.41, 0.36, 0.022, 0.14, '#b45309');
-        box('wood', 0, 0.25, -0.41, 0.30, 0.040, 0.12, '#9a633a');
-        box('soil', 0, 0.26, -0.41, 0.28, 0.025, 0.10, '#3e2723');
-        box('wood', 0, 0.38, -0.47, 0.36, 0.025, 0.015, '#c28b58'); // tool rack
-        // Hand tools on back table: trowel & secateurs
-        box('metal', -0.08, 0.24, -0.41, 0.025, 0.006, 0.05, '#94a3b8', true);
-        cylZ('wood', -0.08, 0.24, -0.37, 0.010, 0.010, 0.035, '#78350f');
-        box('metal',  0.08, 0.24, -0.41, 0.030, 0.006, 0.05, '#dc2626', true);
-
-        // 8. Potted Plants, Flowers, Herbs, Succulents & Conservatory Decor
-        // ON LEFT BENCH:
-        // Potted coral pink geranium
-        pCyl('ceramic', -0.32 * width, 0.22 * height + 3, -0.28 * depth, 15, 6, '#c26d38');
-        pSphere('foliage', -0.32 * width, 0.22 * height + 8, -0.28 * depth, 16, '#15803d');
-        pSphere('ceramic', -0.32 * width, 0.22 * height + 14, -0.28 * depth, 6, '#f43f5e');
-        // Potted scarlet red geranium
-        pCyl('ceramic', -0.32 * width, 0.22 * height + 3, 0.10 * depth, 15, 6, '#c26d38');
-        pSphere('foliage', -0.32 * width, 0.22 * height + 8, 0.10 * depth, 16, '#166534');
-        pSphere('ceramic', -0.32 * width, 0.22 * height + 14, 0.10 * depth, 6, '#ef4444');
-        // English purple lavender pot
-        pCyl('ceramic', -0.32 * width, 0.22 * height + 3, -0.08 * depth, 14, 6, '#c26d38');
-        pSphere('foliage', -0.32 * width, 0.22 * height + 8, -0.08 * depth, 14, '#3b7a57');
-        pCyl('fabric', -0.32 * width, 0.22 * height + 13, -0.08 * depth, 7, 6, '#a855f7');
-        // Spreading lush Boston fern
-        pCyl('ceramic', -0.32 * width, 0.22 * height + 3, 0.28 * depth, 16, 6, '#c26d38');
-        pSphere('foliage', -0.32 * width, 0.22 * height + 9, 0.28 * depth, 20, '#15803d');
-        // Vintage hammered copper watering can with brass rose
-        pCyl('metal', -0.32 * width, 0.22 * height + 4.5, 0.38 * depth, 13, 9, '#b45309', true);
-        pCyl('metal', -0.32 * width, 0.22 * height + 10, 0.38 * depth, 4, 3, '#f59e0b', true);
-        cylX('metal', -0.26, 0.29, 0.38, 0.012, 0.055, 0.012, '#f59e0b', true);
-
-        // ON LEFT UPPER SHELF:
-        // Blooming magenta orchid in white ceramic pot
-        pCyl('ceramic', -0.41 * width, 0.32 * height + 3, -0.20 * depth, 10, 6, '#f8fafc');
-        pCyl('metal', -0.41 * width, 0.32 * height + 8, -0.20 * depth, 1.5, 7, '#166534');
-        pSphere('ceramic', -0.41 * width, 0.32 * height + 13, -0.20 * depth, 6, '#ec4899');
-        // African violet in sky-blue pot
-        pCyl('ceramic', -0.41 * width, 0.32 * height + 2.5, 0.00 * depth, 10, 5, '#38bdf8');
-        pSphere('foliage', -0.41 * width, 0.32 * height + 6.5, 0.00 * depth, 11, '#15803d');
-        pSphere('ceramic', -0.41 * width, 0.32 * height + 10.5, 0.00 * depth, 5, '#8b5cf6');
-        // Miniature jade plant
-        pCyl('ceramic', -0.41 * width, 0.32 * height + 2.5, 0.18 * depth, 10, 5, '#c26d38');
-        pSphere('foliage', -0.41 * width, 0.32 * height + 7, 0.18 * depth, 11, '#22c55e');
-
-        // UNDER LEFT BENCH:
-        // Stack of 3 nested terracotta pots
-        pCyl('ceramic', -0.34 * width, 0.08 * height + 2, -0.20 * depth, 16, 4, '#c26d38');
-        pCyl('ceramic', -0.34 * width, 0.08 * height + 5, -0.20 * depth, 14, 4, '#c26d38');
-        pCyl('ceramic', -0.34 * width, 0.08 * height + 8, -0.20 * depth, 12, 4, '#c26d38');
-        // Burlap jute sack of potting soil
-        box('fabric', -0.34, 0.12, 0.12, 0.14, 0.08, 0.18, '#d4b483');
-        box('soil', -0.34, 0.155, 0.12, 0.10, 0.02, 0.14, '#3e2723');
-
-        // ON RIGHT BENCH:
-        // Seedling propagation flat with bright lime-green sprouts
-        box('dark', 0.32, 0.24, -0.28, 0.16, 0.020, 0.22, '#181b20');
-        box('soil', 0.32, 0.25, -0.28, 0.14, 0.010, 0.20, '#451a03');
-        box('foliage', 0.32, 0.265, -0.28, 0.12, 0.014, 0.18, '#84cc16');
-        // Staked tomato vine with ripe red tomatoes
-        pCyl('ceramic', 0.32 * width, 0.22 * height + 3, -0.06 * depth, 16, 6, '#c26d38');
-        pCyl('wood', 0.32 * width, 0.22 * height + 13, -0.06 * depth, 2, 20, '#78350f');
-        pSphere('foliage', 0.32 * width, 0.22 * height + 12, -0.06 * depth, 18, '#16a34a');
-        pSphere('ceramic', 0.32 * width + 4, 0.22 * height + 10, -0.06 * depth + 3, 5, '#ef4444');
-        pSphere('ceramic', 0.32 * width - 4, 0.22 * height + 14, -0.06 * depth - 2, 5, '#ef4444');
-        pSphere('ceramic', 0.32 * width + 2, 0.22 * height + 17, -0.06 * depth + 3, 4.5, '#ef4444');
-        // Glazed ceramic pot with culinary basil & rosemary
-        pCyl('ceramic', 0.32 * width, 0.22 * height + 3, 0.12 * depth, 16, 6, '#e2ddd6');
-        pSphere('foliage', 0.32 * width, 0.22 * height + 9, 0.12 * depth, 17, '#22c55e');
-        // Victorian glass bell jar cloche covering tender sprout on saucer
-        pCyl('ceramic', 0.32 * width, 0.22 * height + 2, 0.28 * depth, 15, 2, '#e2ddd6');
-        pSphere('foliage', 0.32 * width, 0.22 * height + 4.5, 0.28 * depth, 6, '#84cc16');
-        pCyl('glass', 0.32 * width, 0.22 * height + 6.5, 0.28 * depth, 13, 8, glassCol);
-        pSphere('glass', 0.32 * width, 0.22 * height + 11.5, 0.28 * depth, 6, glassCol);
-        // Amber glass mister bottle with brass thumb lever
-        pCyl('glass', 0.32 * width, 0.22 * height + 3.5, 0.38 * depth, 7, 7, '#78350f', true);
-        pCyl('metal', 0.32 * width, 0.22 * height + 8, 0.38 * depth, 3, 3, '#f59e0b', true);
-
-        // ON RIGHT UPPER SHELF:
-        // Round ball golden barrel cactus with yellow bloom
-        pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, -0.22 * depth, 10, 5, '#c26d38');
-        pSphere('foliage', 0.41 * width, 0.32 * height + 6.5, -0.22 * depth, 10, '#15803d');
-        pSphere('ceramic', 0.41 * width, 0.32 * height + 11, -0.22 * depth, 4, '#f59e0b');
-        // Blue-green echeveria rosette succulent
-        pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, -0.05 * depth, 10, 5, '#e2ddd6');
-        pSphere('foliage', 0.41 * width, 0.32 * height + 6, -0.05 * depth, 11, '#0d9488');
-        // Aloe vera with pointed foliage
-        pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, 0.12 * depth, 10, 5, '#c26d38');
-        pCone('foliage', 0.41 * width, 0.32 * height + 7, 0.12 * depth, 9, 8, '#15803d');
-        // Trailing string-of-pearls pot
-        pCyl('ceramic', 0.41 * width, 0.32 * height + 2.5, 0.26 * depth, 10, 5, '#f8fafc');
-        pSphere('foliage', 0.41 * width, 0.32 * height + 6, 0.26 * depth, 11, '#84cc16');
-        pCyl('foliage', 0.41 * width - 2, 0.32 * height + 2, 0.26 * depth, 4, 7, '#65a30d');
-
-        // Wall-mounted brass thermometer & hygrometer dial
-        pCyl('metal', -0.19 * width, 0.46 * height, 0.47 * depth, 7, 2, '#f59e0b', true);
-        pCyl('ceramic', -0.19 * width, 0.46 * height, 0.465 * depth, 6, 1.5, '#ffffff');
 
         // 9. Ceiling Decorative Arched Trusses, Macrame Hanging Baskets & Grow Lamp
         for (const tz of [-0.20, 0.20]) {
@@ -7604,6 +7659,48 @@ F.builder = function (group) {
 
         // Lower ergonomic lumbar contour
         box('fabric', 0, 0.66, -0.16, 0.42, 0.18, 0.04, HP.shade(color, 1.04));
+
+      } else if (/^ghbench$/i.test(t)) {
+        // Victorian Cedar & Cast-Iron Two-Tier Greenhouse Staging Bench (2x1 footprint)
+        // Sturdy corner posts, lower potting shelf, slatted cedar staging top with drainage gaps & rear upstand
+        const woodCol = color || '#c28b58';
+        const frameCol = HP.shade(woodCol, 0.72);
+        // 1. Four heavy corner legs with levelling foot collars
+        for (const lx of [-0.44, 0.44]) {
+          for (const lz of [-0.38, 0.38]) {
+            box('wood', lx, 0.44, lz, 0.06, 0.88, 0.06, frameCol);
+            box('metal', lx, 0.03, lz, 0.07, 0.06, 0.07, '#334155', true); // levelling shoe
+          }
+          // End cross-stretchers
+          box('wood', lx, 0.28, 0, 0.05, 0.04, 0.72, frameCol);
+          box('wood', lx, 0.84, 0, 0.05, 0.05, 0.72, frameCol);
+        }
+        // Front & rear longitudinal apron rails
+        box('wood', 0, 0.84, -0.38, 0.88, 0.05, 0.05, frameCol);
+        box('wood', 0, 0.84,  0.38, 0.88, 0.05, 0.05, frameCol);
+        box('wood', 0, 0.28, -0.38, 0.88, 0.04, 0.04, frameCol);
+        box('wood', 0, 0.28,  0.38, 0.88, 0.04, 0.04, frameCol);
+
+        // 2. Lower slatted pot storage shelf (y = 0.30)
+        for (let s = -0.32; s <= 0.32; s += 0.12) {
+          box('wood', 0, 0.31, s, 0.84, 0.02, 0.08, frameCol);
+        }
+        // Nested terracotta nursery pots on lower shelf
+        cyl('ceramic', -0.28, 0.36, 0, 0.16, 0.07, 0.16, '#c26d38');
+        cyl('ceramic', -0.28, 0.43, 0, 0.13, 0.07, 0.13, '#c26d38');
+        cyl('ceramic', -0.28, 0.50, 0, 0.10, 0.06, 0.10, '#c26d38');
+        // Jute potting soil sack
+        box('fabric', 0.24, 0.36, 0, 0.22, 0.08, 0.26, '#d4b483');
+        box('soil', 0.24, 0.395, 0, 0.18, 0.02, 0.20, '#3e2723');
+
+        // 3. Upper Slatted Cedar Staging Surface (individual cedar slats with drainage gaps)
+        for (let s = -0.36; s <= 0.36; s += 0.10) {
+          box('wood', 0, 0.90, s, 0.94, 0.025, 0.075, woodCol);
+        }
+        // Perimeter staging frame rim & rear pot curb
+        box('wood', 0, 0.94, -0.40, 0.96, 0.06, 0.03, frameCol); // rear backstop curb
+        box('wood', -0.46, 0.92, 0, 0.03, 0.03, 0.82, frameCol); // left edge curb
+        box('wood',  0.46, 0.92, 0, 0.03, 0.03, 0.82, frameCol); // right edge curb
 
       } else if (!/^potting$/i.test(t) && (/^bench$|entry.*bench|bedbench/i.test(t) || /bench/i.test(def.name || ''))) {
         // Modern Minimalist Upholstered Bench (Splayed matte black steel sled frame, extra-thick channeled cushion, slatted oak shoe shelf)
