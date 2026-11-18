@@ -1755,8 +1755,6 @@ W3.buildLevel = function () {
 
   W3.staticColliders = geo.boxes.filter(b => b.y0 < 50 && b.y1 > 2);
   W3.staticLamps = [];
-  for (const r of HP.computeRegions().regions) if (r.cells.length >= 6)
-    W3.staticLamps.push({ x: r.lx, z: r.ly, y: HP.geom3d.WALL_H - 10, power: 0.7 });
 
   const res = W3._buildFurnitureSync(fg);
   W3.colliders = (W3.staticColliders || []).concat(res.furnColliders);
