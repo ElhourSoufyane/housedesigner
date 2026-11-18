@@ -223,5 +223,58 @@ V.update = function (px, pz, force) {
   V.stats.tiles = tv; V.stats.drawn = drawn; V.stats.total = entries.length;
 };
 V.invalidate = () => { dirty = true; };
-V.visibleAt = (x, z) => !!tileVis[V.tileOf(x, z)];
+V.visibleCell = function (cx, cz) {
+  if (cx < 0 || cz < 0 || cx >= gw || cz >= gh) return true;
+  return cellVis.a && cellVis.a.length === gw * gh ? !!cellVis.a[cz * gw + cx] : true;
+};
+V.hasLineOfSight = function (x0, z0, x1, z1) {
+  if (!vEdge || !hEdge) return true;
+  const C = HP.CELL;
+  const sx = x0 / C, sz = z0 / C;
+  const ex = x1 / C, ez = z1 / C;
+  let cx = Math.floor(sx), cz = Math.floor(sz);
+  const targetX = Math.floor(ex), targetZ = Math.floor(ez);
+  if (cx === targetX && cz === targetZ) return true;
+
+  const dx = ex - sx, dz = ez - sz;
+  const stepX = dx > 0 ? 1 : (dx < 0 ? -1 : 0);
+  const stepZ = dz > 0 ? 1 : (dz < 0 ? -1 : 0);
+  const tdx = dx !== 0 ? Math.abs(1 / dx) : 1e9;
+  const tdz = dz !== 0 ? Math.abs(1 / dz) : 1e9;
+  let tx = dx > 0 ? (cx + 1 - sx) * tdx : (dx < 0 ? (sx - cx) * tdx : 1e9);
+  let tz = dz > 0 ? (cz + 1 - sz) * tdz : (dz < 0 ? (sz - cz) * tdz : 1e9);
+
+  const W = gw + 2;
+  const maxSteps = gw + gh;
+  for (let s = 0; s < maxSteps; s++) {
+    if (cx === targetX && cz === targetZ) return true;
+    if (Math.abs(tx - tz) < 1e-6) {
+      const edgeX = stepX > 0 ? cx + 1 : cx;
+      const edgeZ = stepZ > 0 ? cz + 1 : cz;
+      if (edgeX >= 0 && edgeX <= gw && cz >= 0 && cz < gh && vEdge[cz * W + edgeX]) return false;
+      if (edgeZ >= 0 && edgeZ <= gh && cx >= 0 && cx < gw && hEdge[edgeZ * W + cx]) return false;
+      cx += stepX; tx += tdx;
+      cz += stepZ; tz += tdz;
+    } else if (tx < tz) {
+      const edgeX = stepX > 0 ? cx + 1 : cx;
+      if (edgeX >= 0 && edgeX <= gw && cz >= 0 && cz < gh && vEdge[cz * W + edgeX]) return false;
+      cx += stepX;
+      tx += tdx;
+    } else {
+      const edgeZ = stepZ > 0 ? cz + 1 : cz;
+      if (edgeZ >= 0 && edgeZ <= gh && cx >= 0 && cx < gw && hEdge[edgeZ * W + cx]) return false;
+      cz += stepZ;
+      tz += tdz;
+    }
+    if (cx < -1 || cz < -1 || cx > gw || cz > gh) return false;
+  }
+  return false;
+};
+V.visibleAt = function (x, z) {
+  const C = HP.CELL;
+  const cx = Math.floor(x / C), cz = Math.floor(z / C);
+  if (cx < 0 || cz < 0 || cx >= gw || cz >= gh) return true;
+  if (cellVis.a && cellVis.a.length === gw * gh && cellVis.a[cz * gw + cx]) return true;
+  return !!tileVis[V.tileOf(x, z)];
+};
 })();

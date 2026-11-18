@@ -1,8 +1,8 @@
 {
-  "version": "1.3.17",
-  "build": 1794946000000,
-  "updatedAt": "2026-11-18T19:40:00.000Z",
-  "notes": "Fix phantom room lights and remove fake static glowing cones from lamps",
+  "version": "1.3.18",
+  "build": 1794950000000,
+  "updatedAt": "2026-11-18T20:25:00.000Z",
+  "notes": "Prevent light bleeding through solid walls with line-of-sight and room occlusion culling",
   "files": [
     "version.json",
     "index.html",

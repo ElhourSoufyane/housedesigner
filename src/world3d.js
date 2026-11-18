@@ -144,7 +144,7 @@ function buildLampPool(n) {
   for (const l of lampPool) scene.remove(l.light);
   lampPool = [];
   for (let i = 0; i < n; i++) {
-    const light = new THREE.PointLight(0xffc98a, 0, 230, 2);   // warm, falls off fast
+    const light = new THREE.PointLight(0xffc98a, 0, 140, 2);   // warm, falls off fast, realistic room radius (140px ≈ 5m)
     light.position.set(0, -1000, 0);
     scene.add(light);
     lampPool.push({ light, src: null, target: 0 });
@@ -153,12 +153,44 @@ function buildLampPool(n) {
 function assignLamps(night) {
   const p = camera.position, srcs = W3.lamps || [];
   const V = HP.cull3d;
-  const cand = night < 0.03 ? [] : srcs
-    .filter(s => !V || V.visibleAt(s.x, s.z))
+  if (night < 0.03 || srcs.length === 0) {
+    for (const L of lampPool) { L.src = null; L.target = 0; L.light.intensity = 0; L.light.position.set(0, -1000, 0); }
+    return;
+  }
+  const env = geomEnv();
+  const camCx = Math.floor(p.x / HP.CELL), camCz = Math.floor(p.z / HP.CELL);
+  const camRoom = env ? env.rAt(camCx, camCz) : -1;
+
+  const cand = srcs
+    .filter(s => {
+      if (s.on === false) return false;
+      if (s.room === undefined && env) {
+        s.room = env.rAt(Math.floor(s.x / HP.CELL), Math.floor(s.z / HP.CELL));
+      }
+      // 1. In the same enclosed room as the camera -> always considered visible
+      if (s.room !== undefined && s.room >= 0 && s.room === camRoom) return true;
+      // 2. Direct line of sight from camera to lamp (checks solid walls and closed doors)
+      if (V && V.hasLineOfSight) {
+        if (V.hasLineOfSight(p.x, p.z, s.x, s.z)) return true;
+        // 3. Grid cell visibility check (for lamps reached by visibility rays through open doors/windows)
+        const lcx = Math.floor(s.x / HP.CELL), lcz = Math.floor(s.z / HP.CELL);
+        if (V.visibleCell && V.visibleCell(lcx, lcz)) return true;
+        return false;
+      }
+      return !V || V.visibleAt(s.x, s.z);
+    })
     .map(s => ({ s, d: (s.x - p.x) ** 2 + (s.z - p.z) ** 2 }))
     .sort((a, b) => a.d - b.d).slice(0, lampPool.length).map(c => c.s);
+
   /* keep lights that stay assigned; hand free ones to new sources      */
-  for (const L of lampPool) if (!cand.includes(L.src)) L.src = null;
+  for (const L of lampPool) {
+    if (!cand.includes(L.src)) {
+      L.src = null;
+      L.target = 0;
+      L.light.intensity = 0;
+      L.light.position.set(0, -1000, 0);
+    }
+  }
   for (const s of cand) {
     if (lampPool.some(L => L.src === s)) continue;
     const L = lampPool.find(L => !L.src);
@@ -170,6 +202,7 @@ function assignLamps(night) {
     if (L.src && L.src.on === false) {
       L.target = 0;
       L.light.intensity = 0;
+      L.light.position.set(0, -1000, 0);
     } else {
       L.target = L.src && L.src.on !== false ? L.src.power * night : 0;
     }
@@ -1908,8 +1941,9 @@ function buildSingleHangItem(it, i2, ctx) {
 }
 
 function buildFurnitureLamps(ctx) {
-  const { items, hangs, furnLamps, C } = ctx;
+  const { items, hangs, furnLamps, C, env } = ctx;
   const seenPos = new Set();
+  const getRoom = (wx, wz) => (env && env.rAt ? env.rAt(Math.floor(wx / C), Math.floor(wz / C)) : -1);
   for (const it of items) {
     if (!/lamp|torch|candle|fireplace|lantern|light|sconce/i.test(it.type)) continue;
     const posKey = it.type + '@' + it.x + ',' + it.y;
@@ -1923,13 +1957,15 @@ function buildFurnitureLamps(ctx) {
     const lightPower = isPost ? 1.6 : (isPath ? 0.9 : (isNight ? 0.8 : (isCandle ? 0.75 : 1.4)));
     const bY = it._baseY !== undefined ? it._baseY : 0;
     const lightY = bY + (/fireplace/i.test(it.type) ? 10 : (isNight ? 6 : (isCandle ? Math.max(3.5, Math.min(6.5, h * 0.38)) : Math.max(12, h * 0.85))));
-    furnLamps.push({ id: it.id, it, x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: lightY, power: lightPower });
+    const lx = (f.x + f.w / 2) * C, lz = (f.y + f.h / 2) * C;
+    furnLamps.push({ id: it.id, it, x: lx, z: lz, y: lightY, power: lightPower, room: getRoom(lx, lz) });
   }
   for (const it of items) {
     if (/^greenhouse/i.test(it.type)) {
       const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
       const bY = it._baseY !== undefined ? it._baseY : 0;
-      furnLamps.push({ id: it.id, it, x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: bY + Math.round(h * 0.56), power: 1.3 });
+      const lx = (f.x + f.w / 2) * C, lz = (f.y + f.h / 2) * C;
+      furnLamps.push({ id: it.id, it, x: lx, z: lz, y: bY + Math.round(h * 0.56), power: 1.3, room: getRoom(lx, lz) });
     }
   }
   for (const it of items) {
@@ -1941,7 +1977,8 @@ function buildFurnitureLamps(ctx) {
       if (rot === 1) { const rx = -lz; lz = lx; lx = rx; }
       else if (rot === 2) { lx = -lx; lz = -lz; }
       else if (rot === 3) { const rx = lz; lz = -lx; lx = rx; }
-      furnLamps.push({ id: it.id, it, x: tcx + lx, z: tcz + lz, y: 98, power: 1.2 });
+      const wx = tcx + lx, wz = tcz + lz;
+      furnLamps.push({ id: it.id, it, x: wx, z: wz, y: 98, power: 1.2, room: getRoom(wx, wz) });
     }
   }
   for (const it of hangs) {
@@ -1954,7 +1991,7 @@ function buildFurnitureLamps(ctx) {
     let mx = (f.x + f.w / 2) * C, mz = (f.y + f.h / 2) * C;
     if (hang === 'n') mz = f.y * C + 5.2; else if (hang === 's') mz = (f.y + f.h) * C - 5.2;
     else if (hang === 'w') mx = f.x * C + 5.2; else if (hang === 'e') mx = (f.x + f.w) * C - 5.2;
-    furnLamps.push({ id: it.id, it, x: mx, z: mz, y: 38, power: 0.8 });
+    furnLamps.push({ id: it.id, it, x: mx, z: mz, y: 38, power: 0.8, room: getRoom(mx, mz) });
   }
 }
 
