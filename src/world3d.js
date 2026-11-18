@@ -166,7 +166,14 @@ function assignLamps(night) {
     L.src = s; L.light.intensity = 0;                     // fade in, no pop
     L.light.position.set(s.x, s.y, s.z);
   }
-  for (const L of lampPool) L.target = L.src && L.src.on !== false ? L.src.power * night : 0;
+  for (const L of lampPool) {
+    if (L.src && L.src.on === false) {
+      L.target = 0;
+      L.light.intensity = 0;
+    } else {
+      L.target = L.src && L.src.on !== false ? L.src.power * night : 0;
+    }
+  }
 }
 function tickTime(dt, now) {
   if (TIME.flow) TIME.hour = (TIME.hour + dt * TIME.speed) % 24;
@@ -1902,8 +1909,12 @@ function buildSingleHangItem(it, i2, ctx) {
 
 function buildFurnitureLamps(ctx) {
   const { items, hangs, furnLamps, C } = ctx;
+  const seenPos = new Set();
   for (const it of items) {
     if (!/lamp|torch|candle|fireplace|lantern|light|sconce/i.test(it.type)) continue;
+    const posKey = it.type + '@' + it.x + ',' + it.y;
+    if (seenPos.has(posKey)) continue;
+    seenPos.add(posKey);
     const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
     const isPost = /lamppost/i.test(it.type);
     const isPath = /pathlight/i.test(it.type);
@@ -1912,13 +1923,13 @@ function buildFurnitureLamps(ctx) {
     const lightPower = isPost ? 1.6 : (isPath ? 0.9 : (isNight ? 0.8 : (isCandle ? 0.75 : 1.4)));
     const bY = it._baseY !== undefined ? it._baseY : 0;
     const lightY = bY + (/fireplace/i.test(it.type) ? 10 : (isNight ? 6 : (isCandle ? Math.max(3.5, Math.min(6.5, h * 0.38)) : Math.max(12, h * 0.85))));
-    furnLamps.push({ x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: lightY, power: lightPower });
+    furnLamps.push({ id: it.id, it, x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: lightY, power: lightPower });
   }
   for (const it of items) {
     if (/^greenhouse/i.test(it.type)) {
       const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
       const bY = it._baseY !== undefined ? it._baseY : 0;
-      furnLamps.push({ x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: bY + Math.round(h * 0.56), power: 1.3 });
+      furnLamps.push({ id: it.id, it, x: (f.x + f.w / 2) * C, z: (f.y + f.h / 2) * C, y: bY + Math.round(h * 0.56), power: 1.3 });
     }
   }
   for (const it of items) {
@@ -1930,17 +1941,20 @@ function buildFurnitureLamps(ctx) {
       if (rot === 1) { const rx = -lz; lz = lx; lx = rx; }
       else if (rot === 2) { lx = -lx; lz = -lz; }
       else if (rot === 3) { const rx = lz; lz = -lx; lx = rx; }
-      furnLamps.push({ x: tcx + lx, z: tcz + lz, y: 98, power: 1.2 });
+      furnLamps.push({ id: it.id, it, x: tcx + lx, z: tcz + lz, y: 98, power: 1.2 });
     }
   }
   for (const it of hangs) {
     if (!/sconce/i.test(it.type)) continue;
+    const posKey = it.type + '@' + it.x + ',' + it.y;
+    if (seenPos.has(posKey)) continue;
+    seenPos.add(posKey);
     const f = HP.footprint(it);
     const hang = it.hang || HP.hangSide(it.type, it.x, it.y, it.rot || 0, { w: it.w || f.w, h: it.h || f.h });
     let mx = (f.x + f.w / 2) * C, mz = (f.y + f.h / 2) * C;
     if (hang === 'n') mz = f.y * C + 5.2; else if (hang === 's') mz = (f.y + f.h) * C - 5.2;
     else if (hang === 'w') mx = f.x * C + 5.2; else if (hang === 'e') mx = (f.x + f.w) * C - 5.2;
-    furnLamps.push({ x: mx, z: mz, y: 38, power: 0.8 });
+    furnLamps.push({ id: it.id, it, x: mx, z: mz, y: 38, power: 0.8 });
   }
 }
 

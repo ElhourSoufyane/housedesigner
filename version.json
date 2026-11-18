@@ -1,8 +1,8 @@
 {
-  "version": "1.3.16",
-  "build": 1794945000000,
-  "updatedAt": "2026-11-18T09:25:00.000Z",
-  "notes": "New architectural wall styles (concrete, marble, shiplap, white brick), window animations, and synchronized global weather",
+  "version": "1.3.17",
+  "build": 1794946000000,
+  "updatedAt": "2026-11-18T19:40:00.000Z",
+  "notes": "Fix phantom room lights and remove fake static glowing cones from lamps",
   "files": [
     "version.json",
     "index.html",

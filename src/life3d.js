@@ -680,6 +680,16 @@ L.toggle = function (g2) {
   } else if (g2.kind === 'lamp') {
     if (r.src) r.src.on = r.on;
     if (r.mesh) r.mesh.visible = r.on;
+    for (const s of (HP.world3d.lamps || [])) {
+      if (Math.hypot(s.x - r.x, s.z - r.z) < 20) s.on = r.on;
+    }
+    for (const lb of lampBulbs) {
+      if (Math.hypot(lb.x - r.x, lb.z - r.z) < 20) {
+        lb.on = r.on;
+        if (lb.mesh) lb.mesh.visible = r.on;
+        if (lb.src) lb.src.on = r.on;
+      }
+    }
   } else if (g2.kind === 'tv') {
     if (!r.on && r.mat) r.mat.color.set(0x08090b);
   }
