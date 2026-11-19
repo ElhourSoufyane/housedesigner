@@ -1,8 +1,8 @@
 {
-  "version": "1.3.19",
-  "build": 1795109894385,
-  "updatedAt": "2026-11-19T17:38:14.385Z",
-  "notes": "Add architectural 3D relief floor style with tactile beveled pavers and in-game toggle",
+  "version": "1.3.20",
+  "build": 1795112557674,
+  "updatedAt": "2026-11-19T18:22:37.672Z",
+  "notes": "Fix ceiling clipping through floor 2, enable multi-floor walk collision, and eliminate shadow acne & lamp bleeding through walls",
   "files": [
     "version.json",
     "index.html",
@@ -39,19 +39,19 @@
     "src/play3d-inpage.js"
   ],
   "hashes": {
-    "index.html": "d6684da5f51d",
-    "play3d.html": "a4a7c889b465",
+    "index.html": "95d960489ee9",
+    "play3d.html": "ed65473336c7",
     "style.css": "a5add6438d64",
     "manifest.json": "6b5cec7e7507",
-    "sw.js": "a5e44a2738a5",
+    "sw.js": "5ad34261cf2d",
     "preload.js": "51c8baf4b838",
     "electron-main.js": "cc7a535a7fe1",
     "src/catalog.js": "0f838716e81a",
     "src/cull3d.js": "1199c8dd1290",
     "src/default-house.js": "b473283c5981",
-    "src/furniture3d.js": "ec4623c1a6a7",
+    "src/furniture3d.js": "2c5db8733fe9",
     "src/geom3d.js": "aa87f3205b42",
-    "src/graphics3d.js": "fad8bacd2aa2",
+    "src/graphics3d.js": "1d9410cf517c",
     "src/grid.js": "40f1e5de66c6",
     "src/input.js": "346bffc4ea5a",
     "src/life3d.js": "fcda1e7ccdba",
@@ -66,10 +66,10 @@
     "src/sync.js": "46a2bac47c74",
     "src/sync3d.js": "316139eccdae",
     "src/tools.js": "c1f78c37b3b6",
-    "src/ui.js": "648abc3db129",
+    "src/ui.js": "97e5d41d5d52",
     "src/walk.js": "601b8eee0012",
-    "src/walk3d.js": "844ee0be4980",
-    "src/world3d.js": "4085fbc417b1",
+    "src/walk3d.js": "7513081bd77b",
+    "src/world3d.js": "38e7ac4d117d",
     "src/play3d-inpage.js": "f18df05adae9"
   }
 }

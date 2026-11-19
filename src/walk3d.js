@@ -132,18 +132,25 @@ function groundAt(x, z) {
 function floorMat() {                            /* material underfoot */
   if (waterAt(px, pz) && groundY < -8) return 'water';
   const cx = Math.floor(px / HP.CELL), cy = Math.floor(pz / HP.CELL);
-  const m = HP.cur().floors[cx + ',' + cy];
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  const curFloor = Math.max(0, Math.floor((groundY + 0.1) / WALL_H));
+  const curLvl = (HP.state && HP.state.levels && HP.state.levels[curFloor]) || HP.cur();
+  const m = curLvl && curLvl.floors && curLvl.floors[cx + ',' + cy];
   if (m) return m;
-  const { regionOf } = HP.computeRegions();
-  const id = cx < 0 || cy < 0 || cx >= HP.GRID_W || cy >= HP.GRID_H ? -1 : regionOf[cy * HP.GRID_W + cx];
+  const { regionOf } = HP.computeRegions(curLvl);
+  const id = cx < 0 || cy < 0 || cx >= HP.GRID_W || cy >= HP.GRID_H ? -1 : (regionOf ? regionOf[cy * HP.GRID_W + cx] : -1);
   return id === -1 ? 'grass' : 'wood';
 }
 
 K.enter = function (start) {
   sitting = null;
-  px = start.x; pz = start.y;
-  { const wa0 = waterAt(px, pz); groundY = wa0 ? wa0.floorY : 0; wasIn = !!wa0;
-    airY = airV = 0; airborne = false; feetY = groundY; }
+  px = start.x; pz = start.z !== undefined ? start.z : start.y;
+  if (start.feetY !== undefined) {
+    feetY = groundY = start.feetY;
+  } else {
+    const wa0 = waterAt(px, pz); groundY = wa0 ? wa0.floorY : 0; wasIn = !!wa0;
+    airY = airV = 0; airborne = false; feetY = groundY;
+  }
   yaw = start.yaw || 0; pitch = start.pitch !== undefined ? start.pitch : 0;
   K.camElevate = start.elevate !== undefined ? start.elevate : 0;
   started = true;

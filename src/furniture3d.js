@@ -4208,17 +4208,6 @@ F.builder = function (group) {
         cylZ('metal', 0, 0.94, -0.22, 0.025, 0.025, 0.32, '#cbd5e1', true);
         cyl('metal', 0, 0.91, -0.10, 0.28, 0.02, 0.28, '#cbd5e1', true);
 
-      } else if (/^pergola$/i.test(t)) {
-        // Heavy Western Red Cedar Outdoor Shade Pergola (3x3 footprint, height 54px)
-        for (const [cx, cz] of [[-0.44, -0.44], [0.44, -0.44], [-0.44, 0.44], [0.44, 0.44]]) {
-          box('wood', cx, 0.48, cz, 0.10, 0.96, 0.10, color || '#8a6844');
-          box('stone', cx, 0.06, cz, 0.16, 0.12, 0.16, '#475569');
-        }
-        box('wood', 0, 0.92, -0.44, 0.98, 0.08, 0.06, color || '#8a6844');
-        box('wood', 0, 0.92, 0.44, 0.98, 0.08, 0.06, color || '#8a6844');
-        for (let r = 0; r < 7; r++) {
-          box('wood', -0.45 + r * 0.15, 0.97, 0, 0.04, 0.06, 0.98, color || '#8a6844');
-        }
 
       } else if (/^topiary$/i.test(t)) {
         // Manicured Triple-Sphere Boxwood Topiary in Classical Urn (1x1 footprint, height 32px)

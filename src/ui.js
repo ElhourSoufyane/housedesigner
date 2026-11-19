@@ -568,7 +568,7 @@ HP.setRoomCeilingStyle = function (r, style) {
   const conf = { style, color: col };
   if (r.id !== undefined) lvl.roomCeilings[r.id] = conf;
   for (const [x, y] of r.cells) lvl.ceilings[HP.cellKey(x, y)] = conf;
-  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+  if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
 };
 
 HP.paintRoomCeiling = function (r, color) {
@@ -582,7 +582,7 @@ HP.paintRoomCeiling = function (r, color) {
   const conf = { style: st, color };
   if (r.id !== undefined) lvl.roomCeilings[r.id] = conf;
   for (const [x, y] of r.cells) lvl.ceilings[HP.cellKey(x, y)] = conf;
-  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+  if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
 };
 
 /* Wall and Door style definitions with rich visual preview cards */
@@ -878,7 +878,7 @@ function wallSelectedUI(selWall) {
       HP.wallStyle = st;
       HP.saveState();
       HP.markDirty();
-      if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+      if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
       wallSelectedUI(selWall);
       HP.status('Wall style set to: ' + st);
     });
@@ -891,7 +891,7 @@ function wallSelectedUI(selWall) {
     w.cb = col;
     HP.saveState();
     HP.markDirty();
-    if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+    if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
     wallSelectedUI(selWall);
     HP.status('Wall painted: ' + col);
   });
@@ -909,7 +909,7 @@ function wallSelectedUI(selWall) {
         HP.setRoomWallStyle(targetRoom, w.style || 'plaster');
         HP.saveState();
         HP.markDirty();
-        if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+        if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
         HP.status('Applied ' + (w.style || 'plaster') + ' to all walls in ' + (targetRoom.name || 'room'));
       } else {
         HP.status('No adjacent room found to style.');
@@ -926,7 +926,7 @@ function wallSelectedUI(selWall) {
       HP.invalidateRegions();
       HP.saveState();
       HP.markDirty();
-      if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+      if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
       HP.refreshContext();
       HP.status('Wall deleted.');
     };

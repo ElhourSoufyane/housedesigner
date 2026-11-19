@@ -377,24 +377,23 @@ function texture(kind) {
       ctx.fillRect(px, 0, 1.2, size);
     }
   } else if (kind === 'tile') {
-    // Luxury ceramic subway tiles
+    // Architectural square ceramic floor tiles
     ctx.fillStyle = '#b6b0a4'; // Grout bed
     ctx.fillRect(0, 0, size, size);
-    const rows = 12, cols = 6, tW = size / cols, tH = size / rows, grout = 2.4;
+    const cols = 4, rows = 4, tW = size / cols, tH = size / rows, grout = 2.4;
     for (let r = 0; r < rows; r++) {
-      const y = r * tH + grout / 2;
-      const h = tH - grout;
-      const offset = (r % 2) * (tW / 2);
-      for (let x = offset - tW; x < size + tW; x += tW) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * tW + grout / 2, y = r * tH + grout / 2;
+        const w = tW - grout, h = tH - grout;
         ctx.fillStyle = '#f4efe6';
-        ctx.fillRect(x, y, tW - grout, h);
+        ctx.fillRect(x, y, w, h);
         // Glossy bevel highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.45)';
-        ctx.fillRect(x, y, tW - grout, 1.5);
-        ctx.fillRect(x, y, 1.5, h);
-        ctx.fillStyle = 'rgba(0,0,0,0.12)';
-        ctx.fillRect(x, y + h - 1.5, tW - grout, 1.5);
-        ctx.fillRect(x + tW - grout - 1.5, y, 1.5, h);
+        ctx.fillStyle = 'rgba(255,255,255,0.40)';
+        ctx.fillRect(x, y, w, 1.4);
+        ctx.fillRect(x, y, 1.4, h);
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+        ctx.fillRect(x, y + h - 1.4, w, 1.4);
+        ctx.fillRect(x + w - 1.4, y, 1.4, h);
       }
     }
   } else if (kind === 'art') {
@@ -479,20 +478,6 @@ function texture(kind) {
     drawVein(size * 0.3, 0, size * 0.8, size, 3.0, 'rgba(148,163,184,0.14)');
     drawVein(size * 0.3, 0, size * 0.8, size, 1.2, 'rgba(71,85,105,0.20)');
     drawVein(size * 0.1, size, size * 0.9, 0, 2.5, 'rgba(148,163,184,0.15)');
-
-    // Architectural marble pavers (2x2 grid with polished beveled grout lines)
-    const mRows = 2, mCols = 2, mW = size / mCols, mH = size / mRows, mGrout = 2.4;
-    ctx.fillStyle = 'rgba(160, 155, 145, 0.45)';
-    for (let c = 1; c < mCols; c++) ctx.fillRect(c * mW - mGrout / 2, 0, mGrout, size);
-    for (let r = 1; r < mRows; r++) ctx.fillRect(0, r * mH - mGrout / 2, size, mGrout);
-    // Bevel reflection highlight
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.40)';
-    for (let c = 0; c < mCols; c++) {
-      for (let r = 0; r < mRows; r++) {
-        ctx.fillRect(c * mW + mGrout / 2, r * mH + mGrout / 2, mW - mGrout, 1.4);
-        ctx.fillRect(c * mW + mGrout / 2, r * mH + mGrout / 2, 1.4, mH - mGrout);
-      }
-    }
   } else if (kind === 'fabric') {
     // Luxury plush woven carpet & boucle wool texture
     ctx.fillStyle = '#e8e2d8';
@@ -810,17 +795,18 @@ function bumpTexture(kind) {
       ctx.fillRect(px, 0, 1.5, size);
     }
   } else if (kind === 'tile') {
+    // Square floor tile heightmap: dark recessed grout, beveled chamfer, raised face
     ctx.fillStyle = '#101010';
     ctx.fillRect(0, 0, size, size);
-    const rows = 12, cols = 6, tW = size / cols, tH = size / rows, grout = 2.4;
+    const cols = 4, rows = 4, tW = size / cols, tH = size / rows, grout = 2.4;
     for (let r = 0; r < rows; r++) {
-      const y = r * tH + grout / 2, h = tH - grout;
-      const offset = (r % 2) * (tW / 2);
-      for (let x = offset - tW; x < size + tW; x += tW) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * tW + grout / 2, y = r * tH + grout / 2;
+        const w = tW - grout, h = tH - grout;
         ctx.fillStyle = '#d8d8d8';
-        ctx.fillRect(x, y, tW - grout, h);
+        ctx.fillRect(x, y, w, h);
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(x + 1.5, y + 1.5, tW - grout - 3, h - 3);
+        ctx.fillRect(x + 1.5, y + 1.5, w - 3, h - 3);
       }
     }
   } else if (kind === 'concrete') {
@@ -841,19 +827,12 @@ function bumpTexture(kind) {
       }
     }
   } else if (kind === 'marble') {
-    // Deep physical relief for polished marble slabs: dark recessed grout, beveled chamfer, raised face
-    ctx.fillStyle = '#141414'; // Recessed grout
+    // Smooth polished marble slab with subtle natural micro-relief
+    ctx.fillStyle = '#d8d8d8';
     ctx.fillRect(0, 0, size, size);
-    const mCols = 2, mRows = 2, mW = size / mCols, mH = size / mRows, mGrout = 2.4;
-    for (let r = 0; r < mRows; r++) {
-      for (let c = 0; c < mCols; c++) {
-        const x = c * mW + mGrout / 2, y = r * mH + mGrout / 2;
-        const w = mW - mGrout, h = mH - mGrout;
-        ctx.fillStyle = '#c4c4c4';
-        ctx.fillRect(x, y, w, h);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
-      }
+    for (let i = 0; i < size * 6; i++) {
+      ctx.fillStyle = rand() > 0.5 ? '#e2e2e2' : '#cecece';
+      ctx.fillRect(rand() * size, rand() * size, 3.0, 3.0);
     }
   } else if (kind === 'fabric') {
     // Dense carpet pile with micro-tufts and directional fibers
@@ -1190,6 +1169,62 @@ G.setFloorStyle = function (val) {
   if (uiSel && uiSel.value !== floorStyle) uiSel.value = floorStyle;
 };
 
+function makePhotoBump(image, kind) {
+  if (typeof document === 'undefined') return null;
+  const size = Math.min(image.width || 512, 512);
+  const c = canvas(size);
+  if (!c) return null;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(image, 0, 0, size, size);
+  let imgData;
+  try {
+    imgData = ctx.getImageData(0, 0, size, size);
+  } catch (_) {
+    return null;
+  }
+  const d = imgData.data;
+  const len = d.length;
+  for (let i = 0; i < len; i += 4) {
+    const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    let h;
+    if (kind === 'marble') {
+      h = 180 + (lum - 128) * 0.12;
+    } else if (kind === 'fabric') {
+      h = 128 + (lum - 128) * 0.35;
+    } else {
+      if (lum < 95) {
+        h = lum * 0.55;
+      } else {
+        h = Math.min(255, 95 + (lum - 95) * 1.25);
+      }
+    }
+    d[i] = d[i + 1] = d[i + 2] = Math.max(0, Math.min(255, h));
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = G.current.anisotropy;
+  return tex;
+}
+
+G.setMapAndBump = function (m, t, bTex, bScale, roughness) {
+  for (const x of [m, liteOf.get(m)]) {
+    if (!x) continue;
+    x.map = t;
+    x.color.set(0xffffff);
+    if (bTex && floorStyle === '3d') {
+      x.bumpMap = bTex;
+      x.bumpScale = bScale || 0.16;
+    } else {
+      x.bumpMap = null;
+    }
+    if (typeof roughness === 'number' && x.isMeshStandardMaterial) {
+      x.roughness = roughness;
+    }
+    x.needsUpdate = true;
+  }
+};
+
 G.floorMaterial = function (id) {
   const def = HP.FLOOR_MATS.find(m => m.id === id);
   const family = def ? def.fam || def.grp || id : id;
@@ -1207,21 +1242,6 @@ G.floorMaterial = function (id) {
   const m = G.material(kind, (def && def.col) || '#c9a877').clone();
   m.userData.shared3d = true;
 
-  if (floorStyle === '3d') {
-    // 3D Relief mode: crisp architectural scale so beveled pavers, planks, and tile grout lines are tactile
-    const scale = /tile|mosaic/.test(family) ? HP.CELL :
-      /wood|walnut|parquet|deck|bamboo|laminate|herring|whitewash/.test(family) ? HP.CELL * 2 :
-      /marble|onyx/.test(family) ? HP.CELL * 1.5 :
-      /stone|flagstone|slate|travertine|granite|pebble/.test(family) ? HP.CELL * 2 :
-      /gravel/.test(family) ? HP.CELL * 2 :
-      /dirt|mulch|earth|sand|soil/.test(family) ? HP.CELL * 2 :
-      /carpet|tatami|gym|foam/.test(family) ? HP.CELL * 2 : HP.CELL;
-    G.worldUV(m, scale);
-    materials.set(key, m);
-    return m;
-  }
-
-  // Photographic mode
   const floorScales = HP.FLOOR_SCALES || {
     marble: 168, flagstone: 160, grassE: 150, gravel: 140, dirt: 140, sand: 140,
     wood: 112, walnut: 112, concrete: 112, granite: 112, deck: 112, tatami: 112,
@@ -1233,35 +1253,51 @@ G.floorMaterial = function (id) {
   G.worldUV(m, scale);
   materials.set(key, m);
 
+  // Calibrated PBR roughness for authentic real-life surface finishes
+  const pbrRoughness = /marble|onyx/.test(family) ? 0.16 :
+    /tile|mosaic|checker/.test(family) ? 0.28 :
+    /wood|walnut|parquet|deck|bamboo|laminate|herring|whitewash/.test(family) ? 0.45 :
+    /stone|flagstone|slate|travertine|granite|terracotta|concrete/.test(family) ? 0.72 :
+    /gravel|dirt|mulch|sand/.test(family) ? 0.88 :
+    /carpet|tatami|gym|foam/.test(family) ? 0.96 : 0.75;
+  m.roughness = pbrRoughness;
+
   // Use local photos, downsample before GPU upload; procedural map remains on error.
   const isPhotoGrass = id === 'grassE';
   const isProceduralGrass = /^grass([A-DF])?$/.test(id) && !isPhotoGrass;
   if (typeof Image !== 'undefined' && photoCount < 128 && !isProceduralGrass) {
     photoCount++;
     const image = new Image();
-    image.onload = () => {
+    const applyLoaded = (img) => {
       const c = canvas(G.current.texture);
       if (!c) return;
-      c.getContext('2d').drawImage(image, 0, 0, c.width, c.height);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       const t = new THREE.CanvasTexture(c);
-      t._origImage = image;
+      t._origImage = img;
       t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
       t.anisotropy = G.current.anisotropy;
-      textures.set(key, t); G.setMap(m, t);
+      textures.set(key, t);
+
+      const bTex = floorStyle === '3d' ? makePhotoBump(img, kind) : null;
+      const bScale = (/gravel|pebble/.test(kind) ? 0.30 :
+        /stone|flagstone|slate|travertine|granite/.test(kind) ? 0.22 :
+        /tile|terracotta|mosaic|checker/.test(kind) ? 0.20 :
+        /wood/.test(kind) ? 0.18 :
+        /concrete/.test(kind) ? 0.14 :
+        /fabric/.test(kind) ? 0.12 :
+        /marble/.test(kind) ? 0.05 : 0.16);
+      G.setMapAndBump(m, t, bTex, bScale, pbrRoughness);
+    };
+
+    image.onload = () => {
+      applyLoaded(image);
       image.onload = image.onerror = null;
     };
     image.onerror = () => {
       if (family && family !== id) {
         const famImg = new Image();
         famImg.onload = () => {
-          const c = canvas(G.current.texture);
-          if (!c) return;
-          c.getContext('2d').drawImage(famImg, 0, 0, c.width, c.height);
-          const t = new THREE.CanvasTexture(c);
-          t._origImage = famImg;
-          t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
-          t.anisotropy = G.current.anisotropy;
-          textures.set(key, t); G.setMap(m, t);
+          applyLoaded(famImg);
           famImg.onload = famImg.onerror = null;
         };
         famImg.onerror = () => { famImg.onload = famImg.onerror = null; };
@@ -1292,6 +1328,7 @@ G.ceilingMaterial = function (style, color) {
   const key = 'ceil:' + s + ':' + col;
   if (materials.has(key)) return materials.get(key);
   const m = G.material(kind, col).clone();
+  m.side = THREE.DoubleSide;
   m.shadowSide = THREE.DoubleSide;
   m.userData.shared3d = true;
   G.worldUV(m, HP.CELL * 2);
