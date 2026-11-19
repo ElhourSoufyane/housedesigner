@@ -454,7 +454,7 @@ function texture(kind) {
       }
     }
   } else if (kind === 'marble') {
-    // Ultra-luxurious Calacatta White Marble with delicate branching grey/gold veins
+    // Ultra-luxurious Calacatta White Marble with delicate branching grey/gold veins & beveled paver seams
     ctx.fillStyle = '#f8f9fa';
     ctx.fillRect(0, 0, size, size);
     for (let i = 0; i < size * 8; i++) {
@@ -479,6 +479,33 @@ function texture(kind) {
     drawVein(size * 0.3, 0, size * 0.8, size, 3.0, 'rgba(148,163,184,0.14)');
     drawVein(size * 0.3, 0, size * 0.8, size, 1.2, 'rgba(71,85,105,0.20)');
     drawVein(size * 0.1, size, size * 0.9, 0, 2.5, 'rgba(148,163,184,0.15)');
+
+    // Architectural marble pavers (2x2 grid with polished beveled grout lines)
+    const mRows = 2, mCols = 2, mW = size / mCols, mH = size / mRows, mGrout = 2.4;
+    ctx.fillStyle = 'rgba(160, 155, 145, 0.45)';
+    for (let c = 1; c < mCols; c++) ctx.fillRect(c * mW - mGrout / 2, 0, mGrout, size);
+    for (let r = 1; r < mRows; r++) ctx.fillRect(0, r * mH - mGrout / 2, size, mGrout);
+    // Bevel reflection highlight
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.40)';
+    for (let c = 0; c < mCols; c++) {
+      for (let r = 0; r < mRows; r++) {
+        ctx.fillRect(c * mW + mGrout / 2, r * mH + mGrout / 2, mW - mGrout, 1.4);
+        ctx.fillRect(c * mW + mGrout / 2, r * mH + mGrout / 2, 1.4, mH - mGrout);
+      }
+    }
+  } else if (kind === 'fabric') {
+    // Luxury plush woven carpet & boucle wool texture
+    ctx.fillStyle = '#e8e2d8';
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < size * 24; i++) {
+      const gRand = rand();
+      ctx.fillStyle = gRand > 0.65 ? 'rgba(255,255,255,0.28)' : (gRand > 0.3 ? 'rgba(30,25,20,0.12)' : 'rgba(150,140,130,0.18)');
+      ctx.fillRect(rand() * size, rand() * size, 1.4, 1.8);
+    }
+    for (let y = 0; y < size; y += 3) {
+      ctx.fillStyle = 'rgba(0,0,0,0.025)';
+      ctx.fillRect(0, y, size, 1);
+    }
   } else if (kind === 'shiplap') {
     // Modern Farmhouse Horizontal Painted White Shiplap Siding
     ctx.fillStyle = '#f5f5f2';
@@ -735,8 +762,8 @@ function bumpTexture(kind) {
       }
     }
   } else if (kind === 'stone') {
-    // Ultra-smooth architectural bump map: soft recessed mortar (#686868), raised dressed stone face (#dedede)
-    ctx.fillStyle = '#686868';
+    // Ultra-crisp architectural stone pavers: deep recessed mortar joints (#151515), raised dressed stone face (#ffffff)
+    ctx.fillStyle = '#151515';
     ctx.fillRect(0, 0, size, size);
     const rows = 6, rowH = size / rows, mortar = 2.0;
     for (let r = 0; r < rows; r++) {
@@ -747,7 +774,7 @@ function bumpTexture(kind) {
         const bw = sw - mortar;
 
         // Base stone height with subtle chamfered edge falloff
-        ctx.fillStyle = '#c4c4c4';
+        ctx.fillStyle = '#b8b8b8';
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(x, y, bw, h, 2.5);
         else ctx.rect(x, y, bw, h);
@@ -755,7 +782,7 @@ function bumpTexture(kind) {
 
         // Raised plateau
         const pad = Math.min(3, Math.min(bw, h) * 0.12);
-        ctx.fillStyle = '#dcdcdc';
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(x + pad, y + pad, bw - pad * 2, h - pad * 2, 2);
         else ctx.rect(x + pad, y + pad, bw - pad * 2, h - pad * 2);
@@ -814,11 +841,27 @@ function bumpTexture(kind) {
       }
     }
   } else if (kind === 'marble') {
-    ctx.fillStyle = '#b0b0b0';
+    // Deep physical relief for polished marble slabs: dark recessed grout, beveled chamfer, raised face
+    ctx.fillStyle = '#141414'; // Recessed grout
     ctx.fillRect(0, 0, size, size);
-    for (let i = 0; i < size * 6; i++) {
-      ctx.fillStyle = rand() > 0.5 ? '#b8b8b8' : '#a8a8a8';
-      ctx.fillRect(rand() * size, rand() * size, 1.5, 1.5);
+    const mCols = 2, mRows = 2, mW = size / mCols, mH = size / mRows, mGrout = 2.4;
+    for (let r = 0; r < mRows; r++) {
+      for (let c = 0; c < mCols; c++) {
+        const x = c * mW + mGrout / 2, y = r * mH + mGrout / 2;
+        const w = mW - mGrout, h = mH - mGrout;
+        ctx.fillStyle = '#c4c4c4';
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+      }
+    }
+  } else if (kind === 'fabric') {
+    // Dense carpet pile with micro-tufts and directional fibers
+    ctx.fillStyle = '#707070';
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < size * 18; i++) {
+      ctx.fillStyle = rand() > 0.5 ? '#b8b8b8' : '#383838';
+      ctx.fillRect(rand() * size, rand() * size, 1.6, 2.0);
     }
   } else if (kind === 'shiplap') {
     ctx.fillStyle = '#e8e8e8';
@@ -915,9 +958,9 @@ G.material = function (kind, color) {
   /* sky IBL is a fill, not a second sun — keeps shadows readable      */
   m.envMapIntensity = kind === 'glass' ? 1.4 : (smooth ? 0.95 : (kind === 'stone' || kind === 'gravel' ? 0.60 : (kind === 'dirt' ? 0.35 : (kind === 'concrete' ? 0.55 : (kind === 'brick' || kind === 'brick_white' ? 0.45 : 0.5)))));
   m.userData.envBase = m.envMapIntensity;
-  if (kind === 'brick' || kind === 'brick_white' || kind === 'stone' || kind === 'wood' || kind === 'tile' || kind === 'concrete' || kind === 'shiplap' || kind === 'grass' || kind === 'gravel' || kind === 'dirt') {
+  if (kind === 'brick' || kind === 'brick_white' || kind === 'stone' || kind === 'wood' || kind === 'tile' || kind === 'concrete' || kind === 'shiplap' || kind === 'grass' || kind === 'gravel' || kind === 'dirt' || kind === 'marble' || kind === 'fabric') {
     m.bumpMap = bumpTexture(kind === 'brick_white' ? 'brick' : kind);
-    m.bumpScale = kind === 'grass' ? 0.12 : (kind === 'gravel' ? 0.26 : (kind === 'dirt' ? 0.24 : (kind === 'stone' ? 0.18 : (kind === 'concrete' ? 0.14 : (kind === 'shiplap' ? 0.22 : (kind === 'brick' || kind === 'brick_white' ? 0.10 : (kind === 'wood' ? 0.18 : 0.25)))))));
+    m.bumpScale = kind === 'grass' ? 0.12 : (kind === 'gravel' ? 0.26 : (kind === 'dirt' ? 0.24 : (kind === 'stone' ? 0.22 : (kind === 'marble' ? 0.18 : (kind === 'fabric' ? 0.14 : (kind === 'concrete' ? 0.14 : (kind === 'shiplap' ? 0.22 : (kind === 'brick' || kind === 'brick_white' ? 0.10 : (kind === 'wood' ? 0.20 : 0.25)))))))));
   }
   if (kind === 'glass') {
     m.transparent = true; m.opacity = 0.26; m.depthWrite = false;
@@ -1120,6 +1163,31 @@ G.worldUV = function (mat, scale) {
   mat.customProgramCacheKey = () => 'world-uv-' + scale;
   return mat;
 };
+let floorStyle = '3d'; // '3d' (Architectural 3D Relief) | 'photo' (Photographic Slabs)
+try {
+  const p = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+  const urlPref = p ? p.get('floor') : null;
+  if (urlPref === '3d' || urlPref === 'photo') {
+    floorStyle = urlPref;
+  } else {
+    const saved = localStorage.getItem('hp_floor_style');
+    if (saved === '3d' || saved === 'photo') floorStyle = saved;
+  }
+} catch (_) {}
+G.getFloorStyle = () => floorStyle;
+G.setFloorStyle = function (val) {
+  if (val !== '3d' && val !== 'photo') val = '3d';
+  floorStyle = val;
+  try { localStorage.setItem('hp_floor_style', val); } catch (_) {}
+  for (const k of Array.from(materials.keys())) {
+    if (k.startsWith('floor:')) materials.delete(k);
+  }
+  photoCount = 0;
+  if (HP.world3d && HP.world3d.updateFloors) HP.world3d.updateFloors();
+  const sel = document.getElementById('floor-style');
+  if (sel && sel.value !== floorStyle) sel.value = floorStyle;
+};
+
 G.floorMaterial = function (id) {
   const def = HP.FLOOR_MATS.find(m => m.id === id);
   const family = def ? def.fam || def.grp || id : id;
@@ -1132,11 +1200,26 @@ G.floorMaterial = function (id) {
     /stone|flagstone|slate|travertine|granite|pebble/.test(family) ? 'stone' :
     /gravel/.test(family) ? 'gravel' :
     /dirt|mulch|earth|sand|soil/.test(family) ? 'dirt' : 'tile';
-  const key = 'floor:' + id;
+  const key = 'floor:' + floorStyle + ':' + id;
   if (materials.has(key)) return materials.get(key);
   const m = G.material(kind, (def && def.col) || '#c9a877').clone();
   m.userData.shared3d = true;
 
+  if (floorStyle === '3d') {
+    // 3D Relief mode: crisp architectural scale so beveled pavers, planks, and tile grout lines are tactile
+    const scale = /tile|mosaic/.test(family) ? HP.CELL :
+      /wood|walnut|parquet|deck|bamboo|laminate|herring|whitewash/.test(family) ? HP.CELL * 2 :
+      /marble|onyx/.test(family) ? HP.CELL * 1.5 :
+      /stone|flagstone|slate|travertine|granite|pebble/.test(family) ? HP.CELL * 2 :
+      /gravel/.test(family) ? HP.CELL * 2 :
+      /dirt|mulch|earth|sand|soil/.test(family) ? HP.CELL * 2 :
+      /carpet|tatami|gym|foam/.test(family) ? HP.CELL * 2 : HP.CELL;
+    G.worldUV(m, scale);
+    materials.set(key, m);
+    return m;
+  }
+
+  // Photographic mode
   const floorScales = HP.FLOOR_SCALES || {
     marble: 168, flagstone: 160, grassE: 150, gravel: 140, dirt: 140, sand: 140,
     wood: 112, walnut: 112, concrete: 112, granite: 112, deck: 112, tatami: 112,

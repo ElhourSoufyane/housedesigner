@@ -28,6 +28,13 @@
       if (HP.graphics3d.onChange) HP.graphics3d.onChange();
       quality.onchange = () => HP.graphics3d.setQuality(quality.value);
     }
+    const floorStyleSel = document.getElementById('floor-style');
+    if (floorStyleSel && HP.graphics3d) {
+      floorStyleSel.value = HP.graphics3d.getFloorStyle ? HP.graphics3d.getFloorStyle() : '3d';
+      floorStyleSel.onchange = () => {
+        if (HP.graphics3d.setFloorStyle) HP.graphics3d.setFloorStyle(floorStyleSel.value);
+      };
+    }
 
     const toggleGraphics = (show) => {
       if (!graphics || !graphicsButton) return;
