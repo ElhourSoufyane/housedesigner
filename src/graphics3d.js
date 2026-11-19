@@ -1240,6 +1240,7 @@ G.floorMaterial = function (id) {
   const key = 'floor:' + floorStyle + ':' + id;
   if (materials.has(key)) return materials.get(key);
   const m = G.material(kind, (def && def.col) || '#c9a877').clone();
+  m.side = THREE.FrontSide;
   m.userData.shared3d = true;
 
   const floorScales = HP.FLOOR_SCALES || {
@@ -1279,13 +1280,13 @@ G.floorMaterial = function (id) {
       textures.set(key, t);
 
       const bTex = floorStyle === '3d' ? makePhotoBump(img, kind) : null;
-      const bScale = (/gravel|pebble/.test(kind) ? 0.30 :
-        /stone|flagstone|slate|travertine|granite/.test(kind) ? 0.22 :
-        /tile|terracotta|mosaic|checker/.test(kind) ? 0.20 :
-        /wood/.test(kind) ? 0.18 :
-        /concrete/.test(kind) ? 0.14 :
-        /fabric/.test(kind) ? 0.12 :
-        /marble/.test(kind) ? 0.05 : 0.16);
+      const bScale = (/gravel|pebble/.test(kind) ? 0.18 :
+        /stone|flagstone|slate|travertine|granite/.test(kind) ? 0.12 :
+        /tile|terracotta|mosaic|checker/.test(kind) ? 0.08 :
+        /wood/.test(kind) ? 0.06 :
+        /concrete/.test(kind) ? 0.08 :
+        /fabric/.test(kind) ? 0.06 :
+        /marble/.test(kind) ? 0.02 : 0.08);
       G.setMapAndBump(m, t, bTex, bScale, pbrRoughness);
     };
 
@@ -1328,8 +1329,10 @@ G.ceilingMaterial = function (style, color) {
   const key = 'ceil:' + s + ':' + col;
   if (materials.has(key)) return materials.get(key);
   const m = G.material(kind, col).clone();
-  m.side = THREE.DoubleSide;
-  m.shadowSide = THREE.DoubleSide;
+  m.side = THREE.FrontSide;
+  m.shadowSide = THREE.FrontSide;
+  m.roughness = 0.95;
+  m.metalness = 0.0;
   m.userData.shared3d = true;
   G.worldUV(m, HP.CELL * 2);
   materials.set(key, m);

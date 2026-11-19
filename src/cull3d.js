@@ -13,15 +13,15 @@ const V = HP.cull3d = {};
 V.TILE = 8;                                   // cells per tile edge
 const RAYS = 1024;
 let nx = 1, nz = 1, tileVis = new Uint8Array(1), entries = [];
-let vEdge = null, hEdge = null, gw = 0, gh = 0, doorEdges = [];
-let lastCell = -1, lastDoorSig = '', dirty = true;
+let vEdge = null, hEdge = null, gw = 0, gh = 0, doorEdges = [], levelWalls = [];
+let lastCell = -1, lastDoorSig = '', lastCamFloor = -1, dirty = true;
 const box3 = new THREE.Box3(), tmpBox = new THREE.Box3();
 
 V.reset = function () {
   gw = HP.GRID_W; gh = HP.GRID_H;
   nx = Math.ceil(gw / V.TILE) + 1; nz = Math.ceil(gh / V.TILE) + 1;
   tileVis = new Uint8Array(nx * nz);
-  entries = []; doorEdges = []; dirty = true; lastCell = -1;
+  entries = []; doorEdges = []; levelWalls = []; dirty = true; lastCell = -1; lastCamFloor = -1;
 };
 const tilePx = () => V.TILE * HP.CELL;
 const clampT = (t, n) => Math.max(0, Math.min(n - 1, t));
@@ -37,7 +37,8 @@ function cover(x0, z0, x1, z1) {
 /* register any object (door pivot, single mesh) for occlusion         */
 V.add = function (obj, x0, z0, x1, z1, opts) {
   entries.push({ obj, tiles: cover(x0, z0, x1, z1), cx: (x0 + x1) / 2, cz: (z0 + z1) / 2,
-    far: opts && opts.far, detail: opts && opts.detail });
+    far: opts && opts.far, detail: opts && opts.detail,
+    lvlIdx: opts && opts.lvlIdx, isRoof: opts && opts.isRoof, isCeil: opts && opts.isCeil, isFloor: opts && opts.isFloor });
   dirty = true;
 };
 
@@ -102,31 +103,30 @@ V.instanced = function (group, geometry, material, parts, opts) {
     if (opts.userData) Object.assign(mesh.userData, opts.userData);
     group.add(mesh);
     entries.push({ obj: mesh, tiles: [...tiles], cx: (x0 + x1) / 2, cz: (z0 + z1) / 2,
-      far: opts.far, detail: opts.detail });
+      far: opts.far, detail: opts.detail,
+      lvlIdx: opts.lvlIdx, isRoof: opts.isRoof, isCeil: opts.isCeil, isFloor: opts.isFloor });
   }
   dirty = true;
   return where;
 };
 
-/* opaque wall edges: v-edge (x,y) blocks crossing between cells x-1|x  */
-V.setWalls = function (walls, pivots) {
-  vEdge = new Uint8Array((gw + 2) * (gh + 2));
-  hEdge = new Uint8Array((gw + 2) * (gh + 2));
+function buildWallEdges(walls, pivots) {
+  const v = new Uint8Array((gw + 2) * (gh + 2));
+  const h = new Uint8Array((gw + 2) * (gh + 2));
   for (const k in walls) {
     const w = walls[k];
     if (w.f === 'window' || w.style === 'glass' || w.doorStyle === 'glass' || w.doorStyle === 'slideglass') continue;          // glass: see straight through
     const s = HP.parseWallKey(k);
     if (s.x < 0 || s.y < 0 || s.x > gw || s.y > gh) continue;
-    (s.d === 'v' ? vEdge : hEdge)[s.y * (gw + 2) + s.x] = w.f === 'door' ? 2 : 1;
+    (s.d === 'v' ? v : h)[s.y * (gw + 2) + s.x] = w.f === 'door' ? 2 : 1;
   }
   /* door families: transparency follows the leaf, recomputed on change */
-  doorEdges = [];
+  const dEdges = [];
   const seen = new Set();
   for (const d of pivots || []) {
     if (d.doorStyle === 'glass' || d.doorStyle === 'slideglass') {
-      // Glass doors are transparent — clear edge so rays pass through
       const s = HP.parseWallKey(d.a.k), n = d.a.dbl ? 2 : 1;
-      const arr = s.d === 'v' ? vEdge : hEdge;
+      const arr = s.d === 'v' ? v : h;
       for (let i = 0; i < n; i++) {
         const x = s.d === 'h' ? s.x + i : s.x, y = s.d === 'h' ? s.y : s.y + i;
         arr[y * (gw + 2) + x] = 0;
@@ -140,18 +140,33 @@ V.setWalls = function (walls, pivots) {
       const x = s.d === 'h' ? s.x + i : s.x, y = s.d === 'h' ? s.y : s.y + i;
       idx.push(y * (gw + 2) + x);
     }
-    doorEdges.push({ arr: s.d === 'v' ? vEdge : hEdge, idx,
+    dEdges.push({ arr: s.d === 'v' ? v : h, idx,
       fam: pivots.filter(o => o.a === d.a) });
   }
+  return { vEdge: v, hEdge: h, doorEdges: dEdges };
+}
+
+/* opaque wall edges: supports single-level dictionary or multi-level array */
+V.setWalls = function (wallsOrLevels, pivots) {
+  if (Array.isArray(wallsOrLevels)) {
+    levelWalls = wallsOrLevels.map(lvl => buildWallEdges((lvl && lvl.walls) || lvl || {}, pivots));
+  } else {
+    levelWalls = [buildWallEdges(wallsOrLevels || {}, pivots)];
+  }
+  const cur = levelWalls[0] || { vEdge: new Uint8Array((gw + 2) * (gh + 2)), hEdge: new Uint8Array((gw + 2) * (gh + 2)), doorEdges: [] };
+  vEdge = cur.vEdge; hEdge = cur.hEdge; doorEdges = cur.doorEdges;
   dirty = true;
 };
 
 function doorSig() {
   let s = '';
-  for (const e of doorEdges) {
-    const open = e.fam.some(o => o.open > 0.02);
-    s += open ? '1' : '0';
-    for (const i of e.idx) e.arr[i] = open ? 0 : 2;
+  const list = levelWalls && levelWalls.length ? levelWalls : [{ doorEdges }];
+  for (const lvl of list) {
+    for (const e of lvl.doorEdges) {
+      const open = e.fam.some(o => o.open > 0.02);
+      s += open ? '1' : '0';
+      for (const i of e.idx) e.arr[i] = open ? 0 : 2;
+    }
   }
   return s;
 }
@@ -199,19 +214,46 @@ function castRays(px, pz) {
 }
 
 V.stats = { tiles: 0, drawn: 0, total: 0, casts: 0 };
-V.update = function (px, pz, force) {
-  if (!vEdge) return;
+V.update = function (px, pz, force, camFloor) {
+  if (!vEdge && !levelWalls.length) return;
   const C = HP.CELL;
+  if (camFloor === undefined) {
+    const camY = (HP.world3d && HP.world3d.camera) ? HP.world3d.camera.position.y :
+                 ((HP.walk3d && HP.walk3d.player) ? HP.walk3d.player.feetY : 0);
+    const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+    camFloor = Math.max(0, Math.floor(((camY || 0) + 0.1) / WALL_H));
+  }
+  if (camFloor !== lastCamFloor) {
+    dirty = true;
+    lastCamFloor = camFloor;
+  }
+  const curLevel = levelWalls[camFloor] || levelWalls[0];
+  if (curLevel) {
+    vEdge = curLevel.vEdge;
+    hEdge = curLevel.hEdge;
+    doorEdges = curLevel.doorEdges;
+  }
   const cell = Math.floor(pz / C) * 4096 + Math.floor(px / C);
   const sig = doorSig();
   if (!force && !dirty && cell === lastCell && sig === lastDoorSig) return;
   lastCell = cell; lastDoorSig = sig; dirty = false;
   castRays(px, pz);
+
   V.stats.casts++;
   const G = HP.graphics3d, q = G && G.current;
   const detail = !q || q.detail, farScale = q ? q.far : 1e9;
   let drawn = 0;
   for (const e of entries) {
+    if (e.isRoof) {
+      e.obj.visible = true;
+      drawn++;
+      continue;
+    }
+    if (e.lvlIdx !== undefined && e.lvlIdx !== camFloor) {
+      e.obj.visible = true;
+      drawn++;
+      continue;
+    }
     let vis = false;
     for (const t of e.tiles) if (tileVis[t]) { vis = true; break; }
     if (vis && e.detail && !detail) vis = false;
@@ -227,8 +269,13 @@ V.visibleCell = function (cx, cz) {
   if (cx < 0 || cz < 0 || cx >= gw || cz >= gh) return true;
   return cellVis.a && cellVis.a.length === gw * gh ? !!cellVis.a[cz * gw + cx] : true;
 };
-V.hasLineOfSight = function (x0, z0, x1, z1) {
-  if (!vEdge || !hEdge) return true;
+V.hasLineOfSight = function (x0, z0, x1, z1, floor) {
+  let v = vEdge, h = hEdge;
+  if (floor !== undefined && levelWalls[floor]) {
+    v = levelWalls[floor].vEdge;
+    h = levelWalls[floor].hEdge;
+  }
+  if (!v || !h) return true;
   const C = HP.CELL;
   const sx = x0 / C, sz = z0 / C;
   const ex = x1 / C, ez = z1 / C;

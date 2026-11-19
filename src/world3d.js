@@ -144,8 +144,8 @@ function buildLampPool(n) {
   for (const l of lampPool) scene.remove(l.light);
   lampPool = [];
   for (let i = 0; i < n; i++) {
-    // Distance 110 (approx 4m / 8 cells), decay 1.2: smooth natural room falloff without harsh blown-out ceiling hotspots
-    const light = new THREE.PointLight(0xffc98a, 0, 110, 1.2);
+    // Distance 95, decay 1.0: smooth natural room falloff without blown-out ceiling hotspots
+    const light = new THREE.PointLight(0xffc98a, 0, 95, 1.0);
     light.position.set(0, -1000, 0);
     scene.add(light);
     lampPool.push({ light, src: null, target: 0 });
@@ -172,14 +172,18 @@ function assignLamps(night) {
       if (lampFloor !== camFloor) return false;
 
       // Strict line of sight check: solid walls and closed doors block light from bleeding through
-      if (V && V.hasLineOfSight && !V.hasLineOfSight(p.x, p.z, s.x, s.z)) {
+      if (V && V.hasLineOfSight && !V.hasLineOfSight(p.x, p.z, s.x, s.z, camFloor)) {
         return false;
       }
 
       if (s.room === undefined && env) {
         s.room = env.rAt(Math.floor(s.x / HP.CELL), Math.floor(s.z / HP.CELL));
       }
-      if (s.room !== undefined && s.room >= 0 && s.room === camRoom) return true;
+      if (s.room !== undefined && s.room >= 0 && camRoom >= 0 && s.room !== camRoom) {
+        if (!V || !V.hasLineOfSight || !V.hasLineOfSight(p.x, p.z, s.x, s.z, camFloor)) {
+          return false;
+        }
+      }
       return !V || V.visibleAt(s.x, s.z);
     })
     .map(s => ({ s, d: (s.x - p.x) ** 2 + (s.z - p.z) ** 2 }))
@@ -200,8 +204,20 @@ function assignLamps(night) {
     if (!L) break;
     L.src = s; L.light.intensity = 0;                     // fade in, no pop
     const bY = Math.floor((s.y || 0) / WALL_H) * WALL_H;
-    const clampedY = Math.min(s.y, bY + 48);
-    L.light.position.set(s.x, clampedY, s.z);
+    const clampedY = Math.min(s.y, bY + 30);
+    let lx = s.x, lz = s.z;
+    if (env && env.rAt) {
+      const C = HP.CELL;
+      const scx = Math.floor(s.x / C), scz = Math.floor(s.z / C);
+      const myRoom = env.rAt(scx, scz);
+      if (myRoom >= 0) {
+        const offX = s.x - (scx + 0.5) * C;
+        const offZ = s.z - (scz + 0.5) * C;
+        if (Math.abs(offX) > 4) lx -= Math.sign(offX) * 4;
+        if (Math.abs(offZ) > 4) lz -= Math.sign(offZ) * 4;
+      }
+    }
+    L.light.position.set(lx, clampedY, lz);
   }
   for (const L of lampPool) {
     if (L.src && (L.src.on === false || (L.src.it && L.src.it.on === false))) {
@@ -213,6 +229,17 @@ function assignLamps(night) {
     }
   }
 }
+W3.turnOffLamp = function (lampOrItem) {
+  const id = lampOrItem.id !== undefined ? lampOrItem.id : (lampOrItem.it ? lampOrItem.it.id : null);
+  for (const L of lampPool) {
+    if (L.src === lampOrItem || L.src === lampOrItem.src || (id !== null && L.src && L.src.id === id)) {
+      L.src = null;
+      L.target = 0;
+      L.light.intensity = 0;
+      L.light.position.set(0, -1000, 0);
+    }
+  }
+};
 W3.syncLamps = function () {
   const night = HP.sky3d ? HP.sky3d.sample(TIME.hour).night : 1;
   for (const L of lampPool) {
@@ -1307,7 +1334,7 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
 }
 
 /* ---------- authentic 3D fences & boundaries ---------- */
-function buildFences3D(fences, walls, sg, C, V, baseY = 0) {
+function buildFences3D(fences, walls, sg, C, V, baseY = 0, lvlIdx = 0) {
   if (!fences) return;
   const activeSegs = [];
   const postMap = new Map();
@@ -1588,7 +1615,7 @@ function buildFences3D(fences, walls, sg, C, V, baseY = 0) {
   // 4. Batch commit to scene via V.instanced (culling + chunking)
   for (const batch of fenceBatches.values()) {
     if (!batch.parts.length) continue;
-    V.instanced(sg, batch.geo, batch.mat, batch.parts, { cast: batch.cast, receive: true, detail: batch.detail });
+    V.instanced(sg, batch.geo, batch.mat, batch.parts, { cast: batch.cast, receive: true, detail: batch.detail, lvlIdx });
   }
 }
 
@@ -1988,7 +2015,7 @@ W3.buildLevel = function () {
       const parts = wallPartsByMat[st];
       if (!parts || !parts.length) continue;
       const mat = getWallMat(st);
-      V.instanced(sg, unitBox(), mat, parts, { cast: st !== 'glass', receive: true });
+      V.instanced(sg, unitBox(), mat, parts, { cast: st !== 'glass', receive: true, lvlIdx: lIdx });
       if (st === 'glass' && HP.graphics3d) {
         const frameMat = HP.graphics3d.material('metal', '#1e2023');
         const channelParts = [];
@@ -1997,7 +2024,7 @@ W3.buildLevel = function () {
           const bTop = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY + 72.2, y1: bY + 74 };
           channelParts.push(boxPart(bBot, '#1e2023'), boxPart(bTop, '#1e2023'));
         }
-        V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true });
+        V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true, lvlIdx: lIdx });
       }
     }
 
@@ -2011,10 +2038,10 @@ W3.buildLevel = function () {
           { x0: b.x1 - 0.01, x1: b.x1 + 0.25, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
       }
       V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
-        V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true });
+        V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true, lvlIdx: lIdx });
     }
 
-    buildFences3D(curLvl.fences, curLvl.walls, sg, C, V, bY);
+    buildFences3D(curLvl.fences, curLvl.walls, sg, C, V, bY, lIdx);
 
     if (geo.windows.length) {
       for (const opening of geo.windows) {
@@ -2178,8 +2205,7 @@ W3.buildLevel = function () {
       dp.vel = prev.vel;
     }
   }
-  const curLevelIdx = (HP.state && HP.state.level) || 0;
-  V.setWalls((allLevels[curLevelIdx] || HP.cur()).walls, doorPivots);
+  V.setWalls(allLevels, doorPivots);
 
   W3.staticColliders = allStaticColliders;
   W3.staticLamps = [];
@@ -2344,7 +2370,7 @@ function buildFurnitureLamps(ctx) {
   const seenPos = new Set();
   const getRoom = (wx, wz) => (env && env.rAt ? env.rAt(Math.floor(wx / C), Math.floor(wz / C)) : -1);
   for (const it of items) {
-    if (!/lamp|torch|candle|fireplace|lantern|light|sconce/i.test(it.type)) continue;
+    if (!/lamp|torch|candle|lantern|light|sconce/i.test(it.type) || /fireplace/i.test(it.type)) continue;
     const posKey = it.type + '@' + it.x + ',' + it.y;
     if (seenPos.has(posKey)) continue;
     seenPos.add(posKey);
@@ -3022,7 +3048,10 @@ W3.updateApertures = function () {
     }
   }
 
-  if (HP.cull3d) HP.cull3d.setWalls(lvl.walls, W3.doorPivots);
+  if (HP.cull3d) {
+    const all = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [lvl];
+    HP.cull3d.setWalls(all, W3.doorPivots);
+  }
 };
 
 function cellPart(c, y) {
@@ -3062,10 +3091,12 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
     if (!floorGroups.has(cell.id)) floorGroups.set(cell.id, []);
     floorGroups.get(cell.id).push(cell);
   }
+  const floorH = baseY + (baseY === 0 ? 0.02 : 0.05);
+  const curLvlIdx = Math.max(0, Math.round(baseY / 74));
   for (const [id, list] of floorGroups) {
     const material = HP.graphics3d ? HP.graphics3d.floorMaterial(id) :
       new THREE.MeshLambertMaterial({ color: floorColor(id) });
-    V.instanced(targetGroup, floorQuad(), material, list.map(c => cellPart(c, baseY)), { receive: true });
+    V.instanced(targetGroup, floorQuad(), material, list.map(c => cellPart(c, floorH)), { receive: true, lvlIdx: curLvlIdx, isFloor: true });
   }
   if (baseY > 0 && W3.elevatedDecks) {
     for (const c of cells) {
@@ -3084,7 +3115,7 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
     if (it.interior && it.interior.customized) {
       const inLvl = it.interior;
       const isTH = it.type === 'treehouse';
-      const floorH = baseY + (isTH ? 54.1 : 0.05);
+      const interiorFloorH = baseY + (isTH ? 54.1 : 0.05);
       const ox = inLvl.ox !== undefined ? inLvl.ox : 2;
       const oy = inLvl.oy !== undefined ? inLvl.oy : 2;
       const rw = inLvl.rw || (inLvl.w - ox * 2);
@@ -3103,17 +3134,17 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
           if (!matId) continue;
           const wCoord = HP.interiorCellToWorld ? HP.interiorCellToWorld(it, ix, iy) : null;
           if (!wCoord) continue;
-          const groupKey = matId + '@' + floorH;
-          if (!interiorFloorGroups.has(groupKey)) interiorFloorGroups.set(groupKey, { matId, floorH, cells: [] });
+          const groupKey = matId + '@' + interiorFloorH;
+          if (!interiorFloorGroups.has(groupKey)) interiorFloorGroups.set(groupKey, { matId, floorH: interiorFloorH, cells: [] });
           interiorFloorGroups.get(groupKey).cells.push(wCoord);
         }
       }
     }
   }
-  for (const [key, { matId, floorH, cells: iCells }] of interiorFloorGroups) {
+  for (const [key, { matId, floorH: iH, cells: iCells }] of interiorFloorGroups) {
     const material = HP.graphics3d ? HP.graphics3d.floorMaterial(matId) :
       new THREE.MeshLambertMaterial({ color: floorColor(matId) });
-    V.instanced(targetGroup, floorQuad(), material, iCells.map(c => cellPart(c, floorH)), { receive: true });
+    V.instanced(targetGroup, floorQuad(), material, iCells.map(c => cellPart(c, iH)), { receive: true, lvlIdx: curLvlIdx, isFloor: true });
   }
   return cells;
 };
@@ -3122,7 +3153,8 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   const C = HP.CELL, V = HP.cull3d;
   const gw = HP.GRID_W, gh = HP.GRID_H;
   const { regionOf } = HP.computeRegions(lvl);
-  const ceilY = baseY + (HP.geom3d ? HP.geom3d.WALL_H : 74);
+  const WALL_H = (HP.geom3d ? HP.geom3d.WALL_H : 74);
+  const ceilY = baseY + WALL_H - 0.2;
   const ceilCells = [];
 
   lvl = lvl || {};
@@ -3193,17 +3225,59 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   for (const [key, { style, color, cells }] of byStyle) {
     const ceilMat = HP.graphics3d
       ? HP.graphics3d.ceilingMaterial(style, color)
-      : new THREE.MeshLambertMaterial({ color: color || 0xf3ecdc, side: THREE.DoubleSide });
+      : new THREE.MeshLambertMaterial({ color: color || 0xf3ecdc, side: THREE.FrontSide });
 
     if (style !== 'pergola') {
       // Interior ceiling: cast shadow to seal sunlight, no receiveShadow to eliminate shadow acne
-      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => cellPart(c, ceilY)), { cast: true, receive: false });
+      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => cellPart(c, ceilY)), { cast: true, receive: false, lvlIdx, isCeil: true });
 
       // Roof plane: ONLY for cells that do NOT have a second/higher floor stacked directly above them!
       if (style !== 'glass') {
         const roofCells = cells.filter(c => !hasFloorAbove(c.x, c.y));
         if (roofCells.length > 0) {
-          V.instanced(targetGroup, floorQuad(), roofMat, roofCells.map(c => cellPart(c, ceilY)), { cast: true, receive: true });
+          V.instanced(targetGroup, floorQuad(), roofMat, roofCells.map(c => cellPart(c, ceilY + 0.3)), { cast: true, receive: true, lvlIdx, isRoof: true });
+        }
+      }
+    }
+
+    // Outdoor canopy support posts down to floor where there are no walls
+    const isOutdoorStyle = /pergola|porch|glass|metal|sail/i.test(style);
+    const outdoorCells = cells.filter(c => !c.isInterior);
+    if (isOutdoorStyle && outdoorCells.length > 0) {
+      const outSet = new Set(outdoorCells.map(c => c.x + ',' + c.y));
+      const postCoords = new Set();
+      for (const c of outdoorCells) {
+        const corners = [
+          [c.x, c.y], [c.x + 1, c.y], [c.x, c.y + 1], [c.x + 1, c.y + 1]
+        ];
+        for (const [px, py] of corners) {
+          let cnt = 0;
+          if (outSet.has((px - 1) + ',' + (py - 1))) cnt++;
+          if (outSet.has(px + ',' + (py - 1))) cnt++;
+          if (outSet.has((px - 1) + ',' + py)) cnt++;
+          if (outSet.has(px + ',' + py)) cnt++;
+          if (cnt === 1) postCoords.add(px + ',' + py);
+        }
+      }
+      const postH = ceilY - baseY;
+      if (postCoords.size > 0 && postH > 10) {
+        const postMat = HP.graphics3d
+          ? (/glass|metal/i.test(style) ? HP.graphics3d.material('metal', '#181b1e') : HP.graphics3d.material('wood', color || '#5a3d28'))
+          : new THREE.MeshLambertMaterial({ color: 0x4a3525 });
+        postMat.userData.shared3d = true;
+        const postParts = [];
+        const pw = 2.0;
+        for (const pk of postCoords) {
+          const [px, py] = pk.split(',').map(Number);
+          const hasWall = lvl.walls && (lvl.walls['h,' + px + ',' + py] || lvl.walls['v,' + px + ',' + py] ||
+                                        lvl.walls['h,' + (px - 1) + ',' + py] || lvl.walls['v,' + px + ',' + (py - 1)]);
+          if (hasWall) continue;
+          const wx = px * C, wz = py * C;
+          const boxDef = { x0: wx - pw / 2, x1: wx + pw / 2, z0: wz - pw / 2, z1: wz + pw / 2, y0: baseY, y1: ceilY };
+          postParts.push(boxPart(boxDef, color || '#5a3d28'));
+        }
+        if (postParts.length) {
+          V.instanced(targetGroup, unitBox(), postMat, postParts, { cast: true, receive: true, lvlIdx });
         }
       }
     }
@@ -3223,7 +3297,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           { m: new THREE.Matrix4().makeScale(2.4, 2.2, C - 4.8).setPosition(cx + C / 2 - 1.2, ceilY - 1.1, cz), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
         );
       }
-      V.instanced(targetGroup, unitBox(), beamMat, beamParts, { cast: true, receive: false });
+      V.instanced(targetGroup, unitBox(), beamMat, beamParts, { cast: true, receive: false, lvlIdx });
     } else if (style === 'beams') {
       const timberMat = HP.graphics3d
         ? HP.graphics3d.material('wood', color || '#583e29')
@@ -3237,7 +3311,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C
         });
       }
-      V.instanced(targetGroup, unitBox(), timberMat, timberParts, { cast: true, receive: false });
+      V.instanced(targetGroup, unitBox(), timberMat, timberParts, { cast: true, receive: false, lvlIdx });
     } else if (style === 'wood') {
       const battenMat = HP.graphics3d
         ? HP.graphics3d.material('wood', color || '#b88958')
@@ -3253,7 +3327,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           });
         }
       }
-      V.instanced(targetGroup, unitBox(), battenMat, battenParts, { cast: false, receive: false });
+      V.instanced(targetGroup, unitBox(), battenMat, battenParts, { cast: false, receive: false, lvlIdx });
     } else if (style === 'pergola') {
       const pergolaMat = HP.graphics3d
         ? HP.graphics3d.material('wood', color || '#8c5835')
@@ -3274,7 +3348,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           });
         }
       }
-      V.instanced(targetGroup, unitBox(), pergolaMat, slatParts, { cast: true, receive: false });
+      V.instanced(targetGroup, unitBox(), pergolaMat, slatParts, { cast: true, receive: false, lvlIdx });
     } else if (style === 'porch') {
       const fasciaMat = HP.graphics3d
         ? HP.graphics3d.material('wood', color || '#f8fafc')
@@ -3288,7 +3362,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           { m: new THREE.Matrix4().makeScale(C, 2.8, 1.8).setPosition(cx, ceilY - 1.4, cz + C / 2 - 0.9), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
         );
       }
-      V.instanced(targetGroup, unitBox(), fasciaMat, fasciaParts, { cast: true, receive: false });
+      V.instanced(targetGroup, unitBox(), fasciaMat, fasciaParts, { cast: true, receive: false, lvlIdx });
     } else if (style === 'glass') {
       const frameMat = HP.graphics3d
         ? HP.graphics3d.material('metal', '#1e2023')
@@ -3302,7 +3376,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           { m: new THREE.Matrix4().makeScale(1.4, 1.4, C).setPosition(cx, ceilY, cz), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
         );
       }
-      V.instanced(targetGroup, unitBox(), frameMat, mullionParts, { cast: true, receive: false });
+      V.instanced(targetGroup, unitBox(), frameMat, mullionParts, { cast: true, receive: false, lvlIdx });
     }
   }
 };

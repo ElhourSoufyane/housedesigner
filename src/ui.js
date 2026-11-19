@@ -195,11 +195,91 @@ function roomSegCounts(r) {
   return { walls, doors, wins };
 }
 
+function outdoorUI(cx, cy) {
+  const top = $('#insp-top');
+  top.innerHTML = '';
+  const curLvl = HP.cur();
+  curLvl.ceilings = curLvl.ceilings || {};
+  const cellKey = HP.cellKey(cx, cy);
+  const cellCeil = curLvl.ceilings[cellKey] || {};
+  let curCeilStyle = (typeof cellCeil === 'string' ? cellCeil : (cellCeil.style || 'none')).toLowerCase();
+  let curCeilColor = typeof cellCeil === 'object' ? (cellCeil.color || '') : '';
+  const cellFloor = (curLvl.floors && curLvl.floors[cellKey]) || null;
+
+  $('#edit-title').textContent = 'Outdoor Patio & Canopy';
+  const s = document.createElement('div');
+  s.className = 'insp-section';
+  s.innerHTML = `
+    <div class="field"><label>Location</label>
+      <div style="font-size:12px;color:var(--text-sub)">Cell (${cx}, ${cy})${cellFloor ? ' · ' + cellFloor : ''}</div>
+    </div>
+    <div class="field"><label>Outdoor Flooring — click to apply</label><div class="fam-list" id="room-sw"></div></div>
+    <div class="field"><label>Outdoor Canopy / Ceiling Style</label>
+      <div class="seg wrap" id="outdoor-ceil-style-seg">
+        <button class="seg-btn ${curCeilStyle === 'none' ? 'on' : ''}" data-style="none">Open Sky (None)</button>
+        <button class="seg-btn ${curCeilStyle === 'pergola' ? 'on' : ''}" data-style="pergola">Pergola</button>
+        <button class="seg-btn ${curCeilStyle === 'porch' ? 'on' : ''}" data-style="porch">Porch Soffit</button>
+        <button class="seg-btn ${curCeilStyle === 'glass' ? 'on' : ''}" data-style="glass">Glass Canopy</button>
+        <button class="seg-btn ${curCeilStyle === 'metal' ? 'on' : ''}" data-style="metal">Metal Awning</button>
+        <button class="seg-btn ${curCeilStyle === 'sail' ? 'on' : ''}" data-style="sail">Sun Sail</button>
+        <button class="seg-btn ${curCeilStyle === 'wood' ? 'on' : ''}" data-style="wood">Wood Beams</button>
+      </div>
+    </div>
+    <div class="field"><label>Canopy Paint / Finish — click to apply</label><div class="swatches" id="room-ceil-sw"></div></div>
+  `;
+  top.appendChild(s);
+
+  // Hook up outdoor flooring picker:
+  familyList($('#room-sw'), cellFloor, fam => {
+    HP.pushUndo();
+    curLvl.floors = curLvl.floors || {};
+    curLvl.floors[cellKey] = fam;
+    if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
+    HP.saveState(); HP.markDirty();
+    outdoorUI(cx, cy);
+    HP.status('Outdoor flooring set to ' + fam);
+  });
+
+  // Hook up outdoor canopy style seg:
+  s.querySelectorAll('#outdoor-ceil-style-seg .seg-btn').forEach(b => {
+    b.onclick = () => {
+      HP.pushUndo();
+      const st = b.dataset.style;
+      if (st === 'none') {
+        delete curLvl.ceilings[cellKey];
+      } else {
+        curLvl.ceilings[cellKey] = { style: st, color: curCeilColor || null };
+      }
+      HP.saveState(); HP.markDirty();
+      if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+      outdoorUI(cx, cy);
+      HP.status('Canopy style set to ' + st);
+    };
+  });
+
+  // Hook up outdoor canopy swatches:
+  ceilingSwatches($('#room-ceil-sw'), curCeilColor, col => {
+    HP.pushUndo();
+    if (curCeilStyle === 'none') curCeilStyle = 'pergola';
+    curLvl.ceilings[cellKey] = { style: curCeilStyle, color: col };
+    HP.saveState(); HP.markDirty();
+    if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+    outdoorUI(cx, cy);
+    HP.status(col ? 'Canopy painted: ' + col : 'Canopy color reset');
+  });
+}
+
 function roomUI() {
   const top = $('#insp-top');
   const r = HP.regionAt(HP.selectedRoom.cx, HP.selectedRoom.cy);
   top.innerHTML = '';
-  if (!r) { HP.selectedRoom = null; projectUI(); return; }
+  if (!r) {
+    if (HP.selectedRoom && HP.selectedRoom.cx !== undefined && HP.selectedRoom.cy !== undefined) {
+      outdoorUI(HP.selectedRoom.cx, HP.selectedRoom.cy);
+      return;
+    }
+    HP.selectedRoom = null; projectUI(); return;
+  }
   const cnt = roomSegCounts(r);
   const s = document.createElement('div');
   s.className = 'insp-section';

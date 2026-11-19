@@ -21,7 +21,7 @@ window.HP = window.HP || {};
   const RAIN_COUNT = 2200;
   const SNOW_COUNT = 1600;
   const WRAP_RADIUS = 380;
-  const HEIGHT_SPAN = 160;
+  const HEIGHT_SPAN = 280;
 
   /* Soft procedural circular alpha texture for snowflakes */
   function makeSnowTexture() {
@@ -272,12 +272,12 @@ window.HP = window.HP || {};
       const gw = (HP && HP.GRID_W) || 64, gh = (HP && HP.GRID_H) || 64;
       const rcx = Math.floor(x / C), rcz = Math.floor(z / C);
       if (rcx >= 0 && rcz >= 0 && rcx < gw && rcz < gh) {
-        if (HP.world3d && HP.world3d.roofHeights) {
+        if (HP.world3d && HP.world3d.roofHeights && HP.world3d.roofHeights[rcz * gw + rcx] > 0) {
           return HP.world3d.roofHeights[rcz * gw + rcx];
         }
         if (HP.computeRegions) {
           const cr = HP.computeRegions();
-          if (cr && cr.regionOf && cr.regionOf[rcz * gw + rcx] >= 0) return 74;
+          if (cr && cr.regionOf && cr.regionOf[rcz * gw + rcx] >= 0) return 73.8;
         }
       }
       return -2;

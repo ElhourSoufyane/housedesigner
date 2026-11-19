@@ -231,8 +231,9 @@ function addFire(cx, cz, rot, dep, h) {
                    cz + oz - (i - 1) * 1.6 * Math.sin(a));
     group.add(c); cones.push(c);
   }
-  const light = new THREE.PointLight(0xff8a3d, 1.2, 190, 2);
-  light.position.set(cx + ox, fy + 6, cz + oz);
+  // Calibrated warm hearth light: distance 70, decay 1.5, offset forward into room so light doesn't penetrate rear wall
+  const light = new THREE.PointLight(0xff8a3d, 0.75, 70, 1.5);
+  light.position.set(cx + Math.sin(a) * dep * 0.35, fy + 6, cz + Math.cos(a) * dep * 0.35);
   group.add(light);
   const f = { cones, light, on: true, x: cx, z: cz };
   fires.push(f);
@@ -613,7 +614,7 @@ L.tick = function (dt, t, s, cam) {
     if (f.tail) f.tail.rotation.y = Math.sin(t * 9 * f.sp + f.ph) * 0.45;
   }
   for (const f of fires) {
-    f.light.intensity = f.on ? 0.9 + Math.sin(t * 11 + f.x) * 0.25 + Math.sin(t * 23) * 0.15 : 0;
+    f.light.intensity = f.on ? 0.65 + Math.sin(t * 11 + f.x) * 0.15 + Math.sin(t * 23) * 0.08 : 0;
     for (let i = 0; i < f.cones.length; i++) {
       const c = f.cones[i];
       c.visible = f.on;
@@ -705,6 +706,7 @@ L.toggle = function (g2) {
         if (lb.it) lb.it.on = r.on;
       }
     }
+    if (!r.on && HP.world3d && HP.world3d.turnOffLamp) HP.world3d.turnOffLamp(r);
     if (HP.world3d && HP.world3d.syncLamps) HP.world3d.syncLamps();
   } else if (g2.kind === 'tv') {
     if (!r.on && r.mat) r.mat.color.set(0x08090b);
