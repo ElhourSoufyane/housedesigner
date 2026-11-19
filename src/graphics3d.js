@@ -1186,6 +1186,8 @@ G.setFloorStyle = function (val) {
   if (HP.world3d && HP.world3d.updateFloors) HP.world3d.updateFloors();
   const sel = document.getElementById('floor-style');
   if (sel && sel.value !== floorStyle) sel.value = floorStyle;
+  const uiSel = document.getElementById('ui-floor-style');
+  if (uiSel && uiSel.value !== floorStyle) uiSel.value = floorStyle;
 };
 
 G.floorMaterial = function (id) {

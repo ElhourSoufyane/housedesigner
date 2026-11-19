@@ -410,6 +410,25 @@ function settingsUI() {
       HP.state.photoFloors = !(HP.state.photoFloors !== false);
       HP.invalidateRegions(); HP.saveState(); settingsUI();
     });
+
+  const fStyle = document.createElement('div'); fStyle.className = 'field';
+  const curFloorStyle = (HP.graphics3d && HP.graphics3d.getFloorStyle) ? HP.graphics3d.getFloorStyle() : (localStorage.getItem('hp_floor_style') || '3d');
+  fStyle.innerHTML = `
+    <label>Floor material style</label>
+    <select id="ui-floor-style" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:12px">
+      <option value="3d"${curFloorStyle === '3d' ? ' selected' : ''}>✨ 3D Relief (Beveled Pavers & Planks)</option>
+      <option value="photo"${curFloorStyle === 'photo' ? ' selected' : ''}>📷 Photographic (Smooth Slabs)</option>
+    </select>
+  `;
+  const fStyleSel = fStyle.querySelector('#ui-floor-style');
+  fStyleSel.onchange = () => {
+    if (HP.graphics3d && HP.graphics3d.setFloorStyle) {
+      HP.graphics3d.setFloorStyle(fStyleSel.value);
+    } else {
+      try { localStorage.setItem('hp_floor_style', fStyleSel.value); } catch (_) {}
+    }
+  };
+  s.appendChild(fStyle);
   if (HP.state.level > 0)
     mkTog('Ghost of floor below', HP.showUnderlay !== false,
       () => { HP.showUnderlay = HP.showUnderlay === false; HP.invalidateRegions(); HP.saveState(); });
