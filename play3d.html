@@ -103,6 +103,10 @@
       <span class="lbl">Editor</span>
     </button>
     <button class="hud-pill" id="btn-showroom" style="display:none"></button>
+    <button class="hud-pill" id="btn-floors-showroom" onclick="location.href=location.search.includes('floors')?'play3d.html':'play3d.html?showroom=floors'" title="Floor Materials Exhibition">
+      <span class="icon">🏛️</span>
+      <span class="lbl">Floor Gallery</span>
+    </button>
     <button class="hud-pill" id="btn-coop" onclick="HP.sync3d && HP.sync3d.toggleModal()" title="Multiplayer Co-op">
       <span class="icon">👥</span>
       <span class="lbl">Online</span>
@@ -262,21 +266,29 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
   }
   const isShowroom = !isGitHub && location.search.includes('showroom');
   const isFixed = isShowroom && location.search.includes('fixed');
-  const urlMatch = location.search.match(/batch(\d+)/i) || (!isFixed && location.search.match(/showroom=(\d+)/i));
+  const isFloors = isShowroom && location.search.includes('floors');
+  const urlMatch = location.search.match(/batch(\d+)/i) || (!isFixed && !isFloors && location.search.match(/showroom=(\d+)/i));
   let showroomBatch = urlMatch ? Math.max(1, Math.min(42, parseInt(urlMatch[1], 10))) : 1;
   const isBatch = isShowroom && !!urlMatch;
-  const isAll = isShowroom && !isFixed && !isBatch;
+  const isAll = isShowroom && !isFixed && !isBatch && !isFloors;
 
   let spawn = { x: HP.GRID_W * HP.CELL / 2, y: HP.GRID_H * HP.CELL / 2, yaw: Math.PI };
   const btnShowroom = document.getElementById('btn-showroom');
   if (btnShowroom) {
     if (isGitHub) {
       btnShowroom.style.display = 'none';
+      const bFl = document.getElementById('btn-floors-showroom');
+      if (bFl) bFl.style.display = 'none';
     } else {
       btnShowroom.textContent = isShowroom ? '🏠 My House' : '✨ 3D Showroom';
       btnShowroom.onclick = () => {
         location.href = isShowroom ? 'play3d.html' : 'play3d.html?showroom=all';
       };
+      const bFl = document.getElementById('btn-floors-showroom');
+      if (bFl && isFloors) {
+        bFl.style.background = '#2563eb';
+        bFl.style.borderColor = '#60a5fa';
+      }
     }
   }
 
