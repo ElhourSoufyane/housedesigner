@@ -40,6 +40,7 @@ test-*.png
 !ios/**/*.png
 
 # ---- dev junk / OS accidents ----
+scratch/
 NUL
 nul
 false

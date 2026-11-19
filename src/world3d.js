@@ -1615,7 +1615,7 @@ W3.buildLevel = function () {
   g.add(fg);
   doorPivots = W3.doorPivots = [];
   W3.garageDoors = [];
-  const C = HP.CELL, lvl = HP.cur(), V = HP.cull3d;
+  const C = HP.CELL, V = HP.cull3d;
   V.reset();
   const m4 = new THREE.Matrix4(), col = new THREE.Color();
   /* axis-aligned box → culler part (matrix + footprint)              */
@@ -1625,10 +1625,6 @@ W3.buildLevel = function () {
     return { m, c, x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 };
   };
 
-  /* ---- walls: split at tile lines so long runs cull piecewise,
-     and slice painted segments/sides so each room face gets its colour */
-  const env = geomEnv();
-  const geo = W3.geom = HP.geom3d.build(lvl.walls, env);
   const getWallMat = (style) => {
     W3._wallMats = W3._wallMats || {};
     const s = style || 'plaster';
@@ -1652,119 +1648,70 @@ W3.buildLevel = function () {
     if (style === 'glass') return '#cde5eb';
     return ext ? '#e9e2d2' : '#f4efe4';
   };
-  const wallPartsByMat = {};
-  const addWallPart = (style, part) => {
-    const s = style || 'plaster';
-    (wallPartsByMat[s] = wallPartsByMat[s] || []).push(part);
-  };
-  for (const b of V.splitBoxes(geo.boxes)) {
-    if (b.tag === 'fence') {
-      continue; // Fences are built with authentic architectural 3D models via buildFences3D below
-    }
-    const defC = b.ext ? '#e9e2d2' : '#f4efe4';
-    if (b.tag === 'wall' && b.line !== undefined) {
-      const isH = b.d === 'h';
-      const u0 = isH ? b.x0 : b.z0, u1 = isH ? b.x1 : b.z1;
-      const cuts = [u0];
-      for (let u = (Math.floor(u0 / C) + 1) * C; u < u1 - 0.5; u += C)
-        if (u > u0 + 0.5) cuts.push(u);
-      cuts.push(u1);
-      for (let i = 0; i + 1 < cuts.length; i++) {
-        const s0 = cuts[i], s1 = cuts[i + 1];
-        const ci = Math.floor(((s0 + s1) / 2) / C);
-        const w = lvl.walls[b.d + ',' + (isH ? ci : b.line) + ',' + (isH ? b.line : ci)];
-        let st = (w && w.style);
-        let ca = w && w.ca, cb = w && w.cb;
-        if (w && (w.f === 'door' || w.f === 'window')) {
-          const wPrev = lvl.walls[b.d + ',' + (isH ? (ci - 1) : b.line) + ',' + (isH ? b.line : (ci - 1))];
-          const wNext = lvl.walls[b.d + ',' + (isH ? (ci + 1) : b.line) + ',' + (isH ? b.line : (ci + 1))];
-          if (!st) st = (wPrev && wPrev.style) || (wNext && wNext.style);
-          if (!ca) ca = (wPrev && wPrev.ca) || (wNext && wNext.ca);
-          if (!cb) cb = (wPrev && wPrev.cb) || (wNext && wNext.cb);
-        }
-        st = st || 'plaster';
-        const sDefC = styleDefaultCol(st, b.ext);
-        ca = ca || sDefC;
-        cb = cb || sDefC;
-        const sb = isH ? { ...b, x0: s0, x1: s1 } : { ...b, z0: s0, z1: s1 };
-        if (ca === cb) {
-          addWallPart(st, boxPart(sb, ca));
-        } else if (isH) {
-          const zm = (sb.z0 + sb.z1) / 2;
-          addWallPart(st, boxPart({ ...sb, z1: zm }, ca));
-          addWallPart(st, boxPart({ ...sb, z0: zm }, cb));
-        } else {
-          const xm = (sb.x0 + sb.x1) / 2;
-          addWallPart(st, boxPart({ ...sb, x1: xm }, ca));
-          addWallPart(st, boxPart({ ...sb, x0: xm }, cb));
+
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  W3.roofHeights = new Float32Array(HP.GRID_W * HP.GRID_H);
+
+  /* ---- precompute stairs and openings across all levels ---- */
+  const stairCeilingOpenings = allLevels.map(() => new Set());
+  const stairFloorOpenings = allLevels.map(() => new Set());
+  const stairClimbs = [];
+
+  allLevels.forEach((curLvl, lIdx) => {
+    const bY = lIdx * WALL_H;
+    const targetY = (lIdx + 1) * WALL_H;
+    for (const it of (curLvl.furniture || [])) {
+      if (!HP.itemDef(it.type) || !/stairs/i.test(it.type)) continue;
+      const f = HP.footprint(it);
+      for (let fy = f.y; fy < f.y + f.h; fy++) {
+        for (let fx = f.x; fx < f.x + f.w; fx++) {
+          const k = fx + ',' + fy;
+          stairCeilingOpenings[lIdx].add(k);
+          if (lIdx + 1 < allLevels.length) {
+            stairFloorOpenings[lIdx + 1].add(k);
+          }
         }
       }
-      continue;
-    }
-    if (b.tag === 'corner' && b.vx !== undefined) {
-      const hL = lvl.walls['h,' + (b.vx - 1) + ',' + b.vy];
-      const hR = lvl.walls['h,' + b.vx + ',' + b.vy];
-      const vT = lvl.walls['v,' + b.vx + ',' + (b.vy - 1)];
-      const vB = lvl.walls['v,' + b.vx + ',' + b.vy];
-      const st = (hL && hL.style) || (hR && hR.style) || (vT && vT.style) || (vB && vB.style) || 'plaster';
-      const sDefC = styleDefaultCol(st, b.ext);
-      const cNW = (hL && hL.ca) || (vT && vT.ca) || sDefC;
-      const cNE = (hR && hR.ca) || (vT && vT.cb) || sDefC;
-      const cSW = (hL && hL.cb) || (vB && vB.ca) || sDefC;
-      const cSE = (hR && hR.cb) || (vB && vB.cb) || sDefC;
-      if (cNW === cNE && cNW === cSW && cNW === cSE) {
-        addWallPart(st, boxPart(b, cNW));
-      } else {
-        const xm = (b.x0 + b.x1) / 2, zm = (b.z0 + b.z1) / 2;
-        addWallPart(st, boxPart({ ...b, x1: xm, z1: zm }, cNW));
-        addWallPart(st, boxPart({ ...b, x0: xm, z1: zm }, cNE));
-        addWallPart(st, boxPart({ ...b, x1: xm, z0: zm }, cSW));
-        addWallPart(st, boxPart({ ...b, x0: xm, z0: zm }, cSE));
+      const rot = (it.rot || 0) % 4;
+      const x0 = f.x * C, x1 = (f.x + f.w) * C;
+      const z0 = f.y * C, z1 = (f.y + f.h) * C;
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      let ax = 'z', dir = 1, from = z0, run = z1 - z0;
+      let groundSpot = { x: cx, z: z0 - 10 };
+      let deckSpot = { x: cx, z: z1 + 10 };
+      if (rot === 0) {
+        ax = 'z'; dir = 1; from = z0; run = z1 - z0;
+        groundSpot = { x: cx, z: z0 - 10 };
+        deckSpot = { x: cx, z: z1 + 10 };
+      } else if (rot === 2) {
+        ax = 'z'; dir = -1; from = z1; run = z1 - z0;
+        groundSpot = { x: cx, z: z1 + 10 };
+        deckSpot = { x: cx, z: z0 - 10 };
+      } else if (rot === 1) {
+        ax = 'x'; dir = 1; from = x0; run = x1 - x0;
+        groundSpot = { x: x0 - 10, z: cz };
+        deckSpot = { x: x1 + 10, z: cz };
+      } else if (rot === 3) {
+        ax = 'x'; dir = -1; from = x1; run = x1 - x0;
+        groundSpot = { x: x1 + 10, z: cz };
+        deckSpot = { x: x0 - 10, z: cz };
       }
-      continue;
+      stairClimbs.push({
+        x0: Math.min(x0, x1), x1: Math.max(x0, x1),
+        z0: Math.min(z0, z1), z1: Math.max(z0, z1),
+        y0: bY, y1: targetY,
+        ax, dir, from, run: Math.max(1, run),
+        groundSpot, deckSpot,
+        labelUp: `Go up to Floor ${lIdx + 2}`,
+        labelDown: `Go down to Floor ${lIdx + 1}`
+      });
     }
-    addWallPart('plaster', boxPart(b, defC));
-  }
-  for (const st in wallPartsByMat) {
-    const parts = wallPartsByMat[st];
-    if (!parts || !parts.length) continue;
-    const mat = getWallMat(st);
-    V.instanced(sg, unitBox(), mat, parts, { cast: st !== 'glass', receive: true });
-    // For glass curtain walls, add extruded architectural aluminum top/bottom glazing channels
-    if (st === 'glass' && HP.graphics3d) {
-      const frameMat = HP.graphics3d.material('metal', '#1e2023');
-      const channelParts = [];
-      for (const p of parts) {
-        // Base channel at y=0..1.8
-        const bBot = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: 0, y1: 1.8 };
-        // Header channel at y=72.2..74
-        const bTop = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: 72.2, y1: 74 };
-        channelParts.push(boxPart(bBot, '#1e2023'), boxPart(bTop, '#1e2023'));
-      }
-      V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true });
-    }
-  }
-  if (HP.graphics3d) {
-    // Trim follows the actual solid wall faces; never spans a doorway.
-    const rails = [];
-    for (const b of geo.boxes) {
-      if (b.tag === 'fence' || b.y0 > 0 || b.y1 < 10) continue;
-      rails.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.25, z1: b.z0 + 0.01, y0: 0, y1: 2.2 },
-        { x0: b.x0, x1: b.x1, z0: b.z1 - 0.01, z1: b.z1 + 0.25, y0: 0, y1: 2.2 },
-        { x0: b.x0 - 0.25, x1: b.x0 + 0.01, z0: b.z0, z1: b.z1, y0: 0, y1: 2.2 },
-        { x0: b.x1 - 0.01, x1: b.x1 + 0.25, z0: b.z0, z1: b.z1, y0: 0, y1: 2.2 });
-    }
-    V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
-      V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true });
-  }
+  });
 
-  /* ---- fences: authentic architectural 3D models matching each preview type ---- */
-  buildFences3D(lvl.fences, lvl.walls, sg, C, V);
-
-  /* ---- pools: recessed basins carved 1m into the ground. Collected
-     before floors/ground so both leave the hole open; walk3d wades   */
+  /* ---- pools: recessed basins carved 1m into the ground (ground level 0) ---- */
   const pools = W3.pools = [];
-  for (const it of lvl.furniture || []) {
+  for (const it of (allLevels[0] && allLevels[0].furniture) || []) {
     if (!HP.itemDef(it.type) || !/pool$|pond/i.test(it.type)) continue;
     const f = HP.footprint(it);
     pools.push({
@@ -1772,8 +1719,6 @@ W3.buildLevel = function () {
       round: /round|circle|ellipse|oval/i.test(it.type),
     });
   }
-  const inPool = (x0, z0, x1, z1) =>
-    pools.some(p => x1 > p.x0 && x0 < p.x1 && z1 > p.z0 && z0 < p.z1);
   W3.waterAreas = pools.map(p => ({
     x0: p.x0 + 3, z0: p.z0 + 3, x1: p.x1 - 3, z1: p.z1 - 3,
     floorY: -C, waterY: -3.5,
@@ -1781,29 +1726,11 @@ W3.buildLevel = function () {
   W3.climbs = [];
   W3.elevatedDecks = [];
 
-  /* ---- floors + ceilings: one instanced mesh, per-cell colour ---- */
-  const cells = W3._buildFloorMeshes(flg, lvl);
-
-  /* ceilings cap INTERIOR cells only — open-top rooms leaked sky
-     through the top of every doorway (the "gap above the door");
-     patios/pool decks have floors but must stay open. They cast the
-     sun's shadow, so daylight enters rooms only through windows.    */
-  if (!W3._ceilMat) {
-    W3._ceilMat = HP.graphics3d ? HP.graphics3d.material('plaster', '#f3ecdc').clone()
-                                : new THREE.MeshLambertMaterial({ color: 0xf3ecdc });
-    W3._ceilMat.userData.shared3d = true;
-    W3._ceilMat.shadowSide = THREE.DoubleSide;
-    if (HP.graphics3d) HP.graphics3d.track(W3._ceilMat);
-  }
-  const ceilMat = W3._ceilMat;
-  V.instanced(sg, ceilQuad(), ceilMat,
-    cells.filter(c => c.in).map(c => cellPart(c, HP.geom3d.WALL_H)), { cast: true });
-
-  /* ---- ground under everything — a Shape with pool holes when any  */
+  /* ---- ground under everything — a Shape with pool holes when any ---- */
   let groundGeo;
   if (pools.length) {
     const cx = HP.GRID_W * C / 2, cz = HP.GRID_H * C / 2;
-    const xzPath = (x0, z0, x1, z1) => {           /* world XZ → shape space */
+    const xzPath = (x0, z0, x1, z1) => {
       const p = new THREE.Path();
       p.moveTo(x0 - cx, cz - z1); p.lineTo(x1 - cx, cz - z1);
       p.lineTo(x1 - cx, cz - z0); p.lineTo(x0 - cx, cz - z0); p.closePath();
@@ -1829,8 +1756,7 @@ W3.buildLevel = function () {
   ground.receiveShadow = true;
   sg.add(ground);
 
-  /* ---- pool basins: tiled shell 1m down, coping rim, animated
-     water surface + caustic light-web on the floor                  */
+  /* ---- pool basins: tiled shell 1m down, coping rim, animated water surface ---- */
   W3.water = [];
   for (const p of pools) {
     const mats = HP.graphics3d ? HP.graphics3d.poolWater() : {
@@ -1843,8 +1769,6 @@ W3.buildLevel = function () {
                               : new THREE.MeshLambertMaterial({ color: 0xd8d0bd });
     const g2 = new THREE.Group();
     const rec = { caustics: [] };
-    /* each pool gets its own caustic map clone so the web tiles at a
-       believable ~110px no matter the basin size                    */
     const causticMat = size => {
       const cm = mats.caustic.clone();
       if (mats.caustic.map) {
@@ -1881,15 +1805,12 @@ W3.buildLevel = function () {
         if (rot) wall.rotation.y = Math.PI / 2;
         g2.add(wall);
       }
-      /* coping: stone rim around the lip, overhangs the basin edge   */
       for (const [bx, bz, bw, bd] of [[0, -d / 2 + 1, w + 4, 5], [0, d / 2 - 1, w + 4, 5],
                                       [-w / 2 + 1, 0, 5, d - 6], [w / 2 - 1, 0, 5, d - 6]]) {
         const b = new THREE.Mesh(new THREE.BoxGeometry(bw, 3.4, bd), stone);
         b.position.set(pcx + bx, 0.2, pcz + bz); b.castShadow = b.receiveShadow = true;
         g2.add(b);
       }
-      /* corner steps: pick the side whose outside approach is clear
-         of furniture and walls — steps hug that wall and descend in  */
       const stairDefs = [
         { ax: 'z', dir: -1, from: p.z1 - 3, u0: p.x0 + 2, u1: p.x0 + 22, ap: [p.x0 + 11, p.z1 + 12] },
         { ax: 'z', dir: -1, from: p.z1 - 3, u0: p.x1 - 22, u1: p.x1 - 2, ap: [p.x1 - 11, p.z1 + 12] },
@@ -1900,7 +1821,7 @@ W3.buildLevel = function () {
         { ax: 'x', dir: -1, from: p.x1 - 3, u0: p.z0 + 2, u1: p.z0 + 22, ap: [p.x1 + 12, p.z0 + 11] },
         { ax: 'x', dir: -1, from: p.x1 - 3, u0: p.z1 - 22, u1: p.z1 - 2, ap: [p.x1 + 12, p.z1 - 11] },
       ];
-      const nonPoolFootprints = (lvl.furniture || [])
+      const nonPoolFootprints = (allLevels[0].furniture || [])
         .filter(it => !/pool$|pond/i.test(it.type))
         .map(it => { const f = HP.footprint(it); return { x0: f.x * C - 8, x1: (f.x + f.w) * C + 8, z0: f.y * C - 8, z1: (f.y + f.h) * C + 8 }; });
       const clutter = (x, z) => {
@@ -1908,14 +1829,10 @@ W3.buildLevel = function () {
         for (const f of nonPoolFootprints) {
           if (x > f.x0 && x < f.x1 && z > f.z0 && z < f.z1) s++;
         }
-        for (const b of geo.boxes)
-          if (b.y0 < 50 && x > b.x0 - 4 && x < b.x1 + 4 && z > b.z0 - 4 && z < b.z1 + 4) s++;
         return s;
       };
       const st = stairDefs.reduce((best, s) => clutter(s.ap[0], s.ap[1]) < clutter(best.ap[0], best.ap[1]) ? s : best);
       const RUN = 30, RISE = 7, TREAD = 10, WALL_TOP = -DEPTH + 0.4;
-      /* each step is a solid block from the basin floor to its tread —
-         stacked they read as a real staircase                        */
       for (let i = 0; i < 3; i++) {
         const top = -(i + 1) * RISE;
         const s0 = st.from + st.dir * i * TREAD, s1 = st.from + st.dir * RUN;
@@ -1939,7 +1856,6 @@ W3.buildLevel = function () {
       const water = new THREE.Mesh(wg, mats.surf);
       water.position.set(pcx, WY, pcz); water.renderOrder = 2;
       g2.add(water);
-      /* edge taper so ripple verts never poke through the basin walls */
       const pos = wg.attributes.position, taper = new Float32Array(pos.count);
       for (let i = 0; i < pos.count; i++) {
         const vx = pos.getX(i), vz = pos.getZ(i);
@@ -1957,189 +1873,301 @@ W3.buildLevel = function () {
     W3.water.push(rec);
     sg.add(g2);
   }
-  /* Framed windows: multi-panel casements hinge into the room.
-     Singles retain a lifting lower sash over a fixed upper sash. */
-  W3.windows = [];
-  if (geo.windows.length) {
-    const paneMat = W3._paneMat = HP.graphics3d ? HP.graphics3d.material('glass', '#bfe3ea') :
-      new THREE.MeshLambertMaterial({ color: 0x9fd4e8, transparent: true, opacity: 0.45 });
-    const sashMat = W3._sashMat = HP.graphics3d ? HP.graphics3d.material('metal', '#eae4d6') :
-      new THREE.MeshLambertMaterial({ color: 0xeae4d6 });
-    for (const opening of geo.windows) {
-      const w = { ...opening }, isH = w.d === 'h';
-      const n = Math.max(1, Math.round(((isH ? w.x1 - w.x0 : w.z1 - w.z0) + 4) / C));
-      // Junction posts remain structural solids inside an aperture's
-      // ends. Seat the entire assembly between their actual faces.
-      for (const b of geo.boxes) {
-        if (b.tag !== 'corner' || b.y0 >= w.y1 || b.y1 <= w.y0) continue;
-        if (isH && b.z1 > w.z0 && b.z0 < w.z1) {
-          if (b.x0 <= w.x0 && b.x1 > w.x0) w.x0 = b.x1;
-          if (b.x1 >= w.x1 && b.x0 < w.x1) w.x1 = b.x0;
-        } else if (!isH && b.x1 > w.x0 && b.x0 < w.x1) {
-          if (b.z0 <= w.z0 && b.z1 > w.z0) w.z0 = b.z1;
-          if (b.z1 >= w.z1 && b.z0 < w.z1) w.z1 = b.z0;
-        }
-      }
-      const span = isH ? w.x1 - w.x0 : w.z1 - w.z0;
-      const height = w.y1 - w.y0, rim = 1.25, rail = 0.85;
-      const width = span - rim * 2, insideH = height - rim * 2;
-      const a = { ...w, cx: (w.x0 + w.x1) / 2, cz: (w.z0 + w.z1) / 2 };
-      const seg = HP.parseWallKey(w.k);
-      const minusRoom = isH ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
-      const plusRoom = env.rAt(seg.x, seg.y);
-      // Exterior windows always open into the enclosed room. For a
-      // room-to-room opening choose the smaller room, consistently.
-      let inward = minusRoom >= 0 && (plusRoom < 0 || env.rsz(minusRoom) < env.rsz(plusRoom)) ? -1 : 1;
-      if (w.swing === 'out') inward = -inward;
-      const wallDepth = isH ? w.z1 - w.z0 : w.x1 - w.x0;
-      const root = new THREE.Group();
-      root.position.set(a.cx, (w.y0 + w.y1) / 2, a.cz);
-      sg.add(root);
-      V.add(root, w.x0 - span, w.z0 - span, w.x1 + span, w.z1 + span);
-      const wallSeg = lvl.walls && lvl.walls[w.k];
-      const winStyle = (wallSeg && (wallSeg.winStyle || (wallSeg.style === 'awning' || wallSeg.style === 'hopper' || wallSeg.style === 'slider' || wallSeg.style === 'single_hung' ? wallSeg.style : null))) || w.winStyle || (n === 1 ? 'single-hung' : 'casement');
-      const assembly = { a, root, panels: [], inward, style: winStyle === 'single_hung' ? 'single-hung' : winStyle, winStyle,
-        w, span, height, rim, rail, width, insideH, wallDepth, n, isH };
-      W3.windows.push(assembly);
-      populateWindowAssembly(assembly, sashMat, paneMat, doorPivots);
-    }
-  }
 
-  /* ---- fence gates: real swinging leaves, not permanent holes ---- */
+  /* ---- shared materials for fixtures across all levels ---- */
   const gateMat = HP.graphics3d ? HP.graphics3d.material('wood', '#9a774f') :
     new THREE.MeshLambertMaterial({ color: 0x9a774f });
   const gateFrameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#78350f') :
     new THREE.MeshLambertMaterial({ color: 0x78350f });
   const gateIronMat = HP.graphics3d ? HP.graphics3d.material('metal', '#181b1e') :
     new THREE.MeshLambertMaterial({ color: 0x181b1e });
-
-  for (const k in (lvl.fences || {})) {
-    const fv = lvl.fences[k];
-    if (!fv || fv.t !== 'gate') continue;
-    const s = HP.parseWallKey(k), isH = s.d === 'h';
-    const gh = 24, gt = 3.6;
-    /* a neighbour gate seg? then hinge at the far end — the pair
-       meets in the middle like a double gate                        */
-    const nKey = isH ? `h,${s.x + 1},${s.y}` : `v,${s.x},${s.y + 1}`;
-    const li = (lvl.fences[nKey] && lvl.fences[nKey].t === 'gate') ? 0 : 1;
-    const a = isH
-      ? { d: 'h', x0: s.x * C, x1: (s.x + 1) * C, z0: s.y * C - 2, z1: s.y * C + 2, cx: (s.x + 0.5) * C, cz: s.y * C }
-      : { d: 'v', x0: s.x * C - 2, x1: s.x * C + 2, z0: s.y * C, z1: (s.y + 1) * C, cx: s.x * C, cz: (s.y + 0.5) * C };
-
-    // Flanking gate posts at ends
-    const postGeo = new THREE.BoxGeometry(3.6, gh + 4, 3.6);
-    const postCapGeo = new THREE.ConeGeometry(2.6, 2.0, 4).rotateY(Math.PI / 4);
-    for (const [px, pz] of [[isH ? a.x0 : a.cx, isH ? a.cz : a.z0], [isH ? a.x1 : a.cx, isH ? a.cz : a.z1]]) {
-      const pMesh = new THREE.Mesh(postGeo, gateFrameMat);
-      pMesh.position.set(px, (gh + 4) / 2, pz);
-      pMesh.castShadow = pMesh.receiveShadow = true;
-      sg.add(pMesh);
-      const capMesh = new THREE.Mesh(postCapGeo, gateFrameMat);
-      capMesh.position.set(px, gh + 4 + 1.0, pz);
-      capMesh.castShadow = capMesh.receiveShadow = true;
-      sg.add(capMesh);
-    }
-
-    const pivot = new THREE.Group();
-    pivot.position.set(isH ? (li === 0 ? a.x0 : a.x1) : s.x * C, 0,
-                       isH ? s.y * C : (li === 0 ? a.z0 : a.z1));
-    const lw = C - 1.0, lh3 = gh;
-    const leaf = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw : gt, lh3, isH ? gt : lw), gateMat);
-    const leafOff = (li === 0 ? lw / 2 + 0.5 : -lw / 2 - 0.5);
-    leaf.position.set(isH ? leafOff : 0, gh / 2,
-                      isH ? 0 : leafOff);
-    leaf.castShadow = leaf.receiveShadow = true;
-    pivot.add(leaf);
-
-    // Frame & Z-brace & black iron strap hinges on the leaf
-    const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw : gt + 0.6, lh3, isH ? gt + 0.6 : lw), gateFrameMat);
-    frameMesh.position.copy(leaf.position);
-    frameMesh.scale.set(0.96, 0.98, 0.96);
-    frameMesh.castShadow = true;
-    pivot.add(frameMesh);
-
-    // Diagonal Z-brace across the timber gate
-    const zBrace = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw * 0.82 : gt + 0.8, 2.2, isH ? gt + 0.8 : lw * 0.82), gateFrameMat);
-    zBrace.position.copy(leaf.position);
-    if (isH) zBrace.rotation.z = 0.58 * (li === 0 ? 1 : -1);
-    else zBrace.rotation.x = 0.58 * (li === 0 ? 1 : -1);
-    zBrace.castShadow = true;
-    pivot.add(zBrace);
-
-    // Iron strap hinges
-    for (const hy of [5, gh - 4]) {
-      const hinge = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw * 0.45 : gt + 1.0, 1.8, isH ? gt + 1.0 : lw * 0.45), gateIronMat);
-      const hOff = (li === 0 ? lw * 0.25 : -lw * 0.25);
-      hinge.position.set(isH ? hOff : 0, hy, isH ? 0 : hOff);
-      hinge.castShadow = true;
-      pivot.add(hinge);
-    }
-    // Thumb latch on swinging edge
-    const latch = new THREE.Mesh(new THREE.BoxGeometry(isH ? 2.5 : gt + 1.2, 5.0, isH ? gt + 1.2 : 2.5), gateIronMat);
-    const lOff = (li === 0 ? lw - 2.0 : -lw + 2.0);
-    latch.position.set(isH ? lOff : 0, gh * 0.55, isH ? 0 : lOff);
-    latch.castShadow = true;
-    pivot.add(latch);
-
-    sg.add(pivot);
-    V.add(pivot, a.x0 - C, a.z0 - C, a.x1 + C, a.z1 + C);
-    doorPivots.push({ pivot, a, open: 0, target: 0, leaf, lw, li,
-                      vel: 0, holdT: 0, latched: false, gate: true,
-                      ly0: 0, ly1: gh });
-  }
-
-  /* ---- door leaves: real meshes (they animate) ---- */
   const leafMat = W3._leafMat = HP.graphics3d ? HP.graphics3d.material('wood', '#cfb394') :
     new THREE.MeshLambertMaterial({ color: 0x8a6844 });
   const knobMat = W3._knobMat = HP.graphics3d ? HP.graphics3d.material('metal', '#5b5f63') :
     new THREE.MeshLambertMaterial({ color: 0x3c3f45 });
-  const knobGeo = W3._knobGeo = new THREE.SphereGeometry(1.2, 8, 6);    // was 960 tris per knob
+  const knobGeo = W3._knobGeo = new THREE.SphereGeometry(1.2, 8, 6);
+  const paneMat = W3._paneMat = HP.graphics3d ? HP.graphics3d.material('glass', '#bfe3ea') :
+    new THREE.MeshLambertMaterial({ color: 0x9fd4e8, transparent: true, opacity: 0.45 });
+  const sashMat = W3._sashMat = HP.graphics3d ? HP.graphics3d.material('metal', '#eae4d6') :
+    new THREE.MeshLambertMaterial({ color: 0xeae4d6 });
 
-  for (const a of geo.doors) {
-    /* usable span excludes corner posts standing at the aperture's
-       ends — a leaf sized to the raw aperture would slice through
-       them and z-fight (the brown flicker line)                    */
-    let s0 = a.d === 'h' ? a.x0 : a.z0, s1 = a.d === 'h' ? a.x1 : a.z1;
-    let post0 = false, post1 = false;
-    for (const c of geo.boxes) {
-      if (c.tag !== 'corner' || c.y0 > 30) continue;
-      /* a post matters when it overlaps the doorway's DEPTH and sits
-         on/touching either end edge of the opening                */
-      const ox = Math.min(c.x1, a.x1) - Math.max(c.x0, a.x0);
-      const oz = Math.min(c.z1, a.z1) - Math.max(c.z0, a.z0);
-      const depthOverlap = a.d === 'h' ? oz > 0 : ox > 0;
-      if (!depthOverlap) continue;
-      if (a.d === 'h') { if (c.x1 > a.x0 - 0.6 && c.x0 <= a.x0 + 0.6) { s0 = Math.max(s0, c.x1); post0 = true; }
-                         if (c.x0 < a.x1 + 0.6 && c.x1 >= a.x1 - 0.6) { s1 = Math.min(s1, c.x0); post1 = true; } }
-      else             { if (c.z1 > a.z0 - 0.6 && c.z0 <= a.z0 + 0.6) { s0 = Math.max(s0, c.z1); post0 = true; }
-                         if (c.z0 < a.z1 + 0.6 && c.z1 >= a.z1 - 0.6) { s1 = Math.min(s1, c.z0); post1 = true; } }
+  W3.windows = [];
+  const allStaticColliders = [];
+
+  /* ---- build architectural structures for each level ---- */
+  allLevels.forEach((curLvl, lIdx) => {
+    const bY = lIdx * WALL_H;
+    const env = geomEnv(lIdx);
+    const geo = HP.geom3d.build(curLvl.walls || {}, env);
+    if (lIdx === (HP.state && HP.state.level || 0)) {
+      W3.geom = geo;
     }
-    const span = s1 - s0;
-    const leaves = a.dbl ? 2 : 1;
-    const seg = HP.parseWallKey(a.k);
-    const minusRoom = a.d === 'h' ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
-    const plusRoom = env.rAt(seg.x, seg.y);
-    const minusIsInside = minusRoom >= 0 && (plusRoom < 0 || env.rsz(minusRoom) < env.rsz(plusRoom));
-    const insideFlip = minusIsInside ? 1 : -1;
-    const outsideFlip = minusIsInside ? -1 : 1;
-    if (a.swing === 'out') a.flip = outsideFlip;
-    else if (a.swing === 'in') a.flip = insideFlip;
-    for (let li = 0; li < leaves; li++) {
+
+    if (bY > 0) {
+      for (const b of geo.boxes) {
+        b.y0 += bY;
+        b.y1 += bY;
+      }
+    }
+
+    const wallPartsByMat = {};
+    const addWallPart = (style, part) => {
+      const s = style || 'plaster';
+      (wallPartsByMat[s] = wallPartsByMat[s] || []).push(part);
+    };
+
+    for (const b of V.splitBoxes(geo.boxes)) {
+      if (b.tag === 'fence') continue;
+      const defC = b.ext ? '#e9e2d2' : '#f4efe4';
+      if (b.tag === 'wall' && b.line !== undefined) {
+        const isH = b.d === 'h';
+        const u0 = isH ? b.x0 : b.z0, u1 = isH ? b.x1 : b.z1;
+        const cuts = [u0];
+        for (let u = (Math.floor(u0 / C) + 1) * C; u < u1 - 0.5; u += C)
+          if (u > u0 + 0.5) cuts.push(u);
+        cuts.push(u1);
+        for (let i = 0; i + 1 < cuts.length; i++) {
+          const s0 = cuts[i], s1 = cuts[i + 1];
+          const ci = Math.floor(((s0 + s1) / 2) / C);
+          const w = curLvl.walls[b.d + ',' + (isH ? ci : b.line) + ',' + (isH ? b.line : ci)];
+          let st = (w && w.style);
+          let ca = w && w.ca, cb = w && w.cb;
+          if (w && (w.f === 'door' || w.f === 'window')) {
+            const wPrev = curLvl.walls[b.d + ',' + (isH ? (ci - 1) : b.line) + ',' + (isH ? b.line : (ci - 1))];
+            const wNext = curLvl.walls[b.d + ',' + (isH ? (ci + 1) : b.line) + ',' + (isH ? b.line : (ci + 1))];
+            if (!st) st = (wPrev && wPrev.style) || (wNext && wNext.style);
+            if (!ca) ca = (wPrev && wPrev.ca) || (wNext && wNext.ca);
+            if (!cb) cb = (wPrev && wPrev.cb) || (wNext && wNext.cb);
+          }
+          st = st || 'plaster';
+          const sDefC = styleDefaultCol(st, b.ext);
+          ca = ca || sDefC;
+          cb = cb || sDefC;
+          const sb = isH ? { ...b, x0: s0, x1: s1 } : { ...b, z0: s0, z1: s1 };
+          if (ca === cb) {
+            addWallPart(st, boxPart(sb, ca));
+          } else if (isH) {
+            const zm = (sb.z0 + sb.z1) / 2;
+            addWallPart(st, boxPart({ ...sb, z1: zm }, ca));
+            addWallPart(st, boxPart({ ...sb, z0: zm }, cb));
+          } else {
+            const xm = (sb.x0 + sb.x1) / 2;
+            addWallPart(st, boxPart({ ...sb, x1: xm }, ca));
+            addWallPart(st, boxPart({ ...sb, x0: xm }, cb));
+          }
+        }
+        continue;
+      }
+      if (b.tag === 'corner' && b.vx !== undefined) {
+        const hL = curLvl.walls['h,' + (b.vx - 1) + ',' + b.vy];
+        const hR = curLvl.walls['h,' + b.vx + ',' + b.vy];
+        const vT = curLvl.walls['v,' + b.vx + ',' + (b.vy - 1)];
+        const vB = curLvl.walls['v,' + b.vx + ',' + b.vy];
+        const st = (hL && hL.style) || (hR && hR.style) || (vT && vT.style) || (vB && vB.style) || 'plaster';
+        const sDefC = styleDefaultCol(st, b.ext);
+        const cNW = (hL && hL.ca) || (vT && vT.ca) || sDefC;
+        const cNE = (hR && hR.ca) || (vT && vT.cb) || sDefC;
+        const cSW = (hL && hL.cb) || (vB && vB.ca) || sDefC;
+        const cSE = (hR && hR.cb) || (vB && vB.cb) || sDefC;
+        if (cNW === cNE && cNW === cSW && cNW === cSE) {
+          addWallPart(st, boxPart(b, cNW));
+        } else {
+          const xm = (b.x0 + b.x1) / 2, zm = (b.z0 + b.z1) / 2;
+          addWallPart(st, boxPart({ ...b, x1: xm, z1: zm }, cNW));
+          addWallPart(st, boxPart({ ...b, x0: xm, z1: zm }, cNE));
+          addWallPart(st, boxPart({ ...b, x1: xm, z0: zm }, cSW));
+          addWallPart(st, boxPart({ ...b, x0: xm, z0: zm }, cSE));
+        }
+        continue;
+      }
+      addWallPart('plaster', boxPart(b, defC));
+    }
+
+    for (const st in wallPartsByMat) {
+      const parts = wallPartsByMat[st];
+      if (!parts || !parts.length) continue;
+      const mat = getWallMat(st);
+      V.instanced(sg, unitBox(), mat, parts, { cast: st !== 'glass', receive: true });
+      if (st === 'glass' && HP.graphics3d) {
+        const frameMat = HP.graphics3d.material('metal', '#1e2023');
+        const channelParts = [];
+        for (const p of parts) {
+          const bBot = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY, y1: bY + 1.8 };
+          const bTop = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY + 72.2, y1: bY + 74 };
+          channelParts.push(boxPart(bBot, '#1e2023'), boxPart(bTop, '#1e2023'));
+        }
+        V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true });
+      }
+    }
+
+    if (HP.graphics3d) {
+      const rails = [];
+      for (const b of geo.boxes) {
+        if (b.tag === 'fence' || b.y0 > bY || b.y1 < bY + 10) continue;
+        rails.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.25, z1: b.z0 + 0.01, y0: bY, y1: bY + 2.2 },
+          { x0: b.x0, x1: b.x1, z0: b.z1 - 0.01, z1: b.z1 + 0.25, y0: bY, y1: bY + 2.2 },
+          { x0: b.x0 - 0.25, x1: b.x0 + 0.01, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 },
+          { x0: b.x1 - 0.01, x1: b.x1 + 0.25, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
+      }
+      V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
+        V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true });
+    }
+
+    buildFences3D(curLvl.fences, curLvl.walls, sg, C, V, bY);
+
+    if (geo.windows.length) {
+      for (const opening of geo.windows) {
+        const w = { ...opening, y0: opening.y0 + bY, y1: opening.y1 + bY }, isH = w.d === 'h';
+        const n = Math.max(1, Math.round(((isH ? w.x1 - w.x0 : w.z1 - w.z0) + 4) / C));
+        for (const b of geo.boxes) {
+          if (b.tag !== 'corner' || b.y0 >= w.y1 || b.y1 <= w.y0) continue;
+          if (isH && b.z1 > w.z0 && b.z0 < w.z1) {
+            if (b.x0 <= w.x0 && b.x1 > w.x0) w.x0 = b.x1;
+            if (b.x1 >= w.x1 && b.x0 < w.x1) w.x1 = b.x0;
+          } else if (!isH && b.x1 > w.x0 && b.x0 < w.x1) {
+            if (b.z0 <= w.z0 && b.z1 > w.z0) w.z0 = b.z1;
+            if (b.z1 >= w.z1 && b.z0 < w.z1) w.z1 = b.z0;
+          }
+        }
+        const span = isH ? w.x1 - w.x0 : w.z1 - w.z0;
+        const height = w.y1 - w.y0, rim = 1.25, rail = 0.85;
+        const width = span - rim * 2, insideH = height - rim * 2;
+        const a = { ...w, cx: (w.x0 + w.x1) / 2, cz: (w.z0 + w.z1) / 2 };
+        const seg = HP.parseWallKey(w.k);
+        const minusRoom = isH ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
+        const plusRoom = env.rAt(seg.x, seg.y);
+        let inward = minusRoom >= 0 && (plusRoom < 0 || env.rsz(minusRoom) < env.rsz(plusRoom)) ? -1 : 1;
+        if (w.swing === 'out') inward = -inward;
+        const wallDepth = isH ? w.z1 - w.z0 : w.x1 - w.x0;
+        const root = new THREE.Group();
+        root.position.set(a.cx, (w.y0 + w.y1) / 2, a.cz);
+        sg.add(root);
+        V.add(root, w.x0 - span, w.z0 - span, w.x1 + span, w.z1 + span);
+        const wallSeg = curLvl.walls && curLvl.walls[w.k];
+        const winStyle = (wallSeg && (wallSeg.winStyle || (wallSeg.style === 'awning' || wallSeg.style === 'hopper' || wallSeg.style === 'slider' || wallSeg.style === 'single_hung' ? wallSeg.style : null))) || w.winStyle || (n === 1 ? 'single-hung' : 'casement');
+        const assembly = { a, root, panels: [], inward, style: winStyle === 'single_hung' ? 'single-hung' : winStyle, winStyle,
+          w, span, height, rim, rail, width, insideH, wallDepth, n, isH };
+        W3.windows.push(assembly);
+        populateWindowAssembly(assembly, sashMat, paneMat, doorPivots);
+      }
+    }
+
+    for (const k in (curLvl.fences || {})) {
+      const fv = curLvl.fences[k];
+      if (!fv || fv.t !== 'gate') continue;
+      const s = HP.parseWallKey(k), isH = s.d === 'h';
+      const gh = 24, gt = 3.6;
+      const nKey = isH ? `h,${s.x + 1},${s.y}` : `v,${s.x},${s.y + 1}`;
+      const li = (curLvl.fences[nKey] && curLvl.fences[nKey].t === 'gate') ? 0 : 1;
+      const a = isH
+        ? { d: 'h', x0: s.x * C, x1: (s.x + 1) * C, z0: s.y * C - 2, z1: s.y * C + 2, cx: (s.x + 0.5) * C, cz: s.y * C }
+        : { d: 'v', x0: s.x * C - 2, x1: s.x * C + 2, z0: s.y * C, z1: (s.y + 1) * C, cx: s.x * C, cz: (s.y + 0.5) * C };
+
+      const postGeo = new THREE.BoxGeometry(3.6, gh + 4, 3.6);
+      const postCapGeo = new THREE.ConeGeometry(2.6, 2.0, 4).rotateY(Math.PI / 4);
+      for (const [px, pz] of [[isH ? a.x0 : a.cx, isH ? a.cz : a.z0], [isH ? a.x1 : a.cx, isH ? a.cz : a.z1]]) {
+        const pMesh = new THREE.Mesh(postGeo, gateFrameMat);
+        pMesh.position.set(px, bY + (gh + 4) / 2, pz);
+        pMesh.castShadow = pMesh.receiveShadow = true;
+        sg.add(pMesh);
+        const capMesh = new THREE.Mesh(postCapGeo, gateFrameMat);
+        capMesh.position.set(px, bY + gh + 4 + 1.0, pz);
+        capMesh.castShadow = capMesh.receiveShadow = true;
+        sg.add(capMesh);
+      }
+
       const pivot = new THREE.Group();
+      pivot.position.set(isH ? (li === 0 ? a.x0 : a.x1) : s.x * C, bY,
+                         isH ? s.y * C : (li === 0 ? a.z0 : a.z1));
+      const lw = C - 1.0, lh3 = gh;
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw : gt, lh3, isH ? gt : lw), gateMat);
+      const leafOff = (li === 0 ? lw / 2 + 0.5 : -lw / 2 - 0.5);
+      leaf.position.set(isH ? leafOff : 0, gh / 2,
+                        isH ? 0 : leafOff);
+      leaf.castShadow = leaf.receiveShadow = true;
+      pivot.add(leaf);
+
+      const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw : gt + 0.6, lh3, isH ? gt + 0.6 : lw), gateFrameMat);
+      frameMesh.position.copy(leaf.position);
+      frameMesh.scale.set(0.96, 0.98, 0.96);
+      frameMesh.castShadow = true;
+      pivot.add(frameMesh);
+
+      const zBrace = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw * 0.82 : gt + 0.8, 2.2, isH ? gt + 0.8 : lw * 0.82), gateFrameMat);
+      zBrace.position.copy(leaf.position);
+      if (isH) zBrace.rotation.z = 0.58 * (li === 0 ? 1 : -1);
+      else zBrace.rotation.x = 0.58 * (li === 0 ? 1 : -1);
+      zBrace.castShadow = true;
+      pivot.add(zBrace);
+
+      for (const hy of [5, gh - 4]) {
+        const hinge = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw * 0.45 : gt + 1.0, 1.8, isH ? gt + 1.0 : lw * 0.45), gateIronMat);
+        const hOff = (li === 0 ? lw * 0.25 : -lw * 0.25);
+        hinge.position.set(isH ? hOff : 0, hy, isH ? 0 : hOff);
+        hinge.castShadow = true;
+        pivot.add(hinge);
+      }
+      const latch = new THREE.Mesh(new THREE.BoxGeometry(isH ? 2.5 : gt + 1.2, 5.0, isH ? gt + 1.2 : 2.5), gateIronMat);
+      const lOff = (li === 0 ? lw - 2.0 : -lw + 2.0);
+      latch.position.set(isH ? lOff : 0, gh * 0.55, isH ? 0 : lOff);
+      latch.castShadow = true;
+      pivot.add(latch);
+
       sg.add(pivot);
-      V.add(pivot, a.x0 - C, a.z0 - C, a.x1 + C, a.z1 + C);   // swing reach
-      const dp = { pivot, a, open: 0, target: 0, vel: 0, holdT: 0, latched: false,
-                   flip: a.flip, s0, s1, post0, post1 };
-      populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat, knobMat, knobGeo);
-      if (li === 0) {
-        dp.frameMesh = buildDoorFrame(a, s0, s1, sg);
-      }
-      if ((dp.doorStyle === 'slide' || dp.doorStyle === 'slideglass') && li === 0) {
-        dp.trackMesh = buildOverheadTrack(a, span, leaves, s0, s1, a.flip !== undefined ? a.flip : 1, sg);
-      }
-      doorPivots.push(dp);
+      V.add(pivot, a.x0 - C, a.z0 - C, a.x1 + C, a.z1 + C);
+      doorPivots.push({ pivot, a, open: 0, target: 0, leaf, lw, li,
+                        vel: 0, holdT: 0, latched: false, gate: true,
+                        ly0: bY, ly1: bY + gh });
     }
-  }
+
+    for (const a of geo.doors) {
+      const da = { ...a, y0: a.y0 + bY, y1: a.y1 + bY };
+      let s0 = da.d === 'h' ? da.x0 : da.z0, s1 = da.d === 'h' ? da.x1 : da.z1;
+      let post0 = false, post1 = false;
+      for (const c of geo.boxes) {
+        if (c.tag !== 'corner' || c.y0 > bY + 30) continue;
+        const ox = Math.min(c.x1, da.x1) - Math.max(c.x0, da.x0);
+        const oz = Math.min(c.z1, da.z1) - Math.max(c.z0, da.z0);
+        const depthOverlap = da.d === 'h' ? oz > 0 : ox > 0;
+        if (!depthOverlap) continue;
+        if (da.d === 'h') { if (c.x1 > da.x0 - 0.6 && c.x0 <= da.x0 + 0.6) { s0 = Math.max(s0, c.x1); post0 = true; }
+                           if (c.x0 < da.x1 + 0.6 && c.x1 >= da.x1 - 0.6) { s1 = Math.min(s1, c.x0); post1 = true; } }
+        else             { if (c.z1 > da.z0 - 0.6 && c.z0 <= da.z0 + 0.6) { s0 = Math.max(s0, c.z1); post0 = true; }
+                           if (c.z0 < da.z1 + 0.6 && c.z1 >= da.z1 - 0.6) { s1 = Math.min(s1, c.z0); post1 = true; } }
+      }
+      const span = s1 - s0;
+      const leaves = da.dbl ? 2 : 1;
+      const seg = HP.parseWallKey(da.k);
+      const minusRoom = da.d === 'h' ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
+      const plusRoom = env.rAt(seg.x, seg.y);
+      const minusIsInside = minusRoom >= 0 && (plusRoom < 0 || env.rsz(minusRoom) < env.rsz(plusRoom));
+      const insideFlip = minusIsInside ? 1 : -1;
+      const outsideFlip = minusIsInside ? -1 : 1;
+      if (da.swing === 'out') da.flip = outsideFlip;
+      else if (da.swing === 'in') da.flip = insideFlip;
+      for (let li = 0; li < leaves; li++) {
+        const pivot = new THREE.Group();
+        sg.add(pivot);
+        V.add(pivot, da.x0 - C, da.z0 - C, da.x1 + C, da.z1 + C);
+        const dp = { pivot, a: da, open: 0, target: 0, vel: 0, holdT: 0, latched: false,
+                     flip: da.flip, s0, s1, post0, post1, ly0: bY, ly1: bY + 70 };
+        populateDoorLeaf(dp, da, leaves, li, span, s0, s1, post0, post1, leafMat, knobMat, knobGeo, bY);
+        if (li === 0) {
+          dp.frameMesh = buildDoorFrame(da, s0, s1, sg, bY);
+        }
+        if ((dp.doorStyle === 'slide' || dp.doorStyle === 'slideglass') && li === 0) {
+          dp.trackMesh = buildOverheadTrack(da, span, leaves, s0, s1, da.flip !== undefined ? da.flip : 1, sg, bY);
+        }
+        doorPivots.push(dp);
+      }
+    }
+
+    W3._buildFloorMeshes(flg, curLvl, bY, stairFloorOpenings[lIdx]);
+    W3._buildCeilingMeshes(sg, curLvl, lIdx, bY, stairCeilingOpenings[lIdx], env);
+
+    allStaticColliders.push(...geo.boxes.filter(b => b.y0 < bY + 50 && b.y1 > bY + 2));
+  });
+
   for (const dp of doorPivots) {
     if (!dp.a) continue;
     const prev = oldDoors.find(o => Math.abs(o.cx - dp.a.cx) < 2 && Math.abs(o.cz - dp.a.cz) < 2);
@@ -2149,9 +2177,10 @@ W3.buildLevel = function () {
       dp.vel = prev.vel;
     }
   }
-  V.setWalls(lvl.walls, doorPivots);
+  const curLevelIdx = (HP.state && HP.state.level) || 0;
+  V.setWalls((allLevels[curLevelIdx] || HP.cur()).walls, doorPivots);
 
-  W3.staticColliders = geo.boxes.filter(b => b.y0 < 50 && b.y1 > 2);
+  W3.staticColliders = allStaticColliders;
   W3.staticLamps = [];
 
   const res = W3._buildFurnitureSync(fg);
@@ -2160,7 +2189,7 @@ W3.buildLevel = function () {
   W3.movers = res.movers;
   W3.garageDoors = res.garageDoors;
   W3.elevatedDecks = res.elevatedDecks;
-  W3.climbs = res.climbs;
+  W3.climbs = (res.climbs || []).concat(stairClimbs);
   W3.furnitureVisuals = res.visuals;
   W3._furnMetaById = res.furnMetaById;
   if (res.visuals) res.visuals.move(W3.movers);
