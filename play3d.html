@@ -639,6 +639,181 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
       }
       HP.showroomCurTarget = firstItem;
 
+    } else if (isFloors) {
+      // Grand Floor Materials Exhibition Pavillion (All 145 Real-Life Redesigned Floors)
+      HP.state.w = 88;
+      HP.state.h = 168;
+      HP.applyGridSize();
+
+      // Perimeter walls and scenic panoramic windows
+      for (let x = 4; x < 84; x++) {
+        w['h,' + x + ',4'] = { cb: '#f4efe4' };
+        w['h,' + x + ',162'] = { f: (x % 4 === 0) ? 'window' : null, ca: '#f4efe4' };
+      }
+      for (let y = 4; y < 162; y++) {
+        w['v,4,' + y] = { f: (y % 4 === 0) ? 'window' : null, cb: '#f4efe4' };
+        w['v,84,' + y] = { f: (y % 4 === 0) ? 'window' : null, ca: '#f4efe4' };
+      }
+
+      // Neutral gallery walkway everywhere inside perimeter
+      for (let x = 4; x < 84; x++) {
+        for (let y = 4; y < 162; y++) {
+          cur.floors[x + ',' + y] = 'concrete';
+        }
+      }
+
+      // Warm ambient gallery sconces along perimeter
+      for (let sx = 8; sx < 82; sx += 8) {
+        cur.furniture.push({ id: 10000 + sx, type: 'sconce', x: sx, y: 4, rot: 0 });
+      }
+
+      const FLOOR_WINGS = [
+        {
+          name: 'Wood & Timber',
+          title: 'Hardwood, Parquet & Planks',
+          icon: '🪵',
+          fams: ['wood', 'walnut', 'parquet', 'herring', 'bamboo', 'laminate', 'whitewash', 'deck']
+        },
+        {
+          name: 'Stone & Marble',
+          title: 'Polished Marble & Natural Stone',
+          icon: '🏛️',
+          fams: ['marble', 'travertine', 'onyx', 'slate', 'granite', 'flagstone']
+        },
+        {
+          name: 'Ceramics & Tiles',
+          title: 'Porcelain, Terracotta & Mosaics',
+          icon: '🧱',
+          fams: ['tile', 'checker', 'hextile', 'terracotta', 'mosaic', 'brick', 'terrazzo']
+        },
+        {
+          name: 'Modern & Resilient',
+          title: 'Carpet, Concrete & Acoustic Surfaces',
+          icon: '🛋️',
+          fams: ['carpet', 'concrete', 'cork', 'vinyl', 'lino', 'tatami', 'gym', 'foam']
+        },
+        {
+          name: 'Outdoor & Landscape',
+          title: 'Earth, Grass, Pebble & Garden Grounds',
+          icon: '🌿',
+          fams: ['grass', 'pebble', 'gravel', 'sand', 'dirt', 'mulch']
+        }
+      ];
+
+      // Promenade lighting & decor down the central boulevard
+      for (let cy = 12; cy < 156; cy += 12) {
+        cur.furniture.push({ id: 20000 + cy, type: 'pendant', x: 41, y: cy, rot: 0 });
+        cur.furniture.push({ id: 25000 + cy, type: 'flplantstand', x: 41, y: cy + 4, rot: 0 });
+      }
+
+      let curY = 8;
+      let nextItemId = 1;
+
+      FLOOR_WINGS.forEach(wing => {
+        // Wing sconce dividers
+        for (let fx = 6; fx < 82; fx += 10) {
+          cur.furniture.push({ id: 30000 + nextItemId + fx, type: 'sconce', x: fx, y: curY - 1, rot: 0 });
+        }
+
+        const half = Math.ceil(wing.fams.length / 2);
+        const leftFams = wing.fams.slice(0, half);
+        const rightFams = wing.fams.slice(half);
+        const maxFams = Math.max(leftFams.length, rightFams.length);
+
+        for (let row = 0; row < maxFams; row++) {
+          const lFam = leftFams[row];
+          const rFam = rightFams[row];
+          let lH = 4, rH = 4;
+
+          // Place left family
+          if (lFam) {
+            const mats = HP.FLOOR_MATS.filter(m => m.id === lFam || m.fam === lFam || (lFam === 'grass' && m.grp === 'grass'));
+            let px = 7;
+            let padRowY = curY;
+            mats.forEach((mat, mIdx) => {
+              if (mIdx > 0 && mIdx % 5 === 0) {
+                px = 7;
+                padRowY += 5;
+                lH = 10;
+              }
+              for (let dx = 0; dx < 4; dx++) {
+                for (let dy = 0; dy < 4; dy++) {
+                  cur.floors[(px + dx) + ',' + (padRowY + dy)] = mat.id;
+                }
+              }
+              const itemNum = nextItemId++;
+              cur.furniture.push({
+                id: 40000 + itemNum,
+                type: 'pathlight',
+                x: px + 1.5,
+                y: padRowY + 4,
+                rot: 0,
+                label: '#' + itemNum + ' ' + mat.name + ' (' + mat.id + ')',
+                shortName: mat.name,
+                matId: mat.id,
+                itemNum,
+                wing: wing.name,
+                icon: wing.icon,
+                detail: wing.name + ' • ' + mat.name + ' (' + mat.id + ') • ' + (mat.fam ? ('Variant of ' + mat.fam) : 'Base Material'),
+                isFloorPad: true,
+                padX: px,
+                padY: padRowY,
+                padW: 4,
+                padH: 4
+              });
+              px += 5;
+            });
+          }
+
+          // Place right family
+          if (rFam) {
+            const mats = HP.FLOOR_MATS.filter(m => m.id === rFam || m.fam === rFam || (rFam === 'grass' && m.grp === 'grass'));
+            let px = 50;
+            let padRowY = curY;
+            mats.forEach((mat, mIdx) => {
+              if (mIdx > 0 && mIdx % 5 === 0) {
+                px = 50;
+                padRowY += 5;
+                rH = 10;
+              }
+              for (let dx = 0; dx < 4; dx++) {
+                for (let dy = 0; dy < 4; dy++) {
+                  cur.floors[(px + dx) + ',' + (padRowY + dy)] = mat.id;
+                }
+              }
+              const itemNum = nextItemId++;
+              cur.furniture.push({
+                id: 40000 + itemNum,
+                type: 'pathlight',
+                x: px + 1.5,
+                y: padRowY + 4,
+                rot: 0,
+                label: '#' + itemNum + ' ' + mat.name + ' (' + mat.id + ')',
+                shortName: mat.name,
+                matId: mat.id,
+                itemNum,
+                wing: wing.name,
+                icon: wing.icon,
+                detail: wing.name + ' • ' + mat.name + ' (' + mat.id + ') • ' + (mat.fam ? ('Variant of ' + mat.fam) : 'Base Material'),
+                isFloorPad: true,
+                padX: px,
+                padY: padRowY,
+                padW: 4,
+                padH: 4
+              });
+              px += 5;
+            });
+          }
+
+          curY += Math.max(lH, rH) + 3;
+        }
+        curY += 2;
+      });
+
+      HP.showroomItems = cur.furniture.filter(f => f.isFloorPad);
+      spawn = { x: 41.5 * HP.CELL, y: 12 * HP.CELL, yaw: 0, pitch: -0.45, elevate: 3 };
+      HP.showroomCurTarget = HP.showroomItems[0];
+
     } else {
       // Standard 10-item batch view
       HP.state.w = 76;
@@ -699,6 +874,21 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
     HP.showroomTeleport = function (it, dir) {
       if (!it) return;
       HP.showroomCurTarget = it;
+      if (it.isFloorPad) {
+        const padCenterX = (it.padX + it.padW / 2) * HP.CELL;
+        const padCenterY = (it.padY + it.padH / 2) * HP.CELL;
+        const angle = dir || HP.showroomCurAngle || 'front';
+        HP.showroomCurAngle = angle;
+        if (angle === 'top' || angle === 'bird') {
+          HP.walk3d.teleport(padCenterX, padCenterY, 0, 0, -1.45, 34);
+        } else if (angle === 'angle') {
+          HP.walk3d.teleport(padCenterX - 1.2 * HP.CELL, (it.padY + it.padH + 1.2) * HP.CELL, 0.45, 0, -0.45, 4);
+        } else {
+          HP.walk3d.teleport(padCenterX, (it.padY + it.padH + 0.9) * HP.CELL, 0, 0, -0.55, 2.5);
+        }
+        HP.showroomUpdateUI();
+        return;
+      }
       const d = HP.itemDef(it.type);
       const itemW = (d && d.w) || 1;
       const itemH = (d && d.h) || 1;
@@ -900,16 +1090,17 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
 
       const modeSelectOptions = [
         '<option value="all" ' + (isAll ? 'selected' : '') + '>🏛️ All Catalog Exhibition (425 Items)</option>',
-        '<option value="fixed" ' + (isFixed ? 'selected' : '') + '>⭐ Fixed Items Pavillion (33 Items)</option>'
+        '<option value="fixed" ' + (isFixed ? 'selected' : '') + '>⭐ Fixed Items Pavillion (33 Items)</option>',
+        '<option value="floors" ' + (isFloors ? 'selected' : '') + '>💎 145 Real-Life Floors Gallery</option>'
       ];
       for (let b = 1; b <= 42; b++) {
         const bItems = HP.CATALOG.slice((b - 1) * 10, b * 10);
         const bCats = [...new Set(bItems.map(it => it.cat))].join('/');
-        const isSel = (!isAll && !isFixed && b === showroomBatch) ? 'selected' : '';
+        const isSel = (!isAll && !isFixed && !isFloors && b === showroomBatch) ? 'selected' : '';
         modeSelectOptions.push('<option value="batch' + b + '" ' + isSel + '>Batch ' + b + ': ' + bCats + ' (' + ((b-1)*10+1) + '–' + (b*10) + ')</option>');
       }
 
-      if (isAll || isFixed) {
+      if (isAll || isFixed || isFloors) {
         const itemSelectOptions = HP.showroomItems.map((it, idx) => {
           const name = it.shortName || it.type;
           const wing = it.wing || it.section || 'Item';
@@ -1113,8 +1304,8 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
   if (isShowroom) {
     const h1 = overlay.querySelector('h1');
     const p = overlay.querySelector('p');
-    if (h1) h1.textContent = isAll ? '🏛️ All 425 Catalog Items Exhibition' : '3D Inspection Showroom';
-    if (p) p.textContent = 'Click to explore all 425 items · Use top ribbon or hotkeys (N/P/1/2/3) to inspect';
+    if (h1) h1.textContent = isFloors ? '💎 145 Architectural Floor Materials Exhibition' : (isAll ? '🏛️ All 425 Catalog Items Exhibition' : '3D Inspection Showroom');
+    if (p) p.textContent = isFloors ? 'Click to inspect all 145 real-world floors · Walk across any pad or use top ribbon' : 'Click to explore all 425 items · Use top ribbon or hotkeys (N/P/1/2/3) to inspect';
   }
   if (HP.graphics3d.touch) {
     overlay.querySelector('p').textContent = 'tap to enter your home';
