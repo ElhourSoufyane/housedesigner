@@ -1265,7 +1265,7 @@ G.floorMaterial = function (id) {
   // Use local photos, downsample before GPU upload; procedural map remains on error.
   const isPhotoGrass = id === 'grassE';
   const isProceduralGrass = /^grass([A-DF])?$/.test(id) && !isPhotoGrass;
-  if (typeof Image !== 'undefined' && photoCount < 128 && !isProceduralGrass) {
+  if (typeof Image !== 'undefined' && photoCount < 512 && !isProceduralGrass) {
     photoCount++;
     const image = new Image();
     const applyLoaded = (img) => {
