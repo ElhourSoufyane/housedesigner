@@ -175,8 +175,9 @@ HP.wallKey  = (d, x, y) => d + ',' + x + ',' + y;
 HP.parseWallKey = k => { const p = k.split(','); return { d: p[0], x: +p[1], y: +p[2] }; };
 
 /* is there a blocking wall on the edge between cell (x,y) and its neighbor? */
-HP.wallBetween = function (x, y, nx, ny) {
-  const w = HP.cur().walls;
+HP.wallBetween = function (x, y, nx, ny, targetLvl) {
+  const w = (targetLvl && targetLvl.walls) || HP.cur().walls;
+  if (!w) return false;
   if (nx === x + 1) return !!w[HP.wallKey('v', x + 1, y)];
   if (nx === x - 1) return !!w[HP.wallKey('v', x, y)];
   if (ny === y + 1) return !!w[HP.wallKey('h', x, y + 1)];

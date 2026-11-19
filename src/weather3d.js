@@ -73,7 +73,7 @@ window.HP = window.HP || {};
       const ang = rand() * Math.PI * 2;
       const rad = Math.sqrt(rand()) * WRAP_RADIUS;
       const x = Math.cos(ang) * rad;
-      const y = rand() * HEIGHT_SPAN;
+      const y = 110 + rand() * (HEIGHT_SPAN - 110);
       const z = Math.sin(ang) * rad;
       const len = 4.2 + rand() * 2.5;
 
@@ -126,7 +126,7 @@ window.HP = window.HP || {};
       const ang = rand() * Math.PI * 2;
       const rad = Math.sqrt(rand()) * WRAP_RADIUS;
       const x = Math.cos(ang) * rad;
-      const y = rand() * HEIGHT_SPAN;
+      const y = 110 + rand() * (HEIGHT_SPAN - 110);
       const z = Math.sin(ang) * rad;
 
       snowPos[i * 3] = x;
@@ -267,6 +267,22 @@ window.HP = window.HP || {};
 
     const cx = camPos.x, cz = camPos.z;
 
+    const getRoofHeight = (x, z) => {
+      const C = (HP && HP.CELL) || 28;
+      const gw = (HP && HP.GRID_W) || 64, gh = (HP && HP.GRID_H) || 64;
+      const rcx = Math.floor(x / C), rcz = Math.floor(z / C);
+      if (rcx >= 0 && rcz >= 0 && rcx < gw && rcz < gh) {
+        if (HP.world3d && HP.world3d.roofHeights) {
+          return HP.world3d.roofHeights[rcz * gw + rcx];
+        }
+        if (HP.computeRegions) {
+          const cr = HP.computeRegions();
+          if (cr && cr.regionOf && cr.regionOf[rcz * gw + rcx] >= 0) return 74;
+        }
+      }
+      return -2;
+    };
+
     // 1. Rain streaks animation
     if ((w === 'rain' || w === 'storm') && rainPos && rainGeo) {
       const fallMult = w === 'storm' ? 1.35 : 1.0;
@@ -285,24 +301,27 @@ window.HP = window.HP || {};
         rainPos[idx + 2] += windZ;
         rainPos[idx + 5] += windZ;
 
-        // Wrap around camera box
+        // Wrap around camera box or collision with roof / ground
         const dx = rainPos[idx] - cx;
         const dz = rainPos[idx + 2] - cz;
+        const rx = rainPos[idx], rz = rainPos[idx + 2];
+        const minY = getRoofHeight(rx, rz);
 
-        if (rainPos[idx + 1] < -2 || Math.hypot(dx, dz) > WRAP_RADIUS) {
+        if (rainPos[idx + 4] <= minY || Math.hypot(dx, dz) > WRAP_RADIUS) {
           const ang = Math.random() * Math.PI * 2;
           const rad = Math.sqrt(Math.random()) * WRAP_RADIUS;
-          const rx = cx + Math.cos(ang) * rad;
-          const rz = cz + Math.sin(ang) * rad;
-          const ry = 110 + Math.random() * (HEIGHT_SPAN - 110);
+          const newRx = cx + Math.cos(ang) * rad;
+          const newRz = cz + Math.sin(ang) * rad;
+          const newMinY = getRoofHeight(newRx, newRz);
+          const ry = Math.max(newMinY + 15, 110 + Math.random() * (HEIGHT_SPAN - 110));
           const len = (w === 'storm' ? 5.5 : 4.0) + Math.random() * 2.5;
 
-          rainPos[idx] = rx;
+          rainPos[idx] = newRx;
           rainPos[idx + 1] = ry;
-          rainPos[idx + 2] = rz;
-          rainPos[idx + 3] = rx + (w === 'storm' ? -1.2 : -0.7);
+          rainPos[idx + 2] = newRz;
+          rainPos[idx + 3] = newRx + (w === 'storm' ? -1.2 : -0.7);
           rainPos[idx + 4] = ry - len;
-          rainPos[idx + 5] = rz + (w === 'storm' ? -0.5 : -0.3);
+          rainPos[idx + 5] = newRz + (w === 'storm' ? -0.5 : -0.3);
         }
       }
       rainGeo.attributes.position.needsUpdate = true;
@@ -325,13 +344,18 @@ window.HP = window.HP || {};
 
         const dx = snowPos[idx] - cx;
         const dz = snowPos[idx + 2] - cz;
+        const sx = snowPos[idx], sz = snowPos[idx + 2];
+        const minY = getRoofHeight(sx, sz);
 
-        if (snowPos[idx + 1] < -2 || Math.hypot(dx, dz) > WRAP_RADIUS) {
+        if (snowPos[idx + 1] <= minY || Math.hypot(dx, dz) > WRAP_RADIUS) {
           const ang = Math.random() * Math.PI * 2;
           const rad = Math.sqrt(Math.random()) * WRAP_RADIUS;
-          snowPos[idx] = cx + Math.cos(ang) * rad;
-          snowPos[idx + 1] = 100 + Math.random() * (HEIGHT_SPAN - 100);
-          snowPos[idx + 2] = cz + Math.sin(ang) * rad;
+          const newSx = cx + Math.cos(ang) * rad;
+          const newSz = cz + Math.sin(ang) * rad;
+          const newMinY = getRoofHeight(newSx, newSz);
+          snowPos[idx] = newSx;
+          snowPos[idx + 1] = Math.max(newMinY + 10, 100 + Math.random() * (HEIGHT_SPAN - 100));
+          snowPos[idx + 2] = newSz;
         }
       }
       snowGeo.attributes.position.needsUpdate = true;

@@ -1188,6 +1188,31 @@ G.floorMaterial = function (id) {
   }
   return m;
 };
+G.ceilingMaterial = function (style, color) {
+  const s = (style || 'plaster').toLowerCase();
+  let kind = 'plaster';
+  let defaultCol = '#f3ecdc';
+  if (s === 'wood') { kind = 'wood'; defaultCol = '#c49c71'; }
+  else if (s === 'concrete') { kind = 'concrete'; defaultCol = '#9ca3af'; }
+  else if (s === 'glass') { kind = 'glass'; defaultCol = '#cde5eb'; }
+  else if (s === 'metal') { kind = 'metal'; defaultCol = '#94a3b8'; }
+  else if (s === 'tin') { kind = 'metal'; defaultCol = '#e2e8f0'; }
+  else if (s === 'porch') { kind = 'wood'; defaultCol = '#cbe3eb'; }
+  else if (s === 'pergola') { kind = 'wood'; defaultCol = '#8c5835'; }
+  else if (s === 'sail') { kind = 'fabric'; defaultCol = '#f8fafc'; }
+  else if (s === 'beams' || s === 'coffered') { kind = 'plaster'; defaultCol = '#f8fafc'; }
+  else if (s === 'tray') { kind = 'plaster'; defaultCol = '#f4efe4'; }
+
+  const col = color || defaultCol;
+  const key = 'ceil:' + s + ':' + col;
+  if (materials.has(key)) return materials.get(key);
+  const m = G.material(kind, col).clone();
+  m.shadowSide = THREE.DoubleSide;
+  m.userData.shared3d = true;
+  G.worldUV(m, HP.CELL * 2);
+  materials.set(key, m);
+  return m;
+};
 G.contactMaterial = function () {
   if (G._contact) return G._contact;
   const c = canvas(64);

@@ -941,6 +941,77 @@ HP.CATALOG = [
       g.font = 'bold 9px sans-serif'; g.textAlign = 'center';
       g.fillText('UP', W / 2, 16);
     } },
+  { id: 'pergola', name: 'Pergola Canopy', cat: 'Build', w: 4, h: 3, colors: ['#6d4c33', '#4a3322', '#8c6243', '#2d2e30', '#f4efe4'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#6d4c33';
+      g.fillStyle = HP.shade(c, 0.7);
+      g.fillRect(2, 2, 8, 8);
+      g.fillRect(W - 10, 2, 8, 8);
+      g.fillRect(2, H - 10, 8, 8);
+      g.fillRect(W - 10, H - 10, 8, 8);
+      g.strokeStyle = HP.shade(c, 0.85); g.lineWidth = 4;
+      g.strokeRect(5, 5, W - 10, H - 10);
+      g.strokeStyle = c; g.lineWidth = 2.5;
+      const numRafters = 7;
+      for (let i = 0; i < numRafters; i++) {
+        const x = 7 + (W - 14) * (i / (numRafters - 1));
+        g.beginPath(); g.moveTo(x, 2); g.lineTo(x, H - 2); g.stroke();
+      }
+    } },
+  { id: 'porch', name: 'Covered Porch', cat: 'Build', w: 4, h: 2, colors: ['#ffffff', '#f4efe4', '#cbe3eb', '#5c4033', '#1e293b'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#f4efe4';
+      g.fillStyle = c;
+      g.fillRect(3, 3, W - 6, H - 6);
+      g.strokeStyle = HP.shade(c, 0.88); g.lineWidth = 1;
+      for (let x = 7; x < W - 6; x += 6) {
+        g.beginPath(); g.moveTo(x, 4); g.lineTo(x, H - 4); g.stroke();
+      }
+      g.strokeStyle = HP.shade(c, 0.65); g.lineWidth = 3;
+      g.strokeRect(3, 3, W - 6, H - 6);
+      g.fillStyle = HP.shade(c, 0.5);
+      g.fillRect(4, H - 10, 7, 7);
+      g.fillRect(W - 11, H - 10, 7, 7);
+    } },
+  { id: 'canopy_glass', name: 'Glass Canopy', cat: 'Build', w: 3, h: 2, colors: ['#1e293b', '#475569', '#cbd5e1', '#b45309'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#1e293b';
+      g.fillStyle = 'rgba(190, 227, 234, 0.55)';
+      g.fillRect(3, 3, W - 6, H - 6);
+      g.strokeStyle = c; g.lineWidth = 3;
+      g.strokeRect(3, 3, W - 6, H - 6);
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(W / 2, 4); g.lineTo(W / 2, H - 4);
+      g.moveTo(4, H / 2); g.lineTo(W - 4, H / 2);
+      g.stroke();
+    } },
+  { id: 'awning_metal', name: 'Metal Awning', cat: 'Build', w: 3, h: 1, colors: ['#475569', '#1e293b', '#94a3b8', '#b91c1c'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#475569';
+      g.fillStyle = c;
+      g.fillRect(2, 2, W - 4, H - 4);
+      g.strokeStyle = HP.shade(c, 1.25); g.lineWidth = 1;
+      for (let x = 6; x < W - 4; x += 5) {
+        g.beginPath(); g.moveTo(x, 2); g.lineTo(x, H - 2); g.stroke();
+      }
+      g.strokeStyle = HP.shade(c, 0.7); g.lineWidth = 2;
+      g.strokeRect(2, 2, W - 4, H - 4);
+    } },
+  { id: 'sunsail', name: 'Sun Sail Shade', cat: 'Garden', w: 3, h: 3, colors: ['#f8fafc', '#fed7aa', '#bae6fd', '#bbf7d0'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#f8fafc';
+      g.fillStyle = c;
+      g.beginPath();
+      g.moveTo(5, 5); g.lineTo(W - 6, 8); g.lineTo(W - 8, H - 5); g.lineTo(8, H - 8);
+      g.closePath(); g.fill();
+      g.strokeStyle = HP.shade(c, 0.78); g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#64748b';
+      for (const [cx, cy] of [[5, 5], [W - 6, 8], [W - 8, H - 5], [8, H - 8]]) {
+        g.beginPath(); g.arc(cx, cy, 2.5, 0, Math.PI * 2); g.fill();
+      }
+    } },
 
   /* ---------------- LIVING ---------------- */
   { id: 'sofa2', name: 'Sofa 2-Seat', cat: 'Living', w: 3, h: 2, colors: ['#7d8fa3', '#a06558', '#718a68', '#c9b48f', '#5d4a68', '#4a6b8a'], draw: sofa(2) },

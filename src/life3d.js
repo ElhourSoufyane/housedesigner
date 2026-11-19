@@ -251,17 +251,24 @@ function addScreen(cx, cz, rot, screenW, screenH, offZ, iy) {
   screens.push(sc);
   L.interactables.push({ x: cx, z: cz, kind: 'tv', ref: sc });
 }
-function addLampBulb(cx, cy, cz) {
+function addLampBulb(cx, cy, cz, it) {
   /* nearest world light source → this lamp's switch controls it */
-  let src = null, bd = 15 * 15;
-  for (const s of (HP.world3d.lamps || [])) {
-    const d = (s.x - cx) ** 2 + (s.z - cz) ** 2;
-    if (d < bd) { bd = d; src = s; }
+  let src = null;
+  if (it && it.id !== undefined) {
+    src = (HP.world3d.lamps || []).find(s => s.id === it.id);
+  }
+  if (!src) {
+    let bd = 20 * 20;
+    for (const s of (HP.world3d.lamps || [])) {
+      const d = (s.x - cx) ** 2 + (s.z - cz) ** 2;
+      if (d < bd) { bd = d; src = s; }
+    }
   }
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 6), glowMat('#ffe3a8'));
   mesh.position.set(cx, cy, cz); mesh.visible = false;
   group.add(mesh);
-  const lp = { mesh, src, on: true, x: cx, z: cz };
+  const isOn = it ? (it.on !== false) : true;
+  const lp = { mesh, src, on: isOn, x: cx, z: cz, it };
   if (src) src.lampRef = lp;
   lampBulbs.push(lp);
   L.interactables.push({ x: cx, z: cz, kind: 'lamp', ref: lp });
@@ -546,7 +553,7 @@ L.build = function (g, entries) {
       else if (hang === 'w') mx = f.x * C() + IN;
       else if (hang === 'e') mx = (f.x + f.w) * C() - IN;
       if (/walltv/.test(t)) addScreen(mx, mz, rot, 47.6, 26.4, 2.52, 42.0);
-      else addLampBulb(mx, 38, mz);
+      else addLampBulb(mx, 38, mz, it);
     }
     else if (/aquarium/.test(t)) addFish(cx, cz, w, dep, e.h * 0.73);
     else if (/fireplace/.test(t)) { addFire(cx, cz, it.rot || 0, dep, e.h); L.ambience.fire.push({ x: cx, z: cz }); }
@@ -562,7 +569,7 @@ L.build = function (g, entries) {
     else if (/lamp|torch|lantern|light/i.test(t) && !/candle/i.test(t)) {
       const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
       const bulbY = bY + (/torch/i.test(t) ? 30 : (/nightlight/i.test(t) ? 6 : Math.max(12, e.h * 0.8)));
-      addLampBulb(cx, bulbY, cz);
+      addLampBulb(cx, bulbY, cz, it);
     }
     if (hi && /flower|veggie|tomato|seedling|rose/i.test(t)) spots.push({ x: cx, z: cz });
     if (/doghouse|petbed|kennel/.test(t)) dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };
@@ -678,18 +685,27 @@ L.toggle = function (g2) {
     if (r.light) r.light.intensity = r.on ? 1 : 0;
     if (r.cones) for (const c of r.cones) c.visible = r.on;
   } else if (g2.kind === 'lamp') {
-    if (r.src) r.src.on = r.on;
+    if (r.it) r.it.on = r.on;
+    if (r.src) {
+      r.src.on = r.on;
+      if (r.src.it) r.src.it.on = r.on;
+    }
     if (r.mesh) r.mesh.visible = r.on;
     for (const s of (HP.world3d.lamps || [])) {
-      if (Math.hypot(s.x - r.x, s.z - r.z) < 20) s.on = r.on;
+      if (s === r.src || (r.it && s.id === r.it.id) || Math.hypot(s.x - r.x, s.z - r.z) < 20) {
+        s.on = r.on;
+        if (s.it) s.it.on = r.on;
+      }
     }
     for (const lb of lampBulbs) {
-      if (Math.hypot(lb.x - r.x, lb.z - r.z) < 20) {
+      if (lb === r || (r.it && lb.it && lb.it.id === r.it.id) || Math.hypot(lb.x - r.x, lb.z - r.z) < 20) {
         lb.on = r.on;
         if (lb.mesh) lb.mesh.visible = r.on;
         if (lb.src) lb.src.on = r.on;
+        if (lb.it) lb.it.on = r.on;
       }
     }
+    if (HP.world3d && HP.world3d.syncLamps) HP.world3d.syncLamps();
   } else if (g2.kind === 'tv') {
     if (!r.on && r.mat) r.mat.color.set(0x08090b);
   }

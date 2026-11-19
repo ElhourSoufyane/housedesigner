@@ -144,7 +144,8 @@ function buildLampPool(n) {
   for (const l of lampPool) scene.remove(l.light);
   lampPool = [];
   for (let i = 0; i < n; i++) {
-    const light = new THREE.PointLight(0xffc98a, 0, 140, 2);   // warm, falls off fast, realistic room radius (140px ≈ 5m)
+    // Distance 110 (approx 4m / 8 cells), decay 2: smooth natural room falloff without harsh blown-out ceiling hotspots
+    const light = new THREE.PointLight(0xffc98a, 0, 110, 2);
     light.position.set(0, -1000, 0);
     scene.add(light);
     lampPool.push({ light, src: null, target: 0 });
@@ -157,25 +158,27 @@ function assignLamps(night) {
     for (const L of lampPool) { L.src = null; L.target = 0; L.light.intensity = 0; L.light.position.set(0, -1000, 0); }
     return;
   }
-  const env = geomEnv();
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  const camFloor = Math.max(0, Math.floor((p.y + 0.1) / WALL_H));
+  const curLvl = (HP.state && HP.state.levels && HP.state.levels[camFloor]) || HP.cur();
+  const env = geomEnv(curLvl);
   const camCx = Math.floor(p.x / HP.CELL), camCz = Math.floor(p.z / HP.CELL);
   const camRoom = env ? env.rAt(camCx, camCz) : -1;
 
   const cand = srcs
     .filter(s => {
-      if (s.on === false) return false;
+      if (s.on === false || (s.it && s.it.on === false)) return false;
+      const lampFloor = Math.max(0, Math.floor(((s.y || 0) + 0.1) / WALL_H));
+      if (lampFloor !== camFloor) return false;
+
       if (s.room === undefined && env) {
         s.room = env.rAt(Math.floor(s.x / HP.CELL), Math.floor(s.z / HP.CELL));
       }
       // 1. In the same enclosed room as the camera -> always considered visible
       if (s.room !== undefined && s.room >= 0 && s.room === camRoom) return true;
-      // 2. Direct line of sight from camera to lamp (checks solid walls and closed doors)
+      // 2. Direct line of sight from camera to lamp (strictly checks solid walls and closed doors)
       if (V && V.hasLineOfSight) {
-        if (V.hasLineOfSight(p.x, p.z, s.x, s.z)) return true;
-        // 3. Grid cell visibility check (for lamps reached by visibility rays through open doors/windows)
-        const lcx = Math.floor(s.x / HP.CELL), lcz = Math.floor(s.z / HP.CELL);
-        if (V.visibleCell && V.visibleCell(lcx, lcz)) return true;
-        return false;
+        return V.hasLineOfSight(p.x, p.z, s.x, s.z);
       }
       return !V || V.visibleAt(s.x, s.z);
     })
@@ -196,10 +199,12 @@ function assignLamps(night) {
     const L = lampPool.find(L => !L.src);
     if (!L) break;
     L.src = s; L.light.intensity = 0;                     // fade in, no pop
-    L.light.position.set(s.x, s.y, s.z);
+    const bY = Math.floor((s.y || 0) / WALL_H) * WALL_H;
+    const clampedY = Math.min(s.y, bY + 60);
+    L.light.position.set(s.x, clampedY, s.z);
   }
   for (const L of lampPool) {
-    if (L.src && L.src.on === false) {
+    if (L.src && (L.src.on === false || (L.src.it && L.src.it.on === false))) {
       L.target = 0;
       L.light.intensity = 0;
       L.light.position.set(0, -1000, 0);
@@ -208,6 +213,19 @@ function assignLamps(night) {
     }
   }
 }
+W3.syncLamps = function () {
+  const night = HP.sky3d ? HP.sky3d.sample(TIME.hour).night : 1;
+  for (const L of lampPool) {
+    if (L.src && (L.src.on === false || (L.src.it && L.src.it.on === false))) {
+      L.target = 0;
+      L.light.intensity = 0;
+      L.light.position.set(0, -1000, 0);
+    } else if (L.src) {
+      L.target = L.src.power * night;
+    }
+  }
+  assignLamps(night);
+};
 function tickTime(dt, now) {
   if (TIME.flow) TIME.hour = (TIME.hour + dt * TIME.speed) % 24;
   const G = HP.graphics3d, q = G && G.current, s = HP.sky3d.sample(TIME.hour);
@@ -236,15 +254,15 @@ function tickTime(dt, now) {
 }
 
 /* ---------- geometry env for geom3d ---------- */
-function geomEnv() {
-  const { regionOf, regions } = HP.computeRegions();
-  const lvl = HP.cur();
+function geomEnv(targetLvl) {
+  const lvl = targetLvl || HP.cur();
+  const { regionOf, regions } = HP.computeRegions(lvl);
   return {
     C: HP.CELL,
     fences: lvl.fences,
     garageDoors: (lvl.furniture || []).filter(it => /garagedoor/i.test(it.type)),
-    rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : regionOf[y * HP.GRID_W + x],
-    rsz: id => id >= 0 ? regions[id].cells.length : 1e9,
+    rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : (regionOf ? regionOf[y * HP.GRID_W + x] : -1),
+    rsz: id => (id >= 0 && regions && regions[id]) ? regions[id].cells.length : 1e9,
   };
 }
 
@@ -570,7 +588,9 @@ const H3D = [
   [/tvstand|media.*console/i, 36],
   [/tv|monitor|screen/i, 26],
   [/piano|keyboard|organ|drum/i, 27],
-  [/stairs/i, 36],
+  [/stairs/i, 74],
+  [/pergola|porch|canopy_glass|sunsail/i, 74],
+  [/awning_metal/i, 60],
   [/^clock$|clkgrand|grandfather/i, 52],
   [/rangehood/i, 72],
   [/ceilingfan/i, 74],
@@ -790,6 +810,8 @@ function buildOverheadTrack(a, span, leaves, s0, s1, flipVal, parentGroup) {
   const trackH = 1.6, trackD = 1.8;
   const trackMat = HP.graphics3d ? HP.graphics3d.material('metal', '#1a1b1d') : new THREE.MeshLambertMaterial({ color: 0x1a1b1d });
   const group = new THREE.Group();
+  const bY = (a && a.baseY) || 0;
+  group.position.y = bY;
 
   const tGeo = new THREE.BoxGeometry(isH ? trackLen : trackD, trackH, isH ? trackD : trackLen);
   const trackMesh = new THREE.Mesh(tGeo, trackMat);
@@ -851,6 +873,8 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   const sillMat = HP.graphics3d ? HP.graphics3d.material('metal', '#3e4146') : new THREE.MeshLambertMaterial({ color: 0x3e4146 });
 
   const group = new THREE.Group();
+  const bY = (a && a.baseY) || 0;
+  group.position.y = bY;
   const jt = 0.8;
   const jd = Math.max(3.2, wThick + 0.4);
 
@@ -947,7 +971,8 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     const bypassOffset = leaves === 2 ? (li === 0 ? -0.4 : 0.4) : 0;
     const faceZ = isH ? (flipVal > 0 ? a.z0 - (dep / 2 + 0.4 + bypassOffset) : a.z1 + (dep / 2 + 0.4 + bypassOffset)) : closedCenter;
     const faceX = isH ? closedCenter : (flipVal > 0 ? a.x0 - (dep / 2 + 0.4 + bypassOffset) : a.x1 + (dep / 2 + 0.4 + bypassOffset));
-    pivot.position.set(faceX, 0, faceZ);
+    const bY = (a && a.baseY) || 0;
+    pivot.position.set(faceX, bY, faceZ);
 
     if (doorStyle === 'slideglass') {
       // Sliding Glass Door: sleek aluminum perimeter frame with crystal clear glass
@@ -1092,7 +1117,8 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     dp.base = null;
     const pz = isH ? (flipVal > 0 ? a.z0 : a.z1) : (li === 0 ? s0 : s1);
     const px = isH ? (li === 0 ? s0 : s1) : (flipVal > 0 ? a.x0 : a.x1);
-    pivot.position.set(px, 0, pz);
+    const bY = (a && a.baseY) || 0;
+    pivot.position.set(px, bY, pz);
 
     const v = (dep / 2 - 0.2) * flipVal;
     const kv = (dep - 0.3) * flipVal;
@@ -1280,6 +1306,292 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
   dp.post1 = post1;
 }
 
+/* ---------- authentic 3D fences & boundaries ---------- */
+function buildFences3D(fences, walls, sg, C, V, baseY = 0) {
+  if (!fences) return;
+  const activeSegs = [];
+  const postMap = new Map();
+
+  for (const k in fences) {
+    if (walls && walls[k]) continue; // wall wins the shared edge
+    const fv = fences[k];
+    if (!fv) continue;
+    const s = HP.parseWallKey(k);
+    s.t = fv.t || 'wood';
+    s.k = k;
+    if (s.t === 'gate') continue; // gates are handled by swinging gate assembly
+    activeSegs.push(s);
+
+    const v0 = `${s.x},${s.y}`;
+    const v1 = s.d === 'h' ? `${s.x + 1},${s.y}` : `${s.x},${s.y + 1}`;
+    if (!postMap.has(v0)) postMap.set(v0, { vx: s.x, vy: s.y, t: s.t });
+    if (!postMap.has(v1)) postMap.set(v1, { vx: s.d === 'h' ? s.x + 1 : s.x, vy: s.d === 'h' ? s.y : s.y + 1, t: s.t });
+  }
+
+  if (!activeSegs.length && !postMap.size) return;
+
+  const fenceBatches = new Map();
+  const fenceMats = {};
+  const getFenceMat = (kind, col) => {
+    const k = kind + ':' + (col || '');
+    if (fenceMats[k]) return fenceMats[k];
+    const mat = HP.graphics3d
+      ? HP.graphics3d.material(kind, col)
+      : new THREE.MeshLambertMaterial({ color: new THREE.Color(col || 0xcccccc) });
+    mat.userData.shared3d = true;
+    if (HP.graphics3d) HP.graphics3d.track(mat);
+    return (fenceMats[k] = mat);
+  };
+
+  function addFenceMeshPart(geoName, matKind, col, px, py, pz, sx, sy, sz, rx, ry, rz, opts) {
+    const bKey = geoName + '|' + matKind + '|' + (col || '');
+    let batch = fenceBatches.get(bKey);
+    if (!batch) {
+      let geo = unitBox();
+      if (geoName === 'cyl') geo = unitCyl();
+      else if (geoName === 'roof') geo = unitRoof();
+      else if (geoName === 'cone') geo = unitCone();
+      else if (geoName === 'sphere') geo = unitSphere();
+      else if (geoName === 'cylX') geo = unitCylX();
+      else if (geoName === 'cylZ') geo = unitCylZ();
+      const mat = getFenceMat(matKind, col);
+      batch = { geo, mat, parts: [], cast: matKind !== 'glass', detail: !!(opts && opts.detail) };
+      fenceBatches.set(bKey, batch);
+    }
+    const m = new THREE.Matrix4();
+    const finalY = py + baseY;
+    if (rx || ry || rz) {
+      const euler = new THREE.Euler(rx || 0, ry || 0, rz || 0, 'YXZ');
+      m.makeRotationFromEuler(euler);
+      m.scale(new THREE.Vector3(sx, sy, sz));
+      m.setPosition(px, finalY, pz);
+    } else {
+      m.makeScale(sx, sy, sz);
+      m.setPosition(px, finalY, pz);
+    }
+    const rMax = Math.max(sx, sz) * 0.6;
+    batch.parts.push({
+      m, c: col,
+      x0: px - rMax, z0: pz - rMax,
+      x1: px + rMax, z1: pz + rMax
+    });
+  }
+
+  function addLocalPart(geoName, matKind, col, isH, cx, cz, u, v, w, uLen, vLen, wLen, opts) {
+    const px = isH ? (cx + u) : (cx + w);
+    const py = v;
+    const pz = isH ? (cz + w) : (cz + u);
+    const sx = isH ? uLen : wLen;
+    const sy = vLen;
+    const sz = isH ? wLen : uLen;
+    let gName = geoName;
+    if (geoName === 'cylX') gName = isH ? 'cylX' : 'cylZ';
+    else if (geoName === 'cylZ') gName = isH ? 'cylZ' : 'cylX';
+    const rx = (opts && opts.rx) ? opts.rx : 0;
+    const ry = (opts && opts.ry) ? opts.ry : 0;
+    const rz = (opts && opts.rz) ? opts.rz : 0;
+    addFenceMeshPart(gName, matKind, col, px, py, pz, sx, sy, sz, rx, ry, rz, opts);
+  }
+
+  // 2. Posts at fence vertices
+  for (const pt of postMap.values()) {
+    const px = pt.vx * C, pz = pt.vy * C;
+    const t = pt.t;
+    if (t === 'wood') {
+      addFenceMeshPart('box', 'wood', '#6f4f33', px, 14, pz, 3.2, 28, 3.2);
+      addFenceMeshPart('roof', 'wood', '#592506', px, 29.1, pz, 3.8, 2.2, 3.8);
+    } else if (t === 'picket') {
+      addFenceMeshPart('box', 'wood', '#ffffff', px, 12, pz, 3.0, 24, 3.0);
+      addFenceMeshPart('roof', 'wood', '#ffffff', px, 25.0, pz, 3.6, 2.0, 3.6);
+    } else if (t === 'iron') {
+      addFenceMeshPart('box', 'metal', '#181b1e', px, 15, pz, 3.0, 30, 3.0);
+      addFenceMeshPart('box', 'dark', '#0f172a', px, 0.8, pz, 3.8, 1.6, 3.8);
+      addFenceMeshPart('box', 'metal', '#c9a44e', px, 30.4, pz, 3.4, 0.8, 3.4);
+      addFenceMeshPart('sphere', 'metal', '#c9a44e', px, 32.2, pz, 2.6, 2.6, 2.6);
+    } else if (t === 'stone') {
+      addFenceMeshPart('box', 'stone', '#a8a294', px, 12, pz, 5.2, 24, 5.2);
+      addFenceMeshPart('box', 'stone', '#e2d9c8', px, 25.0, pz, 6.0, 2.0, 6.0);
+    } else if (t === 'brick') {
+      addFenceMeshPart('box', 'brick', '#7c2f21', px, 12, pz, 5.0, 24, 5.0);
+      addFenceMeshPart('box', 'stone', '#efe9da', px, 25.0, pz, 5.8, 2.0, 5.8);
+    } else if (t === 'whitewall') {
+      addFenceMeshPart('box', 'plaster', '#efe9da', px, 13, pz, 4.6, 26, 4.6);
+      addFenceMeshPart('box', 'plaster', '#ddd5c2', px, 26.9, pz, 5.2, 1.8, 5.2);
+    } else if (t === 'bamboo') {
+      addFenceMeshPart('cyl', 'wood', '#78350f', px, 14, pz, 3.0, 28, 3.0);
+    } else if (t === 'reed') {
+      addFenceMeshPart('box', 'wood', '#8a6844', px, 13, pz, 2.6, 26, 2.6);
+    } else if (t === 'chainlink') {
+      addFenceMeshPart('cyl', 'metal', '#cbd5e1', px, 14.5, pz, 2.2, 29, 2.2);
+      addFenceMeshPart('cyl', 'dark', '#334155', px, 0.75, pz, 3.2, 1.5, 3.2);
+      addFenceMeshPart('sphere', 'metal', '#e2e8f0', px, 29.5, pz, 2.6, 1.8, 2.6);
+    } else if (t === 'lattice') {
+      addFenceMeshPart('box', 'wood', '#78350f', px, 14, pz, 3.2, 28, 3.2);
+      addFenceMeshPart('roof', 'wood', '#592506', px, 29.0, pz, 3.8, 2.0, 3.8);
+    } else if (t === 'ranch') {
+      addFenceMeshPart('cyl', 'wood', '#78350f', px, 12.5, pz, 3.2, 25, 3.2);
+      addFenceMeshPart('sphere', 'wood', '#592506', px, 25.4, pz, 3.4, 1.6, 3.4);
+    } else if (t === 'glass') {
+      addFenceMeshPart('cyl', 'metal', '#e2e8f0', px, 0.4, pz, 3.2, 0.8, 3.2);
+      addFenceMeshPart('box', 'metal', '#cbd5e1', px, 2.5, pz, 2.2, 5.0, 2.6);
+    } else if (t === 'metal') {
+      addFenceMeshPart('box', 'metal', '#0f172a', px, 14, pz, 2.8, 28, 2.8);
+    } else if (t === 'rope') {
+      addFenceMeshPart('cyl', 'wood', '#78350f', px, 10, pz, 3.4, 20, 3.4);
+      addFenceMeshPart('sphere', 'wood', '#592506', px, 20.5, pz, 3.6, 1.8, 3.6);
+      addFenceMeshPart('cyl', 'dark', '#181b1e', px, 0.5, pz, 4.0, 1.0, 4.0);
+      addFenceMeshPart('sphere', 'metal', '#c9a44e', px, 7.0, pz, 1.8, 1.8, 1.8);
+      addFenceMeshPart('sphere', 'metal', '#c9a44e', px, 14.5, pz, 1.8, 1.8, 1.8);
+    }
+  }
+
+  // 3. Fence run bodies
+  for (const s of activeSegs) {
+    const isH = s.d === 'h';
+    const cx = isH ? (s.x + 0.5) * C : s.x * C;
+    const cz = isH ? s.y * C : (s.y + 0.5) * C;
+    const t = s.t;
+
+    if (t === 'wood') {
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 0, 5.0, -0.7, 27.6, 1.6, 1.2);
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 0, 22.0, -0.7, 27.6, 1.6, 1.2);
+      addLocalPart('box', 'wood', '#6f4f33', isH, cx, cz, 0, 26.0, 0, 27.8, 1.4, 2.4);
+      for (let i = 0; i < 7; i++) {
+        const ui = -11.7 + i * 3.9;
+        const col = (i % 2 === 0 ? '#9a774f' : '#b45309');
+        const altW = (i % 2 === 0 ? 0.2 : 0.45);
+        addLocalPart('box', 'wood', col, isH, cx, cz, ui, 13.0, altW, 3.6, 24.5, 1.2);
+      }
+    } else if (t === 'picket') {
+      addLocalPart('box', 'wood', '#ffffff', isH, cx, cz, 0, 5.5, -0.6, 27.6, 1.4, 1.2);
+      addLocalPart('box', 'wood', '#ffffff', isH, cx, cz, 0, 16.5, -0.6, 27.6, 1.4, 1.2);
+      for (let i = 0; i < 7; i++) {
+        const ui = -11.5 + i * 3.85;
+        addLocalPart('box', 'wood', '#ffffff', isH, cx, cz, ui, 9.5, 0.4, 2.2, 17.0, 1.0);
+        addLocalPart('roof', 'wood', '#ffffff', isH, cx, cz, ui, 19.6, 0.4, 2.2, 3.2, 1.0);
+      }
+    } else if (t === 'iron') {
+      addLocalPart('box', 'metal', '#1e2023', isH, cx, cz, 0, 4.0, 0, 27.8, 1.4, 1.4);
+      addLocalPart('box', 'metal', '#1e2023', isH, cx, cz, 0, 25.0, 0, 27.8, 1.4, 1.4);
+      for (let i = 0; i < 7; i++) {
+        const ui = -11.5 + i * 3.85;
+        addLocalPart('box', 'metal', '#181b1e', isH, cx, cz, ui, 13.5, 0, 1.2, 25.0, 1.2);
+        addLocalPart('cone', 'metal', '#c9a44e', isH, cx, cz, ui, 27.8, 0, 1.8, 4.0, 1.8);
+        addLocalPart('box', 'metal', '#c9a44e', isH, cx, cz, ui, 25.0, 0, 1.8, 1.0, 1.8);
+      }
+    } else if (t === 'stone') {
+      addLocalPart('box', 'stone', '#a8a294', isH, cx, cz, 0, 10.5, 0, 27.6, 21.0, 4.2);
+      addLocalPart('box', 'stone', '#e2d9c8', isH, cx, cz, 0, 22.2, 0, 27.8, 2.4, 5.0);
+      for (let l = 0; l < 3; l++) {
+        const yl = 5.0 + l * 5.0;
+        addLocalPart('box', 'stone', '#64748b', isH, cx, cz, 0, yl, 2.15, 27.4, 0.4, 0.4);
+        addLocalPart('box', 'stone', '#64748b', isH, cx, cz, 0, yl, -2.15, 27.4, 0.4, 0.4);
+      }
+    } else if (t === 'brick') {
+      addLocalPart('box', 'brick', '#b0705a', isH, cx, cz, 0, 10.5, 0, 27.6, 21.0, 4.0);
+      addLocalPart('box', 'stone', '#efe9da', isH, cx, cz, 0, 22.2, 0, 27.8, 2.4, 4.8);
+    } else if (t === 'whitewall') {
+      addLocalPart('box', 'plaster', '#efe9da', isH, cx, cz, 0, 11.5, 0, 27.6, 23.0, 3.8);
+      addLocalPart('box', 'plaster', '#ddd5c2', isH, cx, cz, 0, 24.0, 0, 27.8, 2.0, 4.4);
+    } else if (t === 'hedge') {
+      addLocalPart('box', 'dirt', '#291b10', isH, cx, cz, 0, 0.5, 0, 28.0, 1.0, 6.4);
+      addLocalPart('box', 'stone', '#64748b', isH, cx, cz, 0, 0.6, 3.2, 28.0, 1.2, 0.8);
+      addLocalPart('box', 'stone', '#64748b', isH, cx, cz, 0, 0.6, -3.2, 28.0, 1.2, 0.8);
+      addLocalPart('box', 'foliage', '#14532d', isH, cx, cz, 0, 13.0, 0, 27.8, 24.0, 5.0);
+      for (let i = 0; i < 5; i++) {
+        const ui = -11.0 + i * 5.5;
+        addLocalPart('sphere', 'foliage', '#166534', isH, cx, cz, ui, 9.0, 2.6, 5.2, 7.5, 3.8);
+        addLocalPart('sphere', 'foliage', '#166534', isH, cx, cz, ui, 9.0, -2.6, 5.2, 7.5, 3.8);
+        addLocalPart('sphere', 'foliage', '#166534', isH, cx, cz, ui, 18.0, 2.6, 4.8, 7.0, 3.6);
+        addLocalPart('sphere', 'foliage', '#166534', isH, cx, cz, ui, 18.0, -2.6, 4.8, 7.0, 3.6);
+        addLocalPart('sphere', 'foliage', '#22c55e', isH, cx, cz, ui, 26.5, 0, 5.4, 4.0, 5.0);
+      }
+    } else if (t === 'bamboo') {
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 0, 2.5, 0, 27.6, 1.6, 2.0);
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 0, 26.5, 0, 27.6, 1.6, 2.0);
+      for (let i = 0; i < 11; i++) {
+        const ui = -12.0 + i * 2.4;
+        const bcol = (i % 2 === 0 ? '#c9a55f' : '#eab308');
+        addLocalPart('cyl', 'wood', bcol, isH, cx, cz, ui, 14.5, 0, 1.8, 24.0, 1.8);
+      }
+      addLocalPart('box', 'metal', '#181b1e', isH, cx, cz, 0, 8.0, 1.0, 27.8, 0.8, 0.8);
+      addLocalPart('box', 'metal', '#181b1e', isH, cx, cz, 0, 8.0, -1.0, 27.8, 0.8, 0.8);
+      addLocalPart('box', 'metal', '#181b1e', isH, cx, cz, 0, 20.0, 1.0, 27.8, 0.8, 0.8);
+      addLocalPart('box', 'metal', '#181b1e', isH, cx, cz, 0, 20.0, -1.0, 27.8, 0.8, 0.8);
+    } else if (t === 'reed') {
+      for (let i = 0; i < 14; i++) {
+        const ui = -11.5 + i * (23.0 / 13);
+        const rH = 20.0 + ((i * 7) % 5) * 1.0;
+        const rCol = (i % 3 === 0 ? '#d0bd90' : (i % 3 === 1 ? '#e2d3aa' : '#bfa979'));
+        addLocalPart('cyl', 'wood', rCol, isH, cx, cz, ui, rH / 2 + 1.0, 0, 1.4, rH, 1.4);
+      }
+      for (const vy of [5.0, 12.0, 18.0]) {
+        addLocalPart('box', 'metal', '#475569', isH, cx, cz, 0, vy, 0, 27.8, 0.6, 1.8);
+      }
+    } else if (t === 'chainlink') {
+      addLocalPart('cylX', 'metal', '#cbd5e1', isH, cx, cz, 0, 27.5, 0, 27.8, 1.4, 1.4);
+      addLocalPart('cylX', 'metal', '#64748b', isH, cx, cz, 0, 2.0, 0, 27.8, 0.8, 0.8);
+      addLocalPart('cyl', 'metal', '#94a3b8', isH, cx, cz, -12.8, 15.0, 0, 0.8, 24.5, 0.8);
+      addLocalPart('cyl', 'metal', '#94a3b8', isH, cx, cz, 12.8, 15.0, 0, 0.8, 24.5, 0.8);
+      // Diamond wire mesh
+      for (let d = 0; d < 7; d++) {
+        const ud = -9.0 + d * 3.0;
+        addLocalPart('box', 'metal', '#aab4bb', isH, cx, cz, ud, 14.8, 0.1, 0.35, 23.0, 0.35, { rx: isH ? 0 : 0.65, rz: isH ? 0.65 : 0 });
+        addLocalPart('box', 'metal', '#aab4bb', isH, cx, cz, ud, 14.8, -0.1, 0.35, 23.0, 0.35, { rx: isH ? 0 : -0.65, rz: isH ? -0.65 : 0 });
+      }
+    } else if (t === 'lattice') {
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 0, 2.5, 0, 27.6, 2.0, 2.4);
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 0, 26.5, 0, 27.6, 2.0, 2.4);
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, -13.0, 14.5, 0, 1.8, 22.0, 2.2);
+      addLocalPart('box', 'wood', '#78350f', isH, cx, cz, 13.0, 14.5, 0, 1.8, 22.0, 2.2);
+      for (let d = 0; d < 6; d++) {
+        const ud = -7.5 + d * 3.0;
+        addLocalPart('box', 'wood', '#caa96f', isH, cx, cz, ud, 14.5, 0.4, 0.8, 20.0, 0.4, { rx: isH ? 0 : 0.785, rz: isH ? 0.785 : 0 });
+        addLocalPart('box', 'wood', '#b45309', isH, cx, cz, ud, 14.5, -0.4, 0.8, 20.0, 0.4, { rx: isH ? 0 : -0.785, rz: isH ? -0.785 : 0 });
+      }
+    } else if (t === 'ranch') {
+      addLocalPart('cylX', 'wood', '#8a6844', isH, cx, cz, 0, 5.5, 0, 27.8, 1.8, 1.8);
+      addLocalPart('cylX', 'wood', '#8a6844', isH, cx, cz, 0, 13.5, 0, 27.8, 1.8, 1.8);
+      addLocalPart('cylX', 'wood', '#8a6844', isH, cx, cz, 0, 21.5, 0, 27.8, 1.8, 1.8);
+    } else if (t === 'glass') {
+      addLocalPart('box', 'glass', '#38bdf8', isH, cx, cz, 0, 15.0, 0, 27.6, 24.0, 0.8);
+      addLocalPart('box', 'metal', '#cbd5e1', isH, cx, cz, 0, 27.5, 0, 27.8, 1.0, 1.4);
+      addLocalPart('box', 'metal', '#cbd5e1', isH, cx, cz, -8.0, 2.5, 0, 2.2, 5.0, 2.6);
+      addLocalPart('box', 'metal', '#cbd5e1', isH, cx, cz, 8.0, 2.5, 0, 2.2, 5.0, 2.6);
+    } else if (t === 'metal') {
+      addLocalPart('box', 'metal', '#0f172a', isH, cx, cz, 0, 1.5, 0, 27.6, 1.4, 2.0);
+      addLocalPart('box', 'metal', '#0f172a', isH, cx, cz, 0, 26.5, 0, 27.6, 1.4, 2.0);
+      for (let s = 0; s < 6; s++) {
+        const vs = 4.5 + s * 4.0;
+        addLocalPart('box', 'metal', '#1e293b', isH, cx, cz, 0, vs, 0, 27.6, 2.8, 1.2);
+      }
+    } else if (t === 'fieldstone') {
+      for (let i = 0; i < 7; i++) {
+        const ui = -11.5 + i * 3.85;
+        const wi = (i % 2 === 0 ? 0.8 : -0.8);
+        const r = 2.2 + (i % 3) * 0.6;
+        const stCol = (i % 3 === 0 ? '#a8a294' : (i % 3 === 1 ? '#847c6c' : '#948c7c'));
+        addLocalPart('sphere', 'stone', stCol, isH, cx, cz, ui, r * 0.8, wi, r * 2.0, r * 1.6, r * 2.0);
+      }
+    } else if (t === 'rope') {
+      for (let k = 0; k < 5; k++) {
+        const uk = -9.6 + k * 4.8;
+        const sag = Math.sin((k + 0.5) / 5 * Math.PI) * 2.4;
+        const vUp = 14.5 - sag;
+        const vLow = 7.0 - sag * 0.8;
+        addLocalPart('cylX', 'fabric', '#fed7aa', isH, cx, cz, uk, vUp, 0, 4.9, 1.4, 1.4);
+        addLocalPart('cylX', 'fabric', '#fed7aa', isH, cx, cz, uk, vLow, 0, 4.9, 1.4, 1.4);
+      }
+    }
+  }
+
+  // 4. Batch commit to scene via V.instanced (culling + chunking)
+  for (const batch of fenceBatches.values()) {
+    if (!batch.parts.length) continue;
+    V.instanced(sg, batch.geo, batch.mat, batch.parts, { cast: batch.cast, receive: true, detail: batch.detail });
+  }
+}
+
 /* ---------- level build ---------- */
 W3.buildLevel = function () {
   if (!scene) return;
@@ -1347,16 +1659,7 @@ W3.buildLevel = function () {
   };
   for (const b of V.splitBoxes(geo.boxes)) {
     if (b.tag === 'fence') {
-      const ft = b.ft && HP.FENCE_TYPES[b.ft];
-      let fmat = 'wood';
-      if (b.ft === 'brick') fmat = 'brick';
-      else if (b.ft === 'stone' || b.ft === 'fieldstone') fmat = 'stone';
-      else if (b.ft === 'whitewall') fmat = 'plaster';
-      else if (b.ft === 'glass') fmat = 'glass';
-      else if (b.ft === 'concrete') fmat = 'concrete';
-      else if (b.ft === 'iron' || b.ft === 'metal' || b.ft === 'chainlink') fmat = 'metal';
-      addWallPart(fmat, boxPart(b, ft ? ft.c : 0xe9e2d2));
-      continue;
+      continue; // Fences are built with authentic architectural 3D models via buildFences3D below
     }
     const defC = b.ext ? '#e9e2d2' : '#f4efe4';
     if (b.tag === 'wall' && b.line !== undefined) {
@@ -1454,6 +1757,9 @@ W3.buildLevel = function () {
     V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
       V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true });
   }
+
+  /* ---- fences: authentic architectural 3D models matching each preview type ---- */
+  buildFences3D(lvl.fences, lvl.walls, sg, C, V);
 
   /* ---- pools: recessed basins carved 1m into the ground. Collected
      before floors/ground so both leave the hole open; walk3d wades   */
@@ -1702,11 +2008,16 @@ W3.buildLevel = function () {
   /* ---- fence gates: real swinging leaves, not permanent holes ---- */
   const gateMat = HP.graphics3d ? HP.graphics3d.material('wood', '#9a774f') :
     new THREE.MeshLambertMaterial({ color: 0x9a774f });
+  const gateFrameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#78350f') :
+    new THREE.MeshLambertMaterial({ color: 0x78350f });
+  const gateIronMat = HP.graphics3d ? HP.graphics3d.material('metal', '#181b1e') :
+    new THREE.MeshLambertMaterial({ color: 0x181b1e });
+
   for (const k in (lvl.fences || {})) {
     const fv = lvl.fences[k];
     if (!fv || fv.t !== 'gate') continue;
     const s = HP.parseWallKey(k), isH = s.d === 'h';
-    const gh = 24, gt = 4;
+    const gh = 24, gt = 3.6;
     /* a neighbour gate seg? then hinge at the far end — the pair
        meets in the middle like a double gate                        */
     const nKey = isH ? `h,${s.x + 1},${s.y}` : `v,${s.x},${s.y + 1}`;
@@ -1714,15 +2025,62 @@ W3.buildLevel = function () {
     const a = isH
       ? { d: 'h', x0: s.x * C, x1: (s.x + 1) * C, z0: s.y * C - 2, z1: s.y * C + 2, cx: (s.x + 0.5) * C, cz: s.y * C }
       : { d: 'v', x0: s.x * C - 2, x1: s.x * C + 2, z0: s.y * C, z1: (s.y + 1) * C, cx: s.x * C, cz: (s.y + 0.5) * C };
+
+    // Flanking gate posts at ends
+    const postGeo = new THREE.BoxGeometry(3.6, gh + 4, 3.6);
+    const postCapGeo = new THREE.ConeGeometry(2.6, 2.0, 4).rotateY(Math.PI / 4);
+    for (const [px, pz] of [[isH ? a.x0 : a.cx, isH ? a.cz : a.z0], [isH ? a.x1 : a.cx, isH ? a.cz : a.z1]]) {
+      const pMesh = new THREE.Mesh(postGeo, gateFrameMat);
+      pMesh.position.set(px, (gh + 4) / 2, pz);
+      pMesh.castShadow = pMesh.receiveShadow = true;
+      sg.add(pMesh);
+      const capMesh = new THREE.Mesh(postCapGeo, gateFrameMat);
+      capMesh.position.set(px, gh + 4 + 1.0, pz);
+      capMesh.castShadow = capMesh.receiveShadow = true;
+      sg.add(capMesh);
+    }
+
     const pivot = new THREE.Group();
     pivot.position.set(isH ? (li === 0 ? a.x0 : a.x1) : s.x * C, 0,
                        isH ? s.y * C : (li === 0 ? a.z0 : a.z1));
-    const lw = C + 0.5, lh3 = gh + 1;
+    const lw = C - 1.0, lh3 = gh;
     const leaf = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw : gt, lh3, isH ? gt : lw), gateMat);
-    leaf.position.set(isH ? (li === 0 ? lw / 2 : -lw / 2) : 0, gh / 2,
-                      isH ? 0 : (li === 0 ? lw / 2 : -lw / 2));
+    const leafOff = (li === 0 ? lw / 2 + 0.5 : -lw / 2 - 0.5);
+    leaf.position.set(isH ? leafOff : 0, gh / 2,
+                      isH ? 0 : leafOff);
     leaf.castShadow = leaf.receiveShadow = true;
     pivot.add(leaf);
+
+    // Frame & Z-brace & black iron strap hinges on the leaf
+    const frameMesh = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw : gt + 0.6, lh3, isH ? gt + 0.6 : lw), gateFrameMat);
+    frameMesh.position.copy(leaf.position);
+    frameMesh.scale.set(0.96, 0.98, 0.96);
+    frameMesh.castShadow = true;
+    pivot.add(frameMesh);
+
+    // Diagonal Z-brace across the timber gate
+    const zBrace = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw * 0.82 : gt + 0.8, 2.2, isH ? gt + 0.8 : lw * 0.82), gateFrameMat);
+    zBrace.position.copy(leaf.position);
+    if (isH) zBrace.rotation.z = 0.58 * (li === 0 ? 1 : -1);
+    else zBrace.rotation.x = 0.58 * (li === 0 ? 1 : -1);
+    zBrace.castShadow = true;
+    pivot.add(zBrace);
+
+    // Iron strap hinges
+    for (const hy of [5, gh - 4]) {
+      const hinge = new THREE.Mesh(new THREE.BoxGeometry(isH ? lw * 0.45 : gt + 1.0, 1.8, isH ? gt + 1.0 : lw * 0.45), gateIronMat);
+      const hOff = (li === 0 ? lw * 0.25 : -lw * 0.25);
+      hinge.position.set(isH ? hOff : 0, hy, isH ? 0 : hOff);
+      hinge.castShadow = true;
+      pivot.add(hinge);
+    }
+    // Thumb latch on swinging edge
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(isH ? 2.5 : gt + 1.2, 5.0, isH ? gt + 1.2 : 2.5), gateIronMat);
+    const lOff = (li === 0 ? lw - 2.0 : -lw + 2.0);
+    latch.position.set(isH ? lOff : 0, gh * 0.55, isH ? 0 : lOff);
+    latch.castShadow = true;
+    pivot.add(latch);
+
     sg.add(pivot);
     V.add(pivot, a.x0 - C, a.z0 - C, a.x1 + C, a.z1 + C);
     doorPivots.push({ pivot, a, open: 0, target: 0, leaf, lw, li,
@@ -1811,17 +2169,28 @@ W3.buildLevel = function () {
 
 /* ---------- Modular Furniture Building (Synchronous & Async Sliced) ---------- */
 function initFurnitureContext(targetGroup) {
-  const lvl = HP.cur(), C = HP.CELL, env = geomEnv();
+  const C = HP.CELL, env = geomEnv();
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
   const allFurniture = [];
-  for (const it of (lvl.furniture || [])) {
-    allFurniture.push(it);
-    if (it.interior && it.interior.customized && it.interior.furniture && it.interior.furniture.length > 0) {
-      for (const sub of it.interior.furniture) {
-        const wSub = HP.interiorToWorld ? HP.interiorToWorld(it, sub) : null;
-        if (wSub) allFurniture.push(wSub);
+  allLevels.forEach((curLvl, lIdx) => {
+    const lvlBaseY = lIdx * WALL_H;
+    for (const it of (curLvl.furniture || [])) {
+      it._baseY = (it._baseY !== undefined && it._baseY >= lvlBaseY) ? it._baseY : lvlBaseY;
+      it._levelIdx = lIdx;
+      allFurniture.push(it);
+      if (it.interior && it.interior.customized && it.interior.furniture && it.interior.furniture.length > 0) {
+        for (const sub of it.interior.furniture) {
+          const wSub = HP.interiorToWorld ? HP.interiorToWorld(it, sub) : null;
+          if (wSub) {
+            wSub._baseY = lvlBaseY;
+            wSub._levelIdx = lIdx;
+            allFurniture.push(wSub);
+          }
+        }
       }
     }
-  }
+  });
   const known = allFurniture.filter(it => HP.itemDef(it.type));
   const items = known.filter(it => !HP.itemDef(it.type).hangs);
   const hangs = known.filter(it => HP.itemDef(it.type).hangs);
@@ -1851,7 +2220,7 @@ function initFurnitureContext(targetGroup) {
   const hostStructures = itemMeta.filter(m => /treehouse|greenhouse/i.test(m.it.type));
 
   return {
-    targetGroup, lvl, C, env, items, hangs, fit2, models, lifeItems,
+    targetGroup, lvl: HP.cur(), C, env, items, hangs, fit2, models, lifeItems,
     furnColliders, movers, garageDoors, elevatedDecks, climbs, furnLamps,
     furnMetaById, m4, col, itemMeta, surfaceMeta, hostStructures
   };
@@ -1958,14 +2327,14 @@ function buildFurnitureLamps(ctx) {
     const bY = it._baseY !== undefined ? it._baseY : 0;
     const lightY = bY + (/fireplace/i.test(it.type) ? 10 : (isNight ? 6 : (isCandle ? Math.max(3.5, Math.min(6.5, h * 0.38)) : Math.max(12, h * 0.85))));
     const lx = (f.x + f.w / 2) * C, lz = (f.y + f.h / 2) * C;
-    furnLamps.push({ id: it.id, it, x: lx, z: lz, y: lightY, power: lightPower, room: getRoom(lx, lz) });
+    furnLamps.push({ id: it.id, it, x: lx, z: lz, y: lightY, power: lightPower, room: getRoom(lx, lz), on: it.on !== false });
   }
   for (const it of items) {
     if (/^greenhouse/i.test(it.type)) {
       const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
       const bY = it._baseY !== undefined ? it._baseY : 0;
       const lx = (f.x + f.w / 2) * C, lz = (f.y + f.h / 2) * C;
-      furnLamps.push({ id: it.id, it, x: lx, z: lz, y: bY + Math.round(h * 0.56), power: 1.3, room: getRoom(lx, lz) });
+      furnLamps.push({ id: it.id, it, x: lx, z: lz, y: bY + Math.round(h * 0.56), power: 1.3, room: getRoom(lx, lz), on: it.on !== false });
     }
   }
   for (const it of items) {
@@ -1978,7 +2347,7 @@ function buildFurnitureLamps(ctx) {
       else if (rot === 2) { lx = -lx; lz = -lz; }
       else if (rot === 3) { const rx = lz; lz = -lx; lx = rx; }
       const wx = tcx + lx, wz = tcz + lz;
-      furnLamps.push({ id: it.id, it, x: wx, z: wz, y: 98, power: 1.2, room: getRoom(wx, wz) });
+      furnLamps.push({ id: it.id, it, x: wx, z: wz, y: 98, power: 1.2, room: getRoom(wx, wz), on: it.on !== false });
     }
   }
   for (const it of hangs) {
@@ -1991,7 +2360,8 @@ function buildFurnitureLamps(ctx) {
     let mx = (f.x + f.w / 2) * C, mz = (f.y + f.h / 2) * C;
     if (hang === 'n') mz = f.y * C + 5.2; else if (hang === 's') mz = (f.y + f.h) * C - 5.2;
     else if (hang === 'w') mx = f.x * C + 5.2; else if (hang === 'e') mx = (f.x + f.w) * C - 5.2;
-    furnLamps.push({ id: it.id, it, x: mx, z: mz, y: 38, power: 0.8, room: getRoom(mx, mz) });
+    const bY = it._baseY !== undefined ? it._baseY : 0;
+    furnLamps.push({ id: it.id, it, x: mx, z: mz, y: bY + 38, power: 0.8, room: getRoom(mx, mz), on: it.on !== false });
   }
 }
 
@@ -2385,6 +2755,7 @@ W3._buildFurnitureSync = function (targetGroup) {
     buildSingleHangItem(ctx.hangs[i2], i2, ctx);
   }
   buildFurnitureLamps(ctx);
+  W3.lamps = (W3.staticLamps || []).concat(ctx.furnLamps);
   if (HP.life3d) HP.life3d.build(targetGroup, ctx.lifeItems);
   ctx.fit2.instanceMatrix.needsUpdate = true;
   if (ctx.fit2.instanceColor) ctx.fit2.instanceColor.needsUpdate = true;
@@ -2427,6 +2798,7 @@ W3._buildFurnitureAsync = async function (targetGroup, seq) {
     buildSingleHangItem(ctx.hangs[i2], i2, ctx);
   }
   buildFurnitureLamps(ctx);
+  W3.lamps = (W3.staticLamps || []).concat(ctx.furnLamps);
   if (HP.life3d) HP.life3d.build(targetGroup, ctx.lifeItems);
   ctx.fit2.instanceMatrix.needsUpdate = true;
   if (ctx.fit2.instanceColor) ctx.fit2.instanceColor.needsUpdate = true;
@@ -2630,12 +3002,12 @@ function cellPart(c, y) {
   return { m, x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C };
 }
 
-W3._buildFloorMeshes = function (targetGroup, lvl) {
+W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new Set()) {
   const C = HP.CELL, V = HP.cull3d;
   let pools = W3.pools;
-  if (!pools) {
+  if (!pools && baseY === 0) {
     pools = W3.pools = [];
-    for (const it of lvl.furniture || []) {
+    for (const it of (lvl && lvl.furniture) || []) {
       if (!HP.itemDef(it.type) || !/pool$|pond/i.test(it.type)) continue;
       const f = HP.footprint(it);
       pools.push({
@@ -2645,11 +3017,12 @@ W3._buildFloorMeshes = function (targetGroup, lvl) {
     }
   }
   const inPool = (x0, z0, x1, z1) =>
-    pools.some(p => x1 > p.x0 && x0 < p.x1 && z1 > p.z0 && z0 < p.z1);
-  const { regionOf } = HP.computeRegions();
+    baseY === 0 && pools && pools.some(p => x1 > p.x0 && x0 < p.x1 && z1 > p.z0 && z0 < p.z1);
+  const { regionOf } = HP.computeRegions(lvl);
   const cells = [];
   for (let y = 0; y < HP.GRID_H; y++) for (let x = 0; x < HP.GRID_W; x++) {
     if ((x * C < 0)) continue;
+    if (stairHoles && stairHoles.has(x + ',' + y)) continue;
     const id = regionFloorId(x, y, lvl, regionOf);
     if (id && !inPool(x * C, y * C, x * C + C, y * C + C))
       cells.push({ x, y, id, in: regionOf[y * HP.GRID_W + x] >= 0 });
@@ -2662,15 +3035,26 @@ W3._buildFloorMeshes = function (targetGroup, lvl) {
   for (const [id, list] of floorGroups) {
     const material = HP.graphics3d ? HP.graphics3d.floorMaterial(id) :
       new THREE.MeshLambertMaterial({ color: floorColor(id) });
-    V.instanced(targetGroup, floorQuad(), material, list.map(c => cellPart(c, 0)), { receive: true });
+    V.instanced(targetGroup, floorQuad(), material, list.map(c => cellPart(c, baseY)), { receive: true });
+  }
+  if (baseY > 0 && W3.elevatedDecks) {
+    for (const c of cells) {
+      if (c.in || c.id) {
+        W3.elevatedDecks.push({
+          x0: c.x * C, x1: (c.x + 1) * C,
+          z0: c.y * C, z1: (c.y + 1) * C,
+          deckY: baseY
+        });
+      }
+    }
   }
   // Custom structure interior floors (greenhouse brick/flagstone, cabin wood floor)
   const interiorFloorGroups = new Map();
-  for (const it of (lvl.furniture || [])) {
+  for (const it of (lvl && lvl.furniture) || []) {
     if (it.interior && it.interior.customized) {
       const inLvl = it.interior;
       const isTH = it.type === 'treehouse';
-      const floorH = isTH ? 54.1 : 0.05;
+      const floorH = baseY + (isTH ? 54.1 : 0.05);
       const ox = inLvl.ox !== undefined ? inLvl.ox : 2;
       const oy = inLvl.oy !== undefined ? inLvl.oy : 2;
       const rw = inLvl.rw || (inLvl.w - ox * 2);
@@ -2702,6 +3086,176 @@ W3._buildFloorMeshes = function (targetGroup, lvl) {
     V.instanced(targetGroup, floorQuad(), material, iCells.map(c => cellPart(c, floorH)), { receive: true });
   }
   return cells;
+};
+
+W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, env) {
+  const C = HP.CELL, V = HP.cull3d;
+  const gw = HP.GRID_W, gh = HP.GRID_H;
+  const { regionOf } = HP.computeRegions(lvl);
+  const ceilY = baseY + (HP.geom3d ? HP.geom3d.WALL_H : 74);
+  const ceilCells = [];
+
+  lvl = lvl || {};
+  lvl.ceilings = lvl.ceilings || {};
+  lvl.roomCeilings = lvl.roomCeilings || {};
+
+  for (let y = 0; y < gh; y++) {
+    for (let x = 0; x < gw; x++) {
+      const k = x + ',' + y;
+      if (stairHoles && stairHoles.has(k)) continue;
+      const rid = regionOf[y * gw + x];
+      const isInterior = rid >= 0;
+      const explicit = lvl.ceilings[k];
+      const roomConf = rid >= 0 ? lvl.roomCeilings[rid] : null;
+      if (!isInterior && !explicit && !roomConf) continue;
+
+      const conf = explicit || roomConf || { style: 'plaster', color: '#f3ecdc' };
+      const style = (typeof conf === 'string' ? conf : (conf.style || 'plaster')).toLowerCase();
+      const color = typeof conf === 'object' ? conf.color : null;
+      ceilCells.push({ x, y, k, style, color, isInterior, rid });
+
+      if (W3.roofHeights) {
+        W3.roofHeights[y * gw + x] = Math.max(W3.roofHeights[y * gw + x] || 0, ceilY);
+      }
+    }
+  }
+
+  for (const it of (lvl.furniture || [])) {
+    if (/pergola|porch|canopy_glass|awning_metal|sunsail/i.test(it.type)) {
+      const f = HP.footprint(it);
+      for (let py = f.y; py < f.y + f.h; py++) {
+        for (let px = f.x; px < f.x + f.w; px++) {
+          if (W3.roofHeights) {
+            W3.roofHeights[py * gw + px] = Math.max(W3.roofHeights[py * gw + px] || 0, ceilY);
+          }
+        }
+      }
+    }
+  }
+
+  if (!ceilCells.length) return;
+
+  const byStyle = new Map();
+  for (const c of ceilCells) {
+    const key = c.style + '@' + (c.color || '');
+    if (!byStyle.has(key)) byStyle.set(key, { style: c.style, color: c.color, cells: [] });
+    byStyle.get(key).cells.push(c);
+  }
+
+  const roofMat = HP.graphics3d
+    ? HP.graphics3d.material('concrete', '#475569')
+    : new THREE.MeshLambertMaterial({ color: 0x475569 });
+  roofMat.userData.shared3d = true;
+
+  for (const [key, { style, color, cells }] of byStyle) {
+    const ceilMat = HP.graphics3d
+      ? HP.graphics3d.ceilingMaterial(style, color)
+      : new THREE.MeshLambertMaterial({ color: color || 0xf3ecdc, side: THREE.DoubleSide });
+
+    if (style !== 'pergola') {
+      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => cellPart(c, ceilY)), { cast: true, receive: true });
+      if (style !== 'glass') {
+        V.instanced(targetGroup, floorQuad(), roofMat, cells.map(c => cellPart(c, ceilY + 0.1)), { cast: true, receive: true });
+      }
+    }
+
+    if (style === 'coffered') {
+      const beamMat = HP.graphics3d
+        ? HP.graphics3d.material('plaster', color || '#ffffff')
+        : new THREE.MeshLambertMaterial({ color: 0xffffff });
+      beamMat.userData.shared3d = true;
+      const beamParts = [];
+      for (const c of cells) {
+        const cx = (c.x + 0.5) * C, cz = (c.y + 0.5) * C;
+        beamParts.push(
+          { m: new THREE.Matrix4().makeScale(C, 2.2, 2.4).setPosition(cx, ceilY - 1.1, cz - C / 2 + 1.2), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C },
+          { m: new THREE.Matrix4().makeScale(C, 2.2, 2.4).setPosition(cx, ceilY - 1.1, cz + C / 2 - 1.2), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C },
+          { m: new THREE.Matrix4().makeScale(2.4, 2.2, C - 4.8).setPosition(cx - C / 2 + 1.2, ceilY - 1.1, cz), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C },
+          { m: new THREE.Matrix4().makeScale(2.4, 2.2, C - 4.8).setPosition(cx + C / 2 - 1.2, ceilY - 1.1, cz), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
+        );
+      }
+      V.instanced(targetGroup, unitBox(), beamMat, beamParts, { cast: true, receive: true });
+    } else if (style === 'beams') {
+      const timberMat = HP.graphics3d
+        ? HP.graphics3d.material('wood', color || '#583e29')
+        : new THREE.MeshLambertMaterial({ color: 0x583e29 });
+      timberMat.userData.shared3d = true;
+      const timberParts = [];
+      for (const c of cells) {
+        const cx = (c.x + 0.5) * C, cz = (c.y + 0.5) * C;
+        timberParts.push({
+          m: new THREE.Matrix4().makeScale(C + 0.2, 4.2, 3.2).setPosition(cx, ceilY - 2.1, cz),
+          x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C
+        });
+      }
+      V.instanced(targetGroup, unitBox(), timberMat, timberParts, { cast: true, receive: true });
+    } else if (style === 'wood') {
+      const battenMat = HP.graphics3d
+        ? HP.graphics3d.material('wood', color || '#b88958')
+        : new THREE.MeshLambertMaterial({ color: 0xb88958 });
+      battenMat.userData.shared3d = true;
+      const battenParts = [];
+      for (const c of cells) {
+        const cx = (c.x + 0.5) * C, cz = (c.y + 0.5) * C;
+        for (const oz of [-C / 3, 0, C / 3]) {
+          battenParts.push({
+            m: new THREE.Matrix4().makeScale(C, 0.4, 0.6).setPosition(cx, ceilY - 0.2, cz + oz),
+            x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C
+          });
+        }
+      }
+      V.instanced(targetGroup, unitBox(), battenMat, battenParts, { cast: false, receive: true });
+    } else if (style === 'pergola') {
+      const pergolaMat = HP.graphics3d
+        ? HP.graphics3d.material('wood', color || '#8c5835')
+        : new THREE.MeshLambertMaterial({ color: 0x8c5835 });
+      pergolaMat.userData.shared3d = true;
+      const slatParts = [];
+      for (const c of cells) {
+        const cx = (c.x + 0.5) * C, cz = (c.y + 0.5) * C;
+        slatParts.push(
+          { m: new THREE.Matrix4().makeScale(C, 3.2, 2.0).setPosition(cx, ceilY - 1.6, cz - C / 2 + 1), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C },
+          { m: new THREE.Matrix4().makeScale(C, 3.2, 2.0).setPosition(cx, ceilY - 1.6, cz + C / 2 - 1), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
+        );
+        for (let j = 0; j < 5; j++) {
+          const ox = -C / 2 + 2.8 + j * ((C - 5.6) / 4);
+          slatParts.push({
+            m: new THREE.Matrix4().makeScale(1.2, 2.6, C + 1.2).setPosition(cx + ox, ceilY - 1.3, cz),
+            x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C
+          });
+        }
+      }
+      V.instanced(targetGroup, unitBox(), pergolaMat, slatParts, { cast: true, receive: true });
+    } else if (style === 'porch') {
+      const fasciaMat = HP.graphics3d
+        ? HP.graphics3d.material('wood', color || '#f8fafc')
+        : new THREE.MeshLambertMaterial({ color: 0xf8fafc });
+      fasciaMat.userData.shared3d = true;
+      const fasciaParts = [];
+      for (const c of cells) {
+        const cx = (c.x + 0.5) * C, cz = (c.y + 0.5) * C;
+        fasciaParts.push(
+          { m: new THREE.Matrix4().makeScale(C, 2.8, 1.8).setPosition(cx, ceilY - 1.4, cz - C / 2 + 0.9), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C },
+          { m: new THREE.Matrix4().makeScale(C, 2.8, 1.8).setPosition(cx, ceilY - 1.4, cz + C / 2 - 0.9), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
+        );
+      }
+      V.instanced(targetGroup, unitBox(), fasciaMat, fasciaParts, { cast: true, receive: true });
+    } else if (style === 'glass') {
+      const frameMat = HP.graphics3d
+        ? HP.graphics3d.material('metal', '#1e2023')
+        : new THREE.MeshLambertMaterial({ color: 0x1e2023 });
+      frameMat.userData.shared3d = true;
+      const mullionParts = [];
+      for (const c of cells) {
+        const cx = (c.x + 0.5) * C, cz = (c.y + 0.5) * C;
+        mullionParts.push(
+          { m: new THREE.Matrix4().makeScale(C, 1.4, 1.4).setPosition(cx, ceilY, cz), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C },
+          { m: new THREE.Matrix4().makeScale(1.4, 1.4, C).setPosition(cx, ceilY, cz), x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C }
+        );
+      }
+      V.instanced(targetGroup, unitBox(), frameMat, mullionParts, { cast: true, receive: true });
+    }
+  }
 };
 
 W3.updateFloors = function () {
@@ -2753,10 +3307,35 @@ function unitBox() {
   if (!W3._ub) { W3._ub = new THREE.BoxGeometry(1, 1, 1); }
   return W3._ub;
 }
+function unitCyl() {
+  if (!W3._uCyl) { W3._uCyl = new THREE.CylinderGeometry(0.5, 0.5, 1, 8); }
+  return W3._uCyl;
+}
+function unitRoof() {
+  if (!W3._uRoof) { W3._uRoof = new THREE.ConeGeometry(0.71, 1, 4).rotateY(Math.PI / 4); }
+  return W3._uRoof;
+}
+function unitCone() {
+  if (!W3._uCone) { W3._uCone = new THREE.CylinderGeometry(0.05, 0.5, 1, 8); }
+  return W3._uCone;
+}
+function unitSphere() {
+  if (!W3._uSph) { W3._uSph = new THREE.SphereGeometry(0.5, 8, 6); }
+  return W3._uSph;
+}
+function unitCylX() {
+  if (!W3._uCylX) { W3._uCylX = new THREE.CylinderGeometry(0.5, 0.5, 1, 8).rotateZ(Math.PI / 2); }
+  return W3._uCylX;
+}
+function unitCylZ() {
+  if (!W3._uCylZ) { W3._uCylZ = new THREE.CylinderGeometry(0.5, 0.5, 1, 8).rotateX(Math.PI / 2); }
+  return W3._uCylZ;
+}
 function disposeGroup(gr) {
   const geometries = new Set(), materials = new Set();
+  const sharedGeo = new Set([W3._ub, W3._fq, W3._cq, W3._uCyl, W3._uRoof, W3._uCone, W3._uSph, W3._uCylX, W3._uCylZ]);
   gr.traverse(o => {
-    if (o.geometry && o.geometry !== W3._ub && o.geometry !== W3._fq && o.geometry !== W3._cq) geometries.add(o.geometry);
+    if (o.geometry && !sharedGeo.has(o.geometry)) geometries.add(o.geometry);
     if (o.material && !o.material.userData.shared3d) materials.add(o.material);
     if (o.isInstancedMesh && o.dispose) o.dispose();
   });

@@ -627,6 +627,7 @@ function collide(nx, nz, vx, vz) {
     }
     for (const d of HP.world3d.doorPivots) {
       if (d.window && !d.casement) continue;           // lift sashes stay above the sill
+      if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY >= d.ly1 || (feetY + 42) <= d.ly0)) continue;
       const [rx, rz] = d.casement ? resolveCasement(d, nx, nz) : resolveBox(leafBox(d), nx, nz);
       if (!d.window && (rx !== nx || rz !== nz) && (vx || vz)) {
         /* pressing into a leaf from its SWING side shoves it open —
@@ -710,7 +711,7 @@ function nearestThing() {
           kind: 'climb',
           climb: c,
           atTop,
-          label: atTop ? 'Climb down Treehouse' : 'Climb up to Treehouse Deck'
+          label: atTop ? (c.labelDown || 'Climb down Treehouse') : (c.labelUp || 'Climb up to Treehouse Deck')
         };
       }
     }
@@ -733,6 +734,7 @@ function nearestThing() {
   }
   for (const d of HP.world3d.doorPivots) {
     const a = d.a;
+    if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY > d.ly1 + 15 || feetY + 55 < d.ly0)) continue;
     const dx = a.cx - px, dz = a.cz - pz;
     const dist = Math.hypot(dx, dz);
     if (dist > bd || dist < 1) continue;

@@ -5741,14 +5741,21 @@ F.builder = function (group) {
       
       /* ---------------- FENCES & SCREENS (17 ITEMS) ---------------- */
       } else if (/^fencewood$/i.test(t)) {
-        // Horizontal Cedar Privacy Fence (4x1 footprint, square end posts, tongue-and-groove boards, beveled caps)
+        // Authentic Vertical Cedar Privacy Fence (4x1 footprint, square end posts with beveled caps, vertical boards, top capping)
         for (const sx of [-0.46, 0.46]) {
           box('wood', sx, 0.52, 0, 0.08, 1.04, 0.08, '#78350f');               // square posts
           part('roof', 'wood', sx, 1.06, 0, 0.10, 0.08, 0.10, '#592506');      // beveled post cap
         }
-        // Horizontal tongue-and-groove cedar privacy planks
-        for (let p = 0; p < 7; p++) {
-          box('wood', 0, 0.12 + p * 0.13, 0, 0.88, 0.11, 0.04, color || '#b45309');
+        // Top and bottom horizontal stringer rails
+        box('wood', 0, 0.98, 0, 0.88, 0.05, 0.07, '#592506');                 // top capping rail
+        box('wood', 0, 0.10, 0, 0.88, 0.05, 0.04, '#78350f');                 // bottom rail
+        box('wood', 0, 0.86, -0.015, 0.88, 0.04, 0.03, '#78350f');            // upper backing rail
+        // 11 Vertical tongue-and-groove cedar privacy planks matching the preview
+        for (let p = 0; p < 11; p++) {
+          const px = -0.40 + p * 0.08;
+          const altOffset = (p % 2 === 0 ? 0.006 : -0.006);
+          const plankCol = (p % 2 === 0 ? (color || '#b45309') : HP.shade(color || '#b45309', 0.92));
+          box('wood', px, 0.52, altOffset, 0.075, 0.88, 0.03, plankCol);
         }
 
       } else if (/^picket$/i.test(t)) {
@@ -5867,13 +5874,15 @@ F.builder = function (group) {
         box('stone', 0, 0.96, 0, 0.88, 0.06, 0.48, '#592116');                 // soldier course cap
 
       } else if (/^whitefencewall$/i.test(t)) {
-        // Mediterranean Smooth White Stucco Privacy Wall with Terracotta Barrel Tile Coping (4x1)
-        box('ceramic', 0, 0.48, 0, 0.96, 0.94, 0.52, color || '#fef3c7');     // white stucco body
-        // Terracotta barrel roof tiles along top
-        for (let t = 0; t < 9; t++) {
-          const tx = -0.40 + t * 0.10;
-          cyl('ceramic', tx, 0.98, 0, 0.12, 0.10, 0.58, '#ea580c');
+        // Modern & Mediterranean Smooth Stucco Privacy Wall with Architectural Coping (4x1 footprint, matching preview)
+        for (const sx of [-0.46, 0.46]) {
+          box('ceramic', sx, 0.52, 0, 0.10, 1.04, 0.54, color || '#efe9da');   // stucco end pilasters
+          box('ceramic', sx, 1.05, 0, 0.12, 0.05, 0.56, '#ddd5c2');            // pilaster cap
         }
+        // Smooth plastered stucco body
+        box('ceramic', 0, 0.48, 0, 0.88, 0.94, 0.48, color || '#efe9da');
+        // Clean architectural coping cap along top
+        box('ceramic', 0, 0.97, 0, 0.96, 0.06, 0.52, '#ddd5c2');
 
       } else if (/^bamboofence$/i.test(t)) {
         // Japanese Takegaki Bamboo Screen with Black Hemp Cord Ties (4x1 footprint)
@@ -9005,6 +9014,68 @@ F.builder = function (group) {
           const bz = -0.44 + b * 0.125;
           cyl('metal', 0.46, by, bz, 0.015, 0.38, 0.015, '#1e293b'); // vertical baluster spindle
         }
+      } else if (/pergola/.test(t)) {
+        // Modern Cedar & Timber Slat Outdoor Pergola with Header Beams & Open Louvers
+        const woodCol = color || '#8c5835';
+        const beamCol = HP.shade(woodCol, 0.85);
+        // 1. Four corner posts with plinth boots
+        for (const sx of [-0.46, 0.46]) {
+          for (const sz of [-0.46, 0.46]) {
+            box('wood', sx, 0.48, sz, 0.06, 0.96, 0.06, woodCol);
+            box('metal', sx, 0.02, sz, 0.08, 0.04, 0.08, '#334155', true);
+            box('wood', sx, 0.94, sz, 0.08, 0.04, 0.08, beamCol);
+          }
+        }
+        // 2. Dual main longitudinal support beams along Z
+        for (const sx of [-0.46, 0.46]) {
+          box('wood', sx, 0.96, 0, 0.05, 0.06, 0.98, beamCol);
+        }
+        // 3. 7 Open transverse timber rafters / louvers along X with classic angled ends
+        for (let j = 0; j < 7; j++) {
+          const rz = -0.44 + j * 0.146;
+          box('wood', 0, 0.99, rz, 0.98, 0.05, 0.025, woodCol);
+        }
+      } else if (/porch/.test(t)) {
+        // Classical Craftsman Covered Porch Soffit with Columns & Fascia
+        const trimCol = color || '#f8fafc';
+        const ceilingCol = '#cbe3eb';
+        for (const sx of [-0.45, 0.45]) {
+          box('wood', sx, 0.12, 0.44, 0.08, 0.24, 0.08, trimCol);
+          box('wood', sx, 0.56, 0.44, 0.06, 0.64, 0.06, trimCol);
+          box('wood', sx, 0.91, 0.44, 0.08, 0.06, 0.08, trimCol);
+        }
+        box('wood', 0, 0.95, 0, 0.96, 0.02, 0.94, ceilingCol);
+        for (const sx of [-0.47, 0.47]) box('wood', sx, 0.97, 0, 0.03, 0.06, 0.96, trimCol);
+        box('wood', 0, 0.97, 0.46, 0.96, 0.06, 0.03, trimCol);
+        box('stone', 0, 0.99, 0, 0.98, 0.02, 0.96, '#475569');
+      } else if (/canopy_glass/.test(t)) {
+        // Modern Steel & Tempered Laminated Glass Canopy
+        const steelCol = color || '#1e293b';
+        for (const sx of [-0.46, 0.46]) {
+          for (const sz of [-0.46, 0.46]) {
+            cyl('metal', sx, 0.48, sz, 0.02, 0.96, 0.02, steelCol, true);
+          }
+        }
+        for (const sx of [-0.46, 0.46]) box('metal', sx, 0.96, 0, 0.03, 0.03, 0.94, steelCol, true);
+        for (const sz of [-0.46, 0.46]) box('metal', 0, 0.96, sz, 0.94, 0.03, 0.03, steelCol, true);
+        box('metal', 0, 0.96, 0, 0.92, 0.025, 0.025, steelCol, true);
+        box('metal', 0, 0.96, 0, 0.025, 0.025, 0.92, steelCol, true);
+        box('glass', 0, 0.975, 0, 0.95, 0.015, 0.95, '#bfe3ea');
+      } else if (/awning_metal/.test(t)) {
+        // Architectural Industrial Corrugated Metal Awning with Wall Brackets
+        const metalCol = color || '#475569';
+        boxSlope('metal', 0, 0.95, -0.46, 0, 0.82, 0.46, 0.96, 0.03, metalCol);
+        for (const sx of [-0.44, 0.44]) {
+          boxSlope('metal', sx, 0.65, -0.44, sx, 0.85, 0.42, 0.02, 0.02, '#1e293b');
+        }
+      } else if (/sunsail/.test(t)) {
+        // Architectural Triangular/Quad Tensioned Fabric Sun Sail Shade
+        const fabricCol = color || '#f8fafc';
+        for (const [sx, sz, my] of [[-0.46, -0.46, 0.96], [0.46, -0.46, 0.88], [0.46, 0.46, 0.84], [-0.46, 0.46, 0.92]]) {
+          cyl('metal', sx, my / 2, sz, 0.02, my, 0.02, '#94a3b8', true);
+          box('metal', sx, 0.015, sz, 0.06, 0.03, 0.06, '#64748b', true);
+        }
+        boxSlope('fabric', 0, 0.92, -0.38, 0, 0.84, 0.38, 0.86, 0.015, fabricCol);
       } else if (/aquarium/.test(t)) {
         // Luxury Rimless Glass Living Aquarium (Sleek cabinet stand, crystal-clear water, fine white sand, natural driftwood aquascape, overhead LED fixture)
         // 1. Minimalist matte black cabinet credenza with recessed shadow plinth

@@ -190,12 +190,13 @@
 </div>
 
 <script>
+  window.HP = window.HP || {};
   (function () {
     const jumpBtn = document.getElementById('jumpBtn');
     if (jumpBtn) {
       const triggerJump = (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (HP.walk3d && HP.walk3d.doJump) HP.walk3d.doJump();
+        if (window.HP && HP.walk3d && HP.walk3d.doJump) HP.walk3d.doJump();
       };
       jumpBtn.addEventListener('touchstart', triggerJump, { passive: false });
       jumpBtn.addEventListener('click', triggerJump);
@@ -203,13 +204,13 @@
     const runBtn = document.getElementById('runBtn');
     if (runBtn) {
       const updateRunUI = () => {
-        const isRunning = HP.walk3d && HP.walk3d.running;
+        const isRunning = window.HP && HP.walk3d && HP.walk3d.running;
         runBtn.classList.toggle('active', !!isRunning);
         runBtn.textContent = isRunning ? '⚡ RUN' : '🏃 RUN';
       };
       const toggleRun = (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (HP.walk3d && HP.walk3d.toggleRunning) {
+        if (window.HP && HP.walk3d && HP.walk3d.toggleRunning) {
           HP.walk3d.toggleRunning();
           updateRunUI();
         }

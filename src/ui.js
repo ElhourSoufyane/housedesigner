@@ -211,6 +211,15 @@ function roomUI() {
     const w = HP.cur().walls[k1] || HP.cur().walls[k2] || HP.cur().walls[k3] || HP.cur().walls[k4];
     if (w && w.style) { curWallStyle = w.style; break; }
   }
+  const curLvl = HP.cur();
+  curLvl.ceilings = curLvl.ceilings || {};
+  curLvl.roomCeilings = curLvl.roomCeilings || {};
+  const firstCellKey = HP.cellKey(r.cells[0][0], r.cells[0][1]);
+  const cellCeil = curLvl.ceilings[firstCellKey];
+  const roomCeil = (r.id !== undefined && curLvl.roomCeilings[r.id]) || cellCeil || {};
+  let curCeilStyle = (typeof roomCeil === 'string' ? roomCeil : (roomCeil.style || 'plaster')).toLowerCase();
+  let curCeilColor = typeof roomCeil === 'object' ? (roomCeil.color || '') : '';
+
   s.innerHTML = `<div class="field"><label>Room Name</label>
       <input type="text" id="room-name-i" value="${(r.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. Bedroom">
       <button class="ibtn primary" id="room-name-apply" style="display:none;margin-top:8px">Apply Name</button></div>
@@ -226,6 +235,23 @@ function roomUI() {
       </div>
     </div>
     <div class="field"><label>Wall Paint — click to apply</label><div class="swatches" id="room-wall-sw"></div></div>
+    <div class="field"><label>Ceiling Style & Design</label>
+      <div class="seg wrap" id="room-ceil-style-seg">
+        <button class="seg-btn ${curCeilStyle === 'plaster' ? 'on' : ''}" data-style="plaster">Plaster</button>
+        <button class="seg-btn ${curCeilStyle === 'coffered' ? 'on' : ''}" data-style="coffered">Coffered</button>
+        <button class="seg-btn ${curCeilStyle === 'wood' ? 'on' : ''}" data-style="wood">Wood Planks</button>
+        <button class="seg-btn ${curCeilStyle === 'beams' ? 'on' : ''}" data-style="beams">Exposed Beams</button>
+        <button class="seg-btn ${curCeilStyle === 'tray' ? 'on' : ''}" data-style="tray">Tray</button>
+        <button class="seg-btn ${curCeilStyle === 'tin' ? 'on' : ''}" data-style="tin">Tin Tiles</button>
+        <button class="seg-btn ${curCeilStyle === 'concrete' ? 'on' : ''}" data-style="concrete">Concrete</button>
+        <button class="seg-btn ${curCeilStyle === 'pergola' ? 'on' : ''}" data-style="pergola">Pergola</button>
+        <button class="seg-btn ${curCeilStyle === 'porch' ? 'on' : ''}" data-style="porch">Porch Soffit</button>
+        <button class="seg-btn ${curCeilStyle === 'glass' ? 'on' : ''}" data-style="glass">Glass Canopy</button>
+        <button class="seg-btn ${curCeilStyle === 'metal' ? 'on' : ''}" data-style="metal">Metal Awning</button>
+        <button class="seg-btn ${curCeilStyle === 'sail' ? 'on' : ''}" data-style="sail">Sun Sail</button>
+      </div>
+    </div>
+    <div class="field"><label>Ceiling Paint / Finish — click to apply</label><div class="swatches" id="room-ceil-sw"></div></div>
     <div class="stat-row"><span class="k">Area</span><span class="v accent">${r.m2.toFixed(1)} m²</span></div>
     <div class="stat-row"><span class="k">Wall segments</span><span class="v">${cnt.walls}</span></div>
     <div class="stat-row"><span class="k">Doors</span><span class="v">${cnt.doors}</span></div>
@@ -246,6 +272,20 @@ function roomUI() {
     });
   }
 
+  const roomCeilSeg = $('#room-ceil-style-seg');
+  if (roomCeilSeg) {
+    roomCeilSeg.querySelectorAll('.seg-btn').forEach(b => {
+      b.onclick = () => {
+        HP.pushUndo();
+        const st = b.dataset.style;
+        HP.setRoomCeilingStyle(r, st);
+        HP.saveState(); HP.markDirty();
+        roomUI();
+        HP.status('Ceiling style set to ' + st);
+      };
+    });
+  }
+
   const sw = $('#room-sw');
   const curFloor = HP.cur().floors[HP.cellKey(r.cells[0][0], r.cells[0][1])];
   floorSwatches(sw, curFloor, id => {         // floor applies instantly
@@ -262,6 +302,13 @@ function roomUI() {
     HP.paintRoomWalls(r, col);
     HP.invalidateRegions(); HP.saveState();
     HP.status(col ? 'Room walls painted' : 'Room walls reset to default');
+  });
+  ceilingSwatches($('#room-ceil-sw'), curCeilColor, col => {
+    HP.pushUndo();
+    HP.paintRoomCeiling(r, col);
+    HP.saveState(); HP.markDirty();
+    roomUI();
+    HP.status(col ? 'Ceiling painted: ' + col : 'Ceiling reset to default');
   });
 
   const nameI = $('#room-name-i'), applyB = $('#room-name-apply');
@@ -444,6 +491,80 @@ function wallSwatches(wrap, activeCol, onPick) {
   };
   wrap.appendChild(ci);
 }
+
+const CEILING_PAINTS = [
+  { id: '#ffffff', col: '#ffffff', name: 'Pure White' },
+  { id: '#f8fafc', col: '#f8fafc', name: 'Bright Off-White' },
+  { id: '#f4efe4', col: '#f4efe4', name: 'Warm Plaster' },
+  { id: '#fdf6e2', col: '#fdf6e2', name: 'Antique Cream' },
+  { id: '#f5ede1', col: '#f5ede1', name: 'Soft Linen' },
+  { id: '#cbd5e1', col: '#cbd5e1', name: 'Light Slate' },
+  { id: '#94a3b8', col: '#94a3b8', name: 'Architectural Gray' },
+  { id: '#334155', col: '#334155', name: 'Dark Charcoal' },
+  { id: '#0f172a', col: '#0f172a', name: 'Matte Black' },
+  { id: '#d4b28c', col: '#d4b28c', name: 'Natural Oak' },
+  { id: '#6e4726', col: '#6e4726', name: 'Rich Walnut' },
+  { id: '#3e2715', col: '#3e2715', name: 'Dark Espresso' },
+  { id: '#cbe3eb', col: '#cbe3eb', name: 'Porch Blue' },
+  { id: '#dcfce7', col: '#dcfce7', name: 'Sage Tint' },
+  { id: '#c26d53', col: '#c26d53', name: 'Warm Terracotta' },
+];
+
+function ceilingSwatches(wrap, activeCol, onPick) {
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (const p of CEILING_PAINTS) {
+    const b = document.createElement('button');
+    b.className = 'sw' + ((activeCol || '').toLowerCase() === p.id.toLowerCase() ? ' active' : '');
+    b.style.background = p.col;
+    b.title = p.name;
+    const nm = document.createElement('i'); nm.textContent = p.name; b.appendChild(nm);
+    b.onclick = () => {
+      onPick(p.id);
+      wrap.querySelectorAll('.sw').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    };
+    wrap.appendChild(b);
+  }
+  const ci = document.createElement('input');
+  ci.type = 'color';
+  ci.title = 'Custom ceiling colour';
+  ci.value = /^#[0-9a-f]{6}$/i.test(activeCol || '') ? activeCol : '#ffffff';
+  ci.style.cssText = 'width:34px;height:34px;border:2px solid var(--border);border-radius:7px;background:none;padding:0;cursor:pointer';
+  ci.oninput = () => {
+    wrap.querySelectorAll('.sw').forEach(x => x.classList.remove('active'));
+    onPick(ci.value);
+  };
+  wrap.appendChild(ci);
+}
+
+HP.setRoomCeilingStyle = function (r, style) {
+  if (!r || !r.cells) return;
+  const lvl = HP.cur();
+  lvl.ceilings = lvl.ceilings || {};
+  lvl.roomCeilings = lvl.roomCeilings || {};
+  const firstKey = HP.cellKey(r.cells[0][0], r.cells[0][1]);
+  const cur = (r.id !== undefined && lvl.roomCeilings[r.id]) || lvl.ceilings[firstKey] || {};
+  const col = typeof cur === 'object' ? (cur.color || null) : null;
+  const conf = { style, color: col };
+  if (r.id !== undefined) lvl.roomCeilings[r.id] = conf;
+  for (const [x, y] of r.cells) lvl.ceilings[HP.cellKey(x, y)] = conf;
+  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+};
+
+HP.paintRoomCeiling = function (r, color) {
+  if (!r || !r.cells) return;
+  const lvl = HP.cur();
+  lvl.ceilings = lvl.ceilings || {};
+  lvl.roomCeilings = lvl.roomCeilings || {};
+  const firstKey = HP.cellKey(r.cells[0][0], r.cells[0][1]);
+  const cur = (r.id !== undefined && lvl.roomCeilings[r.id]) || lvl.ceilings[firstKey] || {};
+  const st = typeof cur === 'object' ? (cur.style || 'plaster') : (cur || 'plaster');
+  const conf = { style: st, color };
+  if (r.id !== undefined) lvl.roomCeilings[r.id] = conf;
+  for (const [x, y] of r.cells) lvl.ceilings[HP.cellKey(x, y)] = conf;
+  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+};
 
 /* Wall and Door style definitions with rich visual preview cards */
 const WALL_MATERIAL_DEFS = {

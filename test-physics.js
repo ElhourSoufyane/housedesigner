@@ -231,7 +231,11 @@ function standAt(d, dist) {
       const ddx = o.a.cx - sx, ddz = o.a.cz - sz;
       return Math.hypot(ddx, ddz) < Math.hypot(dx, dz) - 1;
     });
-    if (!near) return true;
+    const nearObj = (HP.life3d ? HP.life3d.interactables : []).find(o => {
+      const ddx = o.x - sx, ddz = o.z - sz;
+      return Math.hypot(ddx, ddz) < Math.hypot(dx, dz) - 1;
+    });
+    if (!near && !nearObj) return true;
   }
   return false;
 }
