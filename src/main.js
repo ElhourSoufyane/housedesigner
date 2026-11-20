@@ -2776,6 +2776,14 @@ function boot() {
     } else {
       HP.state = HP.migrate(HP.PRESETS[0].build());   // first run → fallback preset
     }
+  } else {
+    // If Floor 2 exists in loaded state but has no floor tiles, populate the 145-material Floor Showroom
+    if (HP.state && HP.state.levels && HP.state.levels[1] && HP.populateFloorShowroom) {
+      const l1 = HP.state.levels[1];
+      if (!l1.floors || Object.keys(l1.floors).length === 0) {
+        HP.populateFloorShowroom(1);
+      }
+    }
   }
   HP.nextId = Math.max(HP.nextId, HP.maxFurnitureId() + 1);
 

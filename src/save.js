@@ -81,12 +81,50 @@ HP.migrate = function (state) {
   return state;
 };
 
+HP.populateFloorShowroom = function (targetLevel = 1) {
+  if (!HP.DEFAULT_HOUSE || !HP.DEFAULT_HOUSE.state || !HP.DEFAULT_HOUSE.state.levels || !HP.DEFAULT_HOUSE.state.levels[1]) return false;
+  const defL1 = HP.DEFAULT_HOUSE.state.levels[1];
+
+  HP.state.levels = HP.state.levels || [];
+  while (HP.state.levels.length <= targetLevel) {
+    HP.state.levels.push(HP.newLevel ? HP.newLevel() : { walls: {}, floors: {}, fences: {}, roomNames: {}, furniture: [] });
+  }
+
+  const lvl = HP.state.levels[targetLevel];
+  lvl.floors = JSON.parse(JSON.stringify(defL1.floors || {}));
+  lvl.roomNames = JSON.parse(JSON.stringify(defL1.roomNames || {}));
+
+  if (defL1.furniture && defL1.furniture.length) {
+    lvl.furniture = lvl.furniture || [];
+    lvl.furniture = lvl.furniture.filter(f => !(f.id >= 553 && f.id <= 564));
+    for (const f of defL1.furniture) {
+      lvl.furniture.push(JSON.parse(JSON.stringify(f)));
+    }
+  }
+
+  HP.state.photoFloors = true;
+  HP.saveState();
+  if (HP.invalidateFloors) HP.invalidateFloors();
+  else if (HP.invalidateRegions) HP.invalidateRegions();
+  HP.markDirty();
+  if (HP.updateFloorUI) HP.updateFloorUI();
+  return true;
+};
+
 HP.loadState = function () {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const data = JSON.parse(raw);
       HP.state = HP.migrate(data.state);
+      // Auto-populate 145-material Floor Showroom into Floor 2 if Floor 2 exists and has 0 floors:
+      if (HP.state && HP.state.levels && HP.state.levels[1]) {
+        const l1 = HP.state.levels[1];
+        const floorCount = l1.floors ? Object.keys(l1.floors).length : 0;
+        if (floorCount === 0 && HP.DEFAULT_HOUSE && HP.DEFAULT_HOUSE.state && HP.DEFAULT_HOUSE.state.levels && HP.DEFAULT_HOUSE.state.levels[1]) {
+          HP.populateFloorShowroom(1);
+        }
+      }
       HP.applyGridSize();
       HP.nextId = Math.max(data.nextId || 0, HP.maxFurnitureId() + 1);
       return true;

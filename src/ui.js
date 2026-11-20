@@ -1022,10 +1022,37 @@ function floorUI() {
   const gallBtn = document.createElement('button');
   gallBtn.className = 'btn primary';
   gallBtn.id = 'btn-open-floor-gallery';
-  gallBtn.style.cssText = 'width:100%;margin-bottom:12px;padding:9px 12px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:12px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:8px;border:1px solid #60a5fa;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,0.4)';
+  gallBtn.style.cssText = 'width:100%;margin-bottom:8px;padding:9px 12px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:12px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:8px;border:1px solid #60a5fa;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,0.4)';
   gallBtn.innerHTML = '<span>🏛️</span><span>Open 3D Floor Gallery (145 Floors)</span>';
   gallBtn.onclick = () => { location.href = 'play3d.html?showroom=floors'; };
   top.appendChild(gallBtn);
+
+  const popBtn = document.createElement('button');
+  popBtn.className = 'btn';
+  popBtn.id = 'btn-populate-floor-showroom';
+  popBtn.style.cssText = 'width:100%;margin-bottom:12px;padding:8px 12px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:12px;background:#1e293b;color:#facc15;border-radius:8px;border:1px solid rgba(250,204,21,0.5);cursor:pointer;';
+  popBtn.innerHTML = '<span>✨</span><span>Load Floor Showroom on Floor 2</span>';
+  popBtn.onclick = () => {
+    if (HP.populateFloorShowroom) {
+      HP.populateFloorShowroom(1);
+      HP.state.level = 1;
+      if (HP.updateFloorUI) HP.updateFloorUI();
+      HP.markDirty();
+      HP.status('✨ 145-material Floor Showroom loaded onto Floor 2!');
+    }
+  };
+  top.appendChild(popBtn);
+
+  if (HP.state && HP.state.level === 1) {
+    const l1 = HP.state.levels[1];
+    const isShowroomActive = l1 && l1.roomNames && Object.values(l1.roomNames).some(n => n.includes('Floor Showroom'));
+    if (isShowroomActive) {
+      const activeBanner = document.createElement('div');
+      activeBanner.style.cssText = 'padding:6px 10px;margin-bottom:10px;background:rgba(37,99,235,0.15);border:1px solid #3b82f6;border-radius:6px;font-size:11px;color:#93c5fd;text-align:center;font-weight:600';
+      activeBanner.innerHTML = '🏛️ Viewing Floor 2: 145 Floor Showroom Active';
+      top.appendChild(activeBanner);
+    }
+  }
 
   const s = document.createElement('div');
   s.innerHTML = `<div class="seg" id="floor-style">
