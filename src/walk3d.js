@@ -103,8 +103,8 @@ function groundAt(x, z) {
       if (y < a.floorY) y = a.floorY;
     }
   }
-  // Ladder climbs (e.g. treehouse ship ladder)
-  if (HP.world3d.climbs) {
+  // Ladder / stairs climbs
+  if (HP.world3d && HP.world3d.climbs) {
     for (const c of HP.world3d.climbs) {
       if (x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1) {
         const progress = c.ax === 'z' ? ((z - c.from) * c.dir) / c.run : ((x - c.from) * c.dir) / c.run;
@@ -114,21 +114,39 @@ function groundAt(x, z) {
       }
     }
   }
+  // House level floors (Second Floor, Third Floor, etc.)
+  const C = HP.CELL;
+  const cx = Math.floor(x / C), cz = Math.floor(z / C);
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  const gw = HP.GRID_W, gh = HP.GRID_H;
+  if (cx >= 0 && cx < gw && cz >= 0 && cz < gh && HP.world3d && HP.world3d.floorGrids) {
+    const grids = HP.world3d.floorGrids;
+    for (let l = grids.length - 1; l >= 1; l--) {
+      const bY = l * WALL_H;
+      if (feetY >= bY - 14) {
+        if (grids[l] && grids[l][cz * gw + cx]) {
+          if (bY > y) y = bY;
+          break;
+        }
+      }
+    }
+  }
   // Elevated deck floors (treehouse platform at y = 54.0)
-  if (HP.world3d.elevatedDecks) {
+  if (HP.world3d && HP.world3d.elevatedDecks) {
     for (const d of HP.world3d.elevatedDecks) {
       if (x >= d.x0 && x <= d.x1 && z >= d.z0 && z <= d.z1) {
-        if (feetY >= d.deckY - 8) {
+        if (feetY >= d.deckY - 14) {
           if (d.deckY > y) y = d.deckY;
         }
       }
     }
   }
-  for (const b of HP.world3d.colliders)
+  for (const b of (HP.world3d && HP.world3d.colliders ? HP.world3d.colliders : []))
     if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 &&
         b.y1 > y && b.y1 <= feetY + 0.5) y = b.y1;
   return y;
 }
+K.groundAt = groundAt;
 function floorMat() {                            /* material underfoot */
   if (waterAt(px, pz) && groundY < -8) return 'water';
   const cx = Math.floor(px / HP.CELL), cy = Math.floor(pz / HP.CELL);
@@ -145,12 +163,10 @@ function floorMat() {                            /* material underfoot */
 K.enter = function (start) {
   sitting = null;
   px = start.x; pz = start.z !== undefined ? start.z : start.y;
-  if (start.feetY !== undefined) {
-    feetY = groundY = start.feetY;
-  } else {
-    const wa0 = waterAt(px, pz); groundY = wa0 ? wa0.floorY : 0; wasIn = !!wa0;
-    airY = airV = 0; airborne = false; feetY = groundY;
-  }
+  const wa0 = waterAt(px, pz);
+  groundY = (start.feetY !== undefined) ? start.feetY : (wa0 ? wa0.floorY : groundAt(px, pz));
+  wasIn = !!wa0;
+  airY = airV = 0; airborne = false; feetY = groundY;
   yaw = start.yaw || 0; pitch = start.pitch !== undefined ? start.pitch : 0;
   K.camElevate = start.elevate !== undefined ? start.elevate : 0;
   started = true;
@@ -181,9 +197,13 @@ K.syncCamera = function () {
 K.teleport = function (x, z, targetYaw, targetY, targetPitch, targetElevate) {
   sitting = null;
   px = x; pz = z;
-  const wa0 = waterAt(px, pz); groundY = wa0 ? wa0.floorY : 0;
   airY = airV = 0; airborne = false;
-  feetY = targetY !== undefined ? (groundY = targetY) : groundY;
+  if (targetY !== undefined) {
+    groundY = targetY;
+  } else {
+    groundY = groundAt(px, pz);
+  }
+  feetY = groundY;
   if (targetYaw !== undefined) yaw = targetYaw;
   if (targetPitch !== undefined) pitch = targetPitch; else pitch = 0;
   K.camElevate = targetElevate !== undefined ? targetElevate : 0;

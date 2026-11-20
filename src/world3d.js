@@ -1692,38 +1692,44 @@ W3.buildLevel = function () {
     for (const it of (curLvl.furniture || [])) {
       if (!HP.itemDef(it.type) || !/stairs/i.test(it.type)) continue;
       const f = HP.footprint(it);
+      const rot = (it.rot || 0) % 4;
       for (let fy = f.y; fy < f.y + f.h; fy++) {
         for (let fx = f.x; fx < f.x + f.w; fx++) {
           const k = fx + ',' + fy;
           stairCeilingOpenings[lIdx].add(k);
           if (lIdx + 1 < allLevels.length) {
-            stairFloorOpenings[lIdx + 1].add(k);
+            const isTopLanding = (rot === 0 && fy === f.y + f.h - 1) ||
+                                (rot === 2 && fy === f.y) ||
+                                (rot === 1 && fx === f.x + f.w - 1) ||
+                                (rot === 3 && fx === f.x);
+            if (!isTopLanding) {
+              stairFloorOpenings[lIdx + 1].add(k);
+            }
           }
         }
       }
-      const rot = (it.rot || 0) % 4;
       const x0 = f.x * C, x1 = (f.x + f.w) * C;
       const z0 = f.y * C, z1 = (f.y + f.h) * C;
       const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
       let ax = 'z', dir = 1, from = z0, run = z1 - z0;
-      let groundSpot = { x: cx, z: z0 - 10 };
-      let deckSpot = { x: cx, z: z1 + 10 };
+      let groundSpot = { x: cx, z: z0 - C * 0.4 };
+      let deckSpot = { x: cx, z: z1 - C * 0.5 };
       if (rot === 0) {
         ax = 'z'; dir = 1; from = z0; run = z1 - z0;
-        groundSpot = { x: cx, z: z0 - 10 };
-        deckSpot = { x: cx, z: z1 + 10 };
+        groundSpot = { x: cx, z: z0 - C * 0.4 };
+        deckSpot = { x: cx, z: z1 - C * 0.5 };
       } else if (rot === 2) {
         ax = 'z'; dir = -1; from = z1; run = z1 - z0;
-        groundSpot = { x: cx, z: z1 + 10 };
-        deckSpot = { x: cx, z: z0 - 10 };
+        groundSpot = { x: cx, z: z1 + C * 0.4 };
+        deckSpot = { x: cx, z: z0 + C * 0.5 };
       } else if (rot === 1) {
         ax = 'x'; dir = 1; from = x0; run = x1 - x0;
-        groundSpot = { x: x0 - 10, z: cz };
-        deckSpot = { x: x1 + 10, z: cz };
+        groundSpot = { x: x0 - C * 0.4, z: cz };
+        deckSpot = { x: x1 - C * 0.5, z: cz };
       } else if (rot === 3) {
         ax = 'x'; dir = -1; from = x1; run = x1 - x0;
-        groundSpot = { x: x1 + 10, z: cz };
-        deckSpot = { x: x0 - 10, z: cz };
+        groundSpot = { x: x1 + C * 0.4, z: cz };
+        deckSpot = { x: x0 + C * 0.5, z: cz };
       }
       stairClimbs.push({
         x0: Math.min(x0, x1), x1: Math.max(x0, x1),
@@ -1736,6 +1742,9 @@ W3.buildLevel = function () {
       });
     }
   });
+  W3.stairFloorOpenings = stairFloorOpenings;
+  W3.stairCeilingOpenings = stairCeilingOpenings;
+  W3.stairClimbs = stairClimbs;
 
   /* ---- pools: recessed basins carved 1m into the ground (ground level 0) ---- */
   const pools = W3.pools = [];
@@ -1753,6 +1762,7 @@ W3.buildLevel = function () {
   }));
   W3.climbs = [];
   W3.elevatedDecks = [];
+  W3.floorGrids = [];
 
   /* ---- ground under everything — a Shape with pool holes when any ---- */
   let groundGeo;
@@ -1850,7 +1860,7 @@ W3.buildLevel = function () {
         { ax: 'x', dir: -1, from: p.x1 - 3, u0: p.z1 - 22, u1: p.z1 - 2, ap: [p.x1 + 12, p.z1 - 11] },
       ];
       const nonPoolFootprints = (allLevels[0].furniture || [])
-        .filter(it => !/pool$|pond/i.test(it.type))
+        .filter(it => !/pool$|pond/i.test(it.type) && HP.itemDef(it.type))
         .map(it => { const f = HP.footprint(it); return { x0: f.x * C - 8, x1: (f.x + f.w) * C + 8, z0: f.y * C - 8, z1: (f.y + f.h) * C + 8 }; });
       const clutter = (x, z) => {
         let s = 0;
@@ -2897,8 +2907,8 @@ W3.updateFurniture = function () {
   W3.lamps = (W3.staticLamps || []).concat(res.furnLamps);
   W3.movers = res.movers;
   W3.garageDoors = res.garageDoors;
-  W3.elevatedDecks = res.elevatedDecks;
-  W3.climbs = res.climbs;
+  W3.elevatedDecks = (W3.elevatedDecks || []).filter(d => d.deckY >= 74).concat(res.elevatedDecks || []);
+  W3.climbs = (res.climbs || []).concat(W3.stairClimbs || []);
   W3.furnitureVisuals = res.visuals;
   W3._furnMetaById = res.furnMetaById;
   if (res.visuals) res.visuals.move(W3.movers);
@@ -2929,8 +2939,8 @@ W3.updateFurnitureAsync = async function () {
   W3.lamps = (W3.staticLamps || []).concat(res.furnLamps);
   W3.movers = res.movers;
   W3.garageDoors = res.garageDoors;
-  W3.elevatedDecks = res.elevatedDecks;
-  W3.climbs = res.climbs;
+  W3.elevatedDecks = (W3.elevatedDecks || []).filter(d => d.deckY >= 74).concat(res.elevatedDecks || []);
+  W3.climbs = (res.climbs || []).concat(W3.stairClimbs || []);
   W3.furnitureVisuals = res.visuals;
   W3._furnMetaById = res.furnMetaById;
   if (res.visuals) res.visuals.move(W3.movers);
@@ -3098,7 +3108,16 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
       new THREE.MeshLambertMaterial({ color: floorColor(id) });
     V.instanced(targetGroup, floorQuad(), material, list.map(c => cellPart(c, floorH)), { receive: true, lvlIdx: curLvlIdx, isFloor: true });
   }
-  if (baseY > 0 && W3.elevatedDecks) {
+  W3.floorGrids = W3.floorGrids || [];
+  const gw = HP.GRID_W, gh = HP.GRID_H;
+  const grid = new Uint8Array(gw * gh);
+  for (const c of cells) {
+    if (c.in || c.id) grid[c.y * gw + c.x] = 1;
+  }
+  W3.floorGrids[curLvlIdx] = grid;
+
+  if (baseY > 0) {
+    W3.elevatedDecks = W3.elevatedDecks || [];
     for (const c of cells) {
       if (c.in || c.id) {
         W3.elevatedDecks.push({

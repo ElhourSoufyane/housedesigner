@@ -347,7 +347,7 @@ HP.fencePreview = null;      // segments being dragged by the fence tool
 HP.itemDef   = id => HP.CATALOG.find(c => c.id === id);
 HP.footprint = function (item) {          // {x,y,w,h} in cells, rotation applied
   const d = HP.itemDef(item.type);
-  const bw = item.w || d.w, bh = item.h || d.h;   // item may override def size
+  const bw = item.w || (d && d.w) || 1, bh = item.h || (d && d.h) || 1;   // item may override def size
   const w = (item.rot % 2 === 0) ? bw : bh;
   const h = (item.rot % 2 === 0) ? bh : bw;
   return { x: item.x, y: item.y, w, h };
