@@ -1018,6 +1018,15 @@ HP.wallSelectedUI = wallSelectedUI;
 function floorUI() {
   const top = $('#floor-panel');
   top.innerHTML = '';
+
+  const gallBtn = document.createElement('button');
+  gallBtn.className = 'btn primary';
+  gallBtn.id = 'btn-open-floor-gallery';
+  gallBtn.style.cssText = 'width:100%;margin-bottom:12px;padding:9px 12px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:12px;background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;border-radius:8px;border:1px solid #60a5fa;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,0.4)';
+  gallBtn.innerHTML = '<span>🏛️</span><span>Open 3D Floor Gallery (145 Floors)</span>';
+  gallBtn.onclick = () => { location.href = 'play3d.html?showroom=floors'; };
+  top.appendChild(gallBtn);
+
   const s = document.createElement('div');
   s.innerHTML = `<div class="seg" id="floor-style">
       <button class="seg-btn" data-v="1">Photo</button>

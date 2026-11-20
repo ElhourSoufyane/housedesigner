@@ -80,8 +80,12 @@ function createWindow() {
 
   mainWindow.on('close', saveWindowState);
 
-  // Open external links in default OS browser
+  // Open external links in default OS browser or handle showroom navigation
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.includes('play3d.html') || url.includes('showroom')) {
+      mainWindow.loadURL(url.startsWith('http') || url.startsWith('file:') ? url : path.join(__dirname, url));
+      return { action: 'deny' };
+    }
     if (url.startsWith('http:') || url.startsWith('https:')) {
       shell.openExternal(url);
     }

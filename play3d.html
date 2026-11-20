@@ -280,14 +280,23 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
       const bFl = document.getElementById('btn-floors-showroom');
       if (bFl) bFl.style.display = 'none';
     } else {
-      btnShowroom.textContent = isShowroom ? '🏠 My House' : '✨ 3D Showroom';
+      btnShowroom.textContent = isAll ? '🏠 My House' : '✨ Items Showroom';
       btnShowroom.onclick = () => {
-        location.href = isShowroom ? 'play3d.html' : 'play3d.html?showroom=all';
+        location.href = isAll ? 'play3d.html' : 'play3d.html?showroom=all';
       };
       const bFl = document.getElementById('btn-floors-showroom');
-      if (bFl && isFloors) {
-        bFl.style.background = '#2563eb';
-        bFl.style.borderColor = '#60a5fa';
+      if (bFl) {
+        if (isFloors) {
+          bFl.innerHTML = '<span class="icon">🏠</span><span class="lbl">My House</span>';
+          bFl.onclick = () => { location.href = 'play3d.html'; };
+          bFl.style.background = '#2563eb';
+          bFl.style.borderColor = '#60a5fa';
+        } else {
+          bFl.innerHTML = '<span class="icon">🏛️</span><span class="lbl">Floor Gallery</span>';
+          bFl.onclick = () => { location.href = 'play3d.html?showroom=floors'; };
+          bFl.style.background = '';
+          bFl.style.borderColor = '';
+        }
       }
     }
   }

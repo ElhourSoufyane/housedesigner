@@ -223,6 +223,47 @@ function defaultHousePreset() {
   return cozy();
 }
 
+function floorShowroomPreset() {
+  const st = HP.newState();
+  st.w = 64; st.h = 44;
+  const lvl = st.levels[0];
+  lvl.floors = lvl.floors || {};
+  lvl.roomNames = lvl.roomNames || {};
+  lvl.furniture = lvl.furniture || [];
+
+  for (let x = 4; x < 60; x++) {
+    lvl.walls['h,' + x + ',3'] = { cb: '#f4efe4' };
+    lvl.walls['h,' + x + ',41'] = { f: (x % 4 === 0) ? 'window' : null, ca: '#f4efe4' };
+  }
+  for (let y = 3; y < 41; y++) {
+    lvl.walls['v,4,' + y] = { f: (y % 4 === 0) ? 'window' : null, cb: '#f4efe4' };
+    lvl.walls['v,60,' + y] = { f: (y % 4 === 0) ? 'window' : null, ca: '#f4efe4' };
+  }
+
+  for (let y = 3; y <= 41; y++) {
+    for (let x = 4; x <= 60; x++) {
+      lvl.floors[x + ',' + y] = 'travertine';
+      lvl.roomNames[x + ',' + y] = 'Floor Showroom';
+    }
+  }
+
+  const mats = HP.FLOOR_MATS ? HP.FLOOR_MATS.map(m => m.id) : [];
+  let mIdx = 0;
+  for (let row = 0; row < 10; row++) {
+    const py = 5 + row * 3;
+    for (let col = 0; col < 15; col++) {
+      if (mIdx >= mats.length) break;
+      const px = 7 + col * 3;
+      const mId = mats[mIdx++];
+      lvl.floors[px + ',' + py] = mId;
+      lvl.floors[(px + 1) + ',' + py] = mId;
+      lvl.floors[px + ',' + (py + 1)] = mId;
+      lvl.floors[(px + 1) + ',' + (py + 1)] = mId;
+    }
+  }
+  return st;
+}
+
 HP.PRESETS = [
   { id: 'myhouse', name: 'My House (Default)', desc: '2-floor luxury residence with pool, garden & full interior', build: defaultHousePreset },
   { id: 'cozy', name: 'Cozy Apartment', desc: '1 suite · bath · office · open living/kitchen — 12×10 m, furnished', build: cozy },
@@ -231,6 +272,7 @@ HP.PRESETS = [
   { id: 'empty', name: 'Empty Plot', desc: 'Blank lot — draw your own walls from scratch', build: empty,
     sizes: [{ label: 'S', w: 48, h: 32 }, { label: 'M', w: 64, h: 44 },
             { label: 'L', w: 96, h: 60 }, { label: 'XL', w: 128, h: 80 }] },
+  { id: 'floorshowroom', name: '💎 145 Floors Exhibition', desc: 'Pavilion displaying all 145 real-life floor materials in 3D & 2D', build: floorShowroomPreset },
 ];
 
 /* mini preview of a state into a canvas (walls+floors only, ground floor) */
