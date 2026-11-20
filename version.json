@@ -52,7 +52,7 @@
     "src/furniture3d.js": "2c5db8733fe9",
     "src/geom3d.js": "aa87f3205b42",
     "src/graphics3d.js": "208ed7b82480",
-    "src/grid.js": "40f1e5de66c6",
+    "src/grid.js": "baf6015eec76",
     "src/input.js": "346bffc4ea5a",
     "src/life3d.js": "07aca28be550",
     "src/main.js": "342fb6fc7d82",
@@ -68,8 +68,8 @@
     "src/tools.js": "c1f78c37b3b6",
     "src/ui.js": "885b59cef4b8",
     "src/walk.js": "601b8eee0012",
-    "src/walk3d.js": "7513081bd77b",
-    "src/world3d.js": "2a8e00004465",
-    "src/play3d-inpage.js": "f18df05adae9"
+    "src/walk3d.js": "8c08f5dba26d",
+    "src/world3d.js": "ac1784b56328",
+    "src/play3d-inpage.js": "fb411245c669"
   }
 }

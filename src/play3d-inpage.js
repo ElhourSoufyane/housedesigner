@@ -261,6 +261,10 @@
         const big = regions.reduce((a, b) => a.cells.length > b.cells.length ? a : b);
         spawn = { x: big.lx, y: big.ly };
       }
+      if (HP.state && HP.state.level > 0) {
+        const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+        spawn.feetY = HP.state.level * WALL_H;
+      }
     }
 
     if (HP.walk3d) HP.walk3d.resume(spawn);

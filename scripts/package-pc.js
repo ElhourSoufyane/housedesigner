@@ -91,3 +91,20 @@ execSync(packagerCmd, { stdio: 'inherit', cwd: root });
 fs.rmSync(stage, { recursive: true, force: true });
 
 console.log('Windows PC application built cleanly in dist/House Designer-win32-x64!');
+
+// Also sync directly to Desktop installation if present
+const desktopAppDir = path.join('C:', 'Users', 'bo1y', 'Desktop', 'HouseDesigner-Windows-x64', 'resources', 'app');
+if (fs.existsSync(desktopAppDir)) {
+  console.log('Syncing updated files into desktop app installation at:', desktopAppDir);
+  for (const f of files) {
+    const src = path.join(root, f);
+    const dest = path.join(desktopAppDir, f);
+    if (fs.existsSync(src)) fs.copyFileSync(src, dest);
+  }
+  fs.writeFileSync(path.join(desktopAppDir, 'package.json'), JSON.stringify(runtimePkg, null, 2));
+  copyDir(path.join(root, 'assets'), path.join(desktopAppDir, 'assets'));
+  copyDir(path.join(root, 'lib'), path.join(desktopAppDir, 'lib'));
+  copyDir(path.join(root, 'src'), path.join(desktopAppDir, 'src'));
+  copyDir(path.join(root, 'textures'), path.join(desktopAppDir, 'textures'));
+  console.log('Successfully synced latest code to desktop app installation!');
+}
