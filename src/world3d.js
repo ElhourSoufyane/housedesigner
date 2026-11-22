@@ -1106,7 +1106,11 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
   const isModern = doorStyle === 'modern';
   const flipVal = a.flip !== undefined ? a.flip : 1;
   const isH = a.d === 'h';
-  const lh = HP.geom3d.DOOR_H + 1;
+  const isSlideGlass = doorStyle === 'slideglass';
+  const dh = HP.geom3d.DOOR_H; // 58
+  const jt = 0.8;
+  const sillH = 0.35;
+  const lh = isSlideGlass ? (dh - jt - sillH) : (HP.geom3d.DOOR_H + 1);
   const pivot = dp.pivot;
 
   const box3d = (sizeU, sizeY, sizeV) => new THREE.BoxGeometry(isH ? sizeU : sizeV, sizeY, isH ? sizeV : sizeU);
@@ -1125,10 +1129,12 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     return;
   }
 
-  const lw = isSlide
-    ? (leaves === 2 ? span / 2 + 1.2 : span + 1.6)
-    : (leaves === 2 ? span / 2 + 1 : span + (post1 ? 0 : 1));
-  const dep = isSlide ? 2.6 : 4.4;
+  const lw = isSlideGlass
+    ? (leaves === 2 ? span / 2 + 0.6 : span - 0.4)
+    : (isSlide
+      ? (leaves === 2 ? span / 2 + 1.2 : span + 1.6)
+      : (leaves === 2 ? span / 2 + 1 : span + (post1 ? 0 : 1)));
+  const dep = isSlideGlass ? 0.9 : (isSlide ? 2.6 : 4.4);
 
   let leaf, knob;
 
@@ -1139,11 +1145,21 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     } else {
       closedCenter = li === 0 ? s0 + span / 4 : s1 - span / 4;
     }
-    const bypassOffset = leaves === 2 ? (li === 0 ? -0.4 : 0.4) : 0;
-    const faceZ = isH ? (flipVal > 0 ? a.z0 - (dep / 2 + 0.4 + bypassOffset) : a.z1 + (dep / 2 + 0.4 + bypassOffset)) : closedCenter;
-    const faceX = isH ? closedCenter : (flipVal > 0 ? a.x0 - (dep / 2 + 0.4 + bypassOffset) : a.x1 + (dep / 2 + 0.4 + bypassOffset));
+
     const bY = (a && a.baseY) || 0;
-    pivot.position.set(faceX, bY, faceZ);
+    if (isSlideGlass) {
+      // Inset patio slider: leaves sit directly on the floor sill tracks inside the frame opening
+      const wMid = isH ? (a.z0 + a.z1) / 2 : (a.x0 + a.x1) / 2;
+      const trackOff = leaves === 2 ? (li === 0 ? -0.5 : 0.5) : -0.5;
+      const faceZ = isH ? wMid + trackOff : closedCenter;
+      const faceX = isH ? closedCenter : wMid + trackOff;
+      pivot.position.set(faceX, bY + sillH, faceZ);
+    } else {
+      const bypassOffset = leaves === 2 ? (li === 0 ? -0.4 : 0.4) : 0;
+      const faceZ = isH ? (flipVal > 0 ? a.z0 - (dep / 2 + 0.4 + bypassOffset) : a.z1 + (dep / 2 + 0.4 + bypassOffset)) : closedCenter;
+      const faceX = isH ? closedCenter : (flipVal > 0 ? a.x0 - (dep / 2 + 0.4 + bypassOffset) : a.x1 + (dep / 2 + 0.4 + bypassOffset));
+      pivot.position.set(faceX, bY, faceZ);
+    }
 
     if (doorStyle === 'slideglass') {
       // Sliding Glass Door: sleek aluminum perimeter frame with crystal clear glass
@@ -1151,12 +1167,12 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       const glassMat = HP.graphics3d ? HP.graphics3d.material('glass', '#bfe3ea') : new THREE.MeshLambertMaterial({ color: 0x9fd4e8, transparent: true, opacity: 0.35 });
 
       leaf = new THREE.Mesh(box3d(lw, lh, dep), glassMat);
-      leaf.position.set(0, lh / 2 - 0.5, 0);
+      leaf.position.set(0, lh / 2, 0);
       pivot.add(leaf);
 
-      const stileW = 2.2;
-      const topRailH = 2.8;
-      const botRailH = 3.8;
+      const stileW = 1.8;
+      const topRailH = 2.4;
+      const botRailH = 3.2;
       const innerW = lw - stileW * 2;
 
       // Top rail
@@ -1185,8 +1201,8 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
 
       // Integrated vertical pull handle along leading stile
       const pullMat = HP.graphics3d ? HP.graphics3d.material('metal', '#d0d3d8') : knobMat;
-      const handleU = leaves === 2 ? (li === 0 ? lw / 2 - 2.2 : -lw / 2 + 2.2) : (lw / 2 - 2.2);
-      knob = new THREE.Mesh(box3d(0.8, 16, dep + 0.4), pullMat);
+      const handleU = leaves === 2 ? (li === 0 ? lw / 2 - 1.8 : -lw / 2 + 1.8) : (lw / 2 - 1.8);
+      knob = new THREE.Mesh(box3d(0.6, 14, dep + 0.35), pullMat);
       setPos(knob, handleU, 27, 0);
       pivot.add(knob);
     } else {
@@ -1319,7 +1335,14 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
 
     // Determine slide direction away from obstructions:
     let du = 0;
-    if (leaves === 1) {
+    if (isSlideGlass) {
+      if (leaves === 2) {
+        // Bypass patio slider: active leaf 0 glides along Track 0 inside the frame to stack behind leaf 1
+        du = li === 0 ? (span / 2 - 0.8) : 0;
+      } else {
+        du = -lw * 0.95;
+      }
+    } else if (leaves === 1) {
       if (post1 && !post0) du = -lw * 0.95;
       else if (post0 && !post1) du = lw * 0.95;
       else {
@@ -1332,7 +1355,7 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
         else du = lw * 0.95;
       }
     } else {
-      // Double sliding doors: both leaves slide outwards to open the doorway completely
+      // Double sliding barn doors: both leaves slide outwards to open the doorway completely
       du = li === 0 ? -lw * 0.95 : lw * 0.95;
     }
     const slideVec = isH ? { x: du, y: 0, z: 0 } : { x: 0, y: 0, z: du };

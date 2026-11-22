@@ -1,8 +1,8 @@
 {
-  "version": "1.3.23",
-  "build": 1795356354242,
-  "updatedAt": "2026-11-22T14:05:54.242Z",
-  "notes": "Fix sunlight penetrating roof and ceilings in 3D view",
+  "version": "1.3.24",
+  "build": 1795356809120,
+  "updatedAt": "2026-11-22T14:13:29.120Z",
+  "notes": "Fix sliding glass door track alignment and bypass glide motion",
   "files": [
     "version.json",
     "index.html",
@@ -69,7 +69,7 @@
     "src/ui.js": "676fe4979613",
     "src/walk.js": "30dc56dd423a",
     "src/walk3d.js": "5e5bec810aaf",
-    "src/world3d.js": "93e1860ffc8d",
+    "src/world3d.js": "f0ace83db16d",
     "src/play3d-inpage.js": "fb411245c669"
   }
 }
