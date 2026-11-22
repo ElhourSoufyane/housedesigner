@@ -39,9 +39,9 @@
     "src/play3d-inpage.js"
   ],
   "hashes": {
-    "index.html": "97af33f37dd5",
-    "play3d.html": "5798b025964e",
-    "style.css": "297d9b1d0427",
+    "index.html": "95d960489ee9",
+    "play3d.html": "3bbf7340c698",
+    "style.css": "1b37ab4b2eb7",
     "manifest.json": "6b5cec7e7507",
     "sw.js": "5ad34261cf2d",
     "preload.js": "51c8baf4b838",
@@ -66,7 +66,7 @@
     "src/sync.js": "46a2bac47c74",
     "src/sync3d.js": "316139eccdae",
     "src/tools.js": "c1f78c37b3b6",
-    "src/ui.js": "885b59cef4b8",
+    "src/ui.js": "9ab1285ad484",
     "src/walk.js": "601b8eee0012",
     "src/walk3d.js": "8c08f5dba26d",
     "src/world3d.js": "ac1784b56328",

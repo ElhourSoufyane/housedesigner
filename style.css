@@ -107,7 +107,6 @@ button { font-family: inherit; color: inherit; }
   .logo { font-size: 14px; margin-right: 6px; }
 }
 @media (max-width: 1100px) {
-  #btn-floors-gallery-2d .lbl { display: none; }
   #btn-snap, #btn-weather-2d { font-size: 11px; padding: 0 6px; }
 }
 .tbtn:disabled { opacity: .4; cursor: default; transform: none; box-shadow: var(--sh-sm); }
