@@ -9082,6 +9082,23 @@ F.builder = function (group) {
             if (neighborWall) break;
           }
         }
+        if (!neighborWall) {
+          let minD = 999;
+          const fcx = f.x + f.w / 2, fcy = f.y + f.h / 2;
+          for (const wk in lvlWalls) {
+            const wObj = lvlWalls[wk];
+            if (!wObj) continue;
+            const parts = wk.split(',');
+            const wd = parts[0], wx = parseFloat(parts[1]), wy = parseFloat(parts[2]);
+            const wmx = wd === 'h' ? wx + 0.5 : wx;
+            const wmy = wd === 'h' ? wy : wy + 0.5;
+            const d = Math.hypot(wmx - fcx, wmy - fcy);
+            if (d < minD) {
+              minD = d;
+              if (d <= 4.0) neighborWall = wObj;
+            }
+          }
+        }
 
         const vIdx = it.v || 0;
         let matKind = 'plaster';
@@ -9090,26 +9107,34 @@ F.builder = function (group) {
         if (vIdx === 0) {
           // Auto: match touching wall
           const st = (neighborWall && neighborWall.style) || HP.wallStyle || 'plaster';
-          matKind = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'wood' || st === 'shiplap') ? st : 'plaster';
-          wallCol = (neighborWall && (neighborWall.ca || neighborWall.cb)) || (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' ? '#ffffff' : '#f4efe4');
+          matKind = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'wood' || st === 'shiplap' || st === 'marble') ? st : 'plaster';
+          const nCol = neighborWall && (neighborWall.ca || neighborWall.cb);
+          if (nCol) {
+            wallCol = nCol;
+          } else {
+            wallCol = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' || matKind === 'marble') ? '#ffffff' : (matKind === 'wood' ? '#6a4c33' : '#f4efe4');
+          }
+          if (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') {
+            wallCol = it.colors[0];
+          }
         } else if (vIdx === 1) {
-          matKind = 'plaster'; wallCol = '#f4efe4';
+          matKind = 'plaster'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#f4efe4';
         } else if (vIdx === 2) {
-          matKind = 'brick'; wallCol = '#ffffff';
+          matKind = 'brick'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         } else if (vIdx === 3) {
-          matKind = 'brick_white'; wallCol = '#ffffff';
+          matKind = 'brick_white'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         } else if (vIdx === 4) {
-          matKind = 'stone'; wallCol = '#ffffff';
+          matKind = 'stone'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         } else if (vIdx === 5) {
-          matKind = 'tile'; wallCol = '#ffffff';
+          matKind = 'tile'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         } else if (vIdx === 6) {
-          matKind = 'concrete'; wallCol = '#ffffff';
+          matKind = 'concrete'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         } else if (vIdx === 7) {
-          matKind = 'wood'; wallCol = '#6a4c33';
+          matKind = 'wood'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#6a4c33';
         }
 
-        const trimKind = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'concrete') ? 'stone' : (matKind === 'tile' ? 'ceramic' : (matKind === 'wood' ? 'wood' : 'plaster'));
-        const trimCol = (matKind === 'brick' || matKind === 'stone') ? '#ede8df' : (matKind === 'wood' ? HP.shade(wallCol, 0.8) : HP.shade(wallCol, 0.94));
+        const trimKind = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'concrete' || matKind === 'marble') ? 'stone' : (matKind === 'tile' ? 'ceramic' : (matKind === 'wood' ? 'wood' : 'plaster'));
+        const trimCol = (matKind === 'brick' || matKind === 'stone') ? '#ede8df' : (matKind === 'wood' ? HP.shade(wallCol, 0.8) : (matKind === 'concrete' ? '#d1d5db' : HP.shade(wallCol, 0.94)));
         const darkTrim = (matKind === 'brick' || matKind === 'stone') ? '#cfc8b8' : HP.shade(trimCol, 0.78);
 
         const wallThick = 0.32;

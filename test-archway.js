@@ -2,11 +2,13 @@
 const fs = require('fs'), path = require('path'), assert = require('assert'), vm = require('vm');
 const THREE = require('./lib/three.min.js');
 
-const mockCtx = () => ({
+const mockCtx = () => new Proxy({
   createRadialGradient: () => ({ addColorStop() {} }),
   createLinearGradient: () => ({ addColorStop() {} }),
-  fillRect() {}, fill() {}, stroke() {}, arc() {}, beginPath() {},
-  scale() {}, translate() {}, save() {}, restore() {},
+  createImageData: () => ({ data: new Uint8ClampedArray(1024) }),
+  getImageData: () => ({ data: new Uint8ClampedArray(1024) }),
+}, {
+  get: (target, prop) => target[prop] || (() => ({}))
 });
 const storage = {}, context = {
   THREE, console, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 720,
@@ -18,7 +20,7 @@ const storage = {}, context = {
 context.window = context;
 vm.createContext(context);
 
-for (const file of ['grid', 'catalog', 'graphics3d', 'cull3d', 'sky3d', 'furniture3d', 'world3d', 'ui', 'walk3d', 'walk']) {
+for (const file of ['grid', 'catalog', 'geom3d', 'graphics3d', 'cull3d', 'sky3d', 'furniture3d', 'world3d', 'ui', 'walk3d', 'walk']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'src', file + '.js'), 'utf8'), context);
 }
 
@@ -51,7 +53,14 @@ assert.equal(doorStyles.archway.name, 'Archway');
 assert(doorStyles.arched, 'arched door style must exist');
 assert.equal(doorStyles.arched.name, 'Arched Door');
 
-// 3. Test 3D building of archway furniture model
+// 3. Test 3D building of archway furniture model across wall styles
+HP.cur = () => ({
+  walls: {
+    'h,3,4': { style: 'brick', ca: '#ffffff', cb: '#ffffff' },
+    'h,6,4': { style: 'brick', ca: '#ffffff', cb: '#ffffff' }
+  }
+});
+
 const group = new THREE.Group(), builder = HP.furniture3d.builder(group);
 for (const id of ['archway', 'archway3', 'archway1']) {
   const def = HP.CATALOG.find(d => d.id === id);
@@ -67,5 +76,12 @@ for (const obj of group.children) {
     assert(Number.isFinite(v), 'All archway vertices must be finite');
   }
 }
+
+// 4. Test door frame archway building with wall style matching
+const frameGroup = HP.world3d.buildDoorFrame({ k: 'h,4,4', d: 'h', x0: 112, x1: 168, z0: 112, z1: 116 }, 112, 168, new THREE.Group(), 0);
+assert(frameGroup.children.length > 0, 'Arched door frame must create meshes');
+const spandrelMesh = frameGroup.children.find(c => c.geometry && c.geometry.type === 'BoxGeometry' && c.position.y > 45);
+assert(spandrelMesh, 'Archway door frame must have spandrel geometry');
+assert(spandrelMesh.material, 'Spandrel mesh must have a valid material');
 
 console.log('✓ PASS test-archway.js: Catalog archways (1x1, 2x1, 3x1) & Door styles (archway, arched) verified!');

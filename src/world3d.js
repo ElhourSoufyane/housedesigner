@@ -890,9 +890,28 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   const isGlass = doorStyle === 'glass';
   const isArch = doorStyle === 'archway' || doorStyle === 'arched';
 
-  let frameMat;
+  let frameMat, wallMat;
   if (isArch) {
-    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#f4f0e6') : new THREE.MeshLambertMaterial({ color: 0xf4f0e6 });
+    const seg = a.k ? HP.parseWallKey(a.k) : null;
+    let wPrev = null, wNext = null;
+    if (seg && lvl && lvl.walls) {
+      if (isH) {
+        wPrev = lvl.walls['h,' + (seg.x - 1) + ',' + seg.y];
+        wNext = lvl.walls['h,' + (seg.x + 1) + ',' + seg.y];
+      } else {
+        wPrev = lvl.walls['v,' + seg.x + ',' + (seg.y - 1)];
+        wNext = lvl.walls['v,' + seg.x + ',' + (seg.y + 1)];
+      }
+    }
+    const wallStyle = (rec && rec.style) || (wPrev && wPrev.style) || (wNext && wNext.style) || HP.wallStyle || 'plaster';
+    let wallCol = (rec && (rec.ca || rec.cb)) || (wPrev && (wPrev.ca || wPrev.cb)) || (wNext && (wNext.ca || wNext.cb));
+    if (!wallCol) {
+      wallCol = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'tile' || wallStyle === 'concrete' || wallStyle === 'marble') ? '#ffffff' : '#f4efe4';
+    }
+    const trimKind = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'concrete') ? 'stone' : (wallStyle === 'tile' ? 'ceramic' : (wallStyle === 'wood' ? 'wood' : 'plaster'));
+    const trimColor = (wallStyle === 'brick' || wallStyle === 'stone') ? '#ede8df' : (wallStyle === 'wood' ? '#5a3d28' : (wallStyle === 'concrete' ? '#d1d5db' : '#f4f0e6'));
+    frameMat = HP.graphics3d ? HP.graphics3d.material(trimKind, trimColor) : new THREE.MeshLambertMaterial({ color: 0xf4f0e6 });
+    wallMat = HP.graphics3d ? HP.graphics3d.material(wallStyle, wallCol) : frameMat;
   } else if (isModern) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#282a2e') : new THREE.MeshLambertMaterial({ color: 0x282a2e });
   } else if (isGlass) {
@@ -917,13 +936,13 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
 
     // Left jamb up to springline
     const sideGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
-    const leftMesh = new THREE.Mesh(sideGeo, frameMat);
+    const leftMesh = new THREE.Mesh(sideGeo, wallMat || frameMat);
     leftMesh.position.set(isH ? s0 + jt / 2 : wMid, sy / 2, isH ? wMid : s0 + jt / 2);
     leftMesh.castShadow = leftMesh.receiveShadow = true;
     group.add(leftMesh);
 
     // Right jamb up to springline
-    const rightMesh = new THREE.Mesh(sideGeo, frameMat);
+    const rightMesh = new THREE.Mesh(sideGeo, wallMat || frameMat);
     rightMesh.position.set(isH ? s1 - jt / 2 : wMid, sy / 2, isH ? wMid : s1 - jt / 2);
     rightMesh.castShadow = rightMesh.receiveShadow = true;
     group.add(rightMesh);
@@ -945,7 +964,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
       group.add(segMesh);
     }
 
-    // Solid spandrels filling top corners
+    // Solid spandrels filling top corners using the exact wall material & color
     const N = 14;
     const stepU = span / N;
     for (let i = 0; i < N; i++) {
@@ -955,7 +974,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
       if (curveY < dh) {
         const sh = dh - curveY;
         const spandrelGeo = new THREE.BoxGeometry(isH ? stepU * 1.02 : wThick, sh, isH ? wThick : stepU * 1.02);
-        const spMesh = new THREE.Mesh(spandrelGeo, frameMat);
+        const spMesh = new THREE.Mesh(spandrelGeo, wallMat || frameMat);
         spMesh.position.set(isH ? u : wMid, curveY + sh / 2, isH ? wMid : u);
         spMesh.castShadow = spMesh.receiveShadow = true;
         group.add(spMesh);
@@ -1096,6 +1115,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   parentGroup.add(group);
   return group;
 }
+W3.buildDoorFrame = buildDoorFrame;
 
 function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat, knobMat, knobGeo) {
   const lvl = HP.cur();
