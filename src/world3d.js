@@ -881,7 +881,7 @@ function mergeGeometries(geos) {
   for (const g of geos) {
     if (!g || !g.attributes || !g.attributes.position) continue;
     totalVerts += g.attributes.position.count;
-    totalIdx += g.index ? g.index.count : 0;
+    totalIdx += g.index ? g.index.count : g.attributes.position.count;
   }
   if (!totalVerts) return null;
 
@@ -918,6 +918,11 @@ function mergeGeometries(geos) {
         idx[iOff + i] = iArr[i] + vOff;
       }
       iOff += iArr.length;
+    } else {
+      for (let i = 0; i < pCount; i++) {
+        idx[iOff + i] = i + vOff;
+      }
+      iOff += pCount;
     }
     vOff += pCount;
     g.dispose();
@@ -927,7 +932,7 @@ function mergeGeometries(geos) {
   merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   merged.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  if (totalIdx > 0) merged.setIndex(new THREE.BufferAttribute(idx, 1));
+  merged.setIndex(new THREE.BufferAttribute(idx, 1));
   merged.computeBoundingBox();
   merged.computeBoundingSphere();
   return merged;
@@ -938,19 +943,19 @@ function toOrientedExtrudeGeo(shape, depth, isH) {
   const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
   g.translate(0, 0, -depth / 2);
   if (!isH) {
-    const pos = g.attributes.position, norm = g.attributes.normal;
+    const pos = g.attributes.position, norm = g.attributes.normal, uv = g.attributes.uv;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), z = pos.getZ(i);
       pos.setX(i, z); pos.setZ(i, x);
-      const nx = norm.getX(i), nz = norm.getZ(i);
-      norm.setX(i, nz); norm.setZ(i, nx);
     }
-    const idx = g.index;
-    if (idx) {
-      for (let i = 0; i < idx.count; i += 3) {
-        const tmp = idx.getX(i);
-        idx.setX(i, idx.getX(i + 1));
-        idx.setX(i + 1, tmp);
+    for (let i = 0; i < pos.count; i += 3) {
+      const x0 = pos.getX(i), y0 = pos.getY(i), z0 = pos.getZ(i);
+      pos.setXYZ(i, pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1));
+      pos.setXYZ(i + 1, x0, y0, z0);
+      if (uv) {
+        const u0 = uv.getX(i), v0 = uv.getY(i);
+        uv.setXY(i, uv.getX(i + 1), uv.getY(i + 1));
+        uv.setXY(i + 1, u0, v0);
       }
     }
     g.computeVertexNormals();
@@ -1132,8 +1137,9 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     const archH = dh - sy;
     const frameGeos = [];
     const spandrelGeos = [];
-    const casingW = 2.0;
-    const casingT = 0.65;
+    const casingW = 2.4;
+    const casingT = 0.75;
+    const reveal = doorStyle === 'arched' ? 1.6 : 0;
     const N = 36;
 
     // Left jamb up to springline
@@ -1146,20 +1152,21 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     rightGeo.translate(isH ? s1 - jt / 2 : wMid, sy / 2, isH ? wMid : s1 - jt / 2);
     frameGeos.push(rightGeo);
 
-    // Curved arch soffit — smooth continuous curved band
+    // Curved arch soffit — smooth continuous curved band (CCW)
     const soffitShape = new THREE.Shape();
     soffitShape.moveTo(-(R + jt), sy);
+    soffitShape.lineTo(-R, sy);
     for (let i = 0; i <= N; i++) {
       const theta = Math.PI * (i / N);
-      const u = -(R + jt) * Math.cos(theta);
-      const y = sy + (archH + jt) * Math.sin(theta);
-      soffitShape.lineTo(u, y);
-    }
-    soffitShape.lineTo(R, sy);
-    for (let i = 0; i <= N; i++) {
-      const theta = Math.PI * (1 - i / N);
       const u = -R * Math.cos(theta);
       const y = sy + archH * Math.sin(theta);
+      soffitShape.lineTo(u, y);
+    }
+    soffitShape.lineTo(R + jt, sy);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (1 - i / N);
+      const u = -(R + jt) * Math.cos(theta);
+      const y = sy + (archH + jt) * Math.sin(theta);
       soffitShape.lineTo(u, y);
     }
     soffitShape.closePath();
@@ -1167,29 +1174,28 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     soffitGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
     frameGeos.push(soffitGeo);
 
-    // Solid smooth spandrels filling top corners using the exact wall material & color
+    // Solid smooth spandrels filling top corners using the exact wall material & color (CCW)
     const leftSpShape = new THREE.Shape();
     leftSpShape.moveTo(-R, sy);
-    leftSpShape.lineTo(-R, dh);
-    leftSpShape.lineTo(0, dh);
     for (let i = 0; i <= N; i++) {
-      const theta = (Math.PI / 2) * (1 - i / N);
+      const theta = (Math.PI / 2) * (i / N);
       const u = -R * Math.cos(theta);
       const y = sy + archH * Math.sin(theta);
       leftSpShape.lineTo(u, y);
     }
+    leftSpShape.lineTo(-R, dh);
     leftSpShape.closePath();
     const lSpGeo = toOrientedExtrudeGeo(leftSpShape, wThick, isH);
     lSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
     spandrelGeos.push(lSpGeo);
 
     const rightSpShape = new THREE.Shape();
-    rightSpShape.moveTo(0, dh);
+    rightSpShape.moveTo(R, sy);
     rightSpShape.lineTo(R, dh);
-    rightSpShape.lineTo(R, sy);
+    rightSpShape.lineTo(0, dh);
     for (let i = 0; i <= N; i++) {
-      const theta = Math.PI - (Math.PI / 2) * (1 - i / N);
-      const u = -R * Math.cos(theta);
+      const theta = (Math.PI / 2) * (1 - i / N);
+      const u = R * Math.cos(theta);
       const y = sy + archH * Math.sin(theta);
       rightSpShape.lineTo(u, y);
     }
@@ -1198,20 +1204,21 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     rSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
     spandrelGeos.push(rSpGeo);
 
-    // Casing trim bands on both wall faces
+    // Arch casing trim bands on both wall faces with architectural reveal (CCW)
     const archCasingShape = new THREE.Shape();
     archCasingShape.moveTo(-(R + casingW), sy);
+    archCasingShape.lineTo(-(R - reveal), sy);
     for (let i = 0; i <= N; i++) {
       const theta = Math.PI * (i / N);
-      const u = -(R + casingW) * Math.cos(theta);
-      const y = sy + (archH + casingW) * Math.sin(theta);
+      const u = -(R - reveal) * Math.cos(theta);
+      const y = sy + (archH - reveal) * Math.sin(theta);
       archCasingShape.lineTo(u, y);
     }
-    archCasingShape.lineTo(R, sy);
+    archCasingShape.lineTo(R + casingW, sy);
     for (let i = 0; i <= N; i++) {
       const theta = Math.PI * (1 - i / N);
-      const u = -R * Math.cos(theta);
-      const y = sy + archH * Math.sin(theta);
+      const u = -(R + casingW) * Math.cos(theta);
+      const y = sy + (archH + casingW) * Math.sin(theta);
       archCasingShape.lineTo(u, y);
     }
     archCasingShape.closePath();
@@ -1224,19 +1231,20 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     keystoneShape.lineTo(-ksTopW / 2, ksH / 2);
     keystoneShape.closePath();
 
+    const sideW = casingW + reveal;
     for (const f of [-1, 1]) {
       const facePos = wMid + f * (wThick / 2 + casingT / 2);
 
-      const cl = new THREE.BoxGeometry(isH ? casingW : casingT, sy, isH ? casingT : casingW);
-      cl.translate(isH ? s0 - casingW / 2 : facePos, sy / 2, isH ? facePos : s0 - casingW / 2);
+      const cl = new THREE.BoxGeometry(isH ? sideW : casingT, sy, isH ? casingT : sideW);
+      cl.translate(isH ? s0 - casingW / 2 + reveal / 2 : facePos, sy / 2, isH ? facePos : s0 - casingW / 2 + reveal / 2);
       frameGeos.push(cl);
 
-      const cr = new THREE.BoxGeometry(isH ? casingW : casingT, sy, isH ? casingT : casingW);
-      cr.translate(isH ? s1 + casingW / 2 : facePos, sy / 2, isH ? facePos : s1 + casingW / 2);
+      const cr = new THREE.BoxGeometry(isH ? sideW : casingT, sy, isH ? casingT : sideW);
+      cr.translate(isH ? s1 + casingW / 2 - reveal / 2 : facePos, sy / 2, isH ? facePos : s1 + casingW / 2 - reveal / 2);
       frameGeos.push(cr);
 
-      for (const iu of [s0 - casingW / 2, s1 + casingW / 2]) {
-        const imp = new THREE.BoxGeometry(isH ? casingW * 1.3 : casingT * 1.4, 1.2, isH ? casingT * 1.4 : casingW * 1.3);
+      for (const iu of [s0 - casingW / 2 + reveal / 2, s1 + casingW / 2 - reveal / 2]) {
+        const imp = new THREE.BoxGeometry(isH ? sideW * 1.25 : casingT * 1.4, 1.4, isH ? casingT * 1.4 : sideW * 1.25);
         imp.translate(isH ? iu : facePos, sy, isH ? facePos : iu);
         frameGeos.push(imp);
       }
@@ -1746,6 +1754,8 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     } else if (doorStyle === 'arched') {
       // Arched Heritage Craftsman Door
       const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#5c4033') : leafMat;
+      const trimMat = HP.graphics3d ? HP.graphics3d.material('wood', '#4a3325') : leafMat;
+      const panelMat = HP.graphics3d ? HP.graphics3d.material('wood', '#65483a') : leafMat;
       const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
 
       const R = span / 2;
@@ -1780,45 +1790,45 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       for (const side of [-1, 1]) {
         const zFace = side * (dep / 2 + trimDep / 2);
 
-        // Meeting stile (full height)
-        const mStile = new THREE.Mesh(box3d(stileW, baseLh, trimDep), woodMat);
-        setLeafPos(mStile, uMeet, 0, zFace);
+        // Meeting stile (height trimmed slightly below apex to follow arch curve)
+        const mStile = new THREE.Mesh(box3d(stileW, baseLh - 0.5, trimDep), trimMat);
+        setLeafPos(mStile, uMeet, -0.25, zFace);
         mStile.castShadow = true;
         leaf.add(mStile);
 
         // Hinge stile (up to springline sy)
-        const hStile = new THREE.Mesh(box3d(stileW, sy, trimDep), woodMat);
+        const hStile = new THREE.Mesh(box3d(stileW, sy, trimDep), trimMat);
         setLeafPos(hStile, uHinge, -baseLh / 2 + sy / 2, zFace);
         hStile.castShadow = true;
         leaf.add(hStile);
 
         // Bottom kick rail
-        const bRail = new THREE.Mesh(box3d(lw - 0.2, botRailH, trimDep), woodMat);
+        const bRail = new THREE.Mesh(box3d(lw - 0.2, botRailH, trimDep), trimMat);
         setLeafPos(bRail, 0, -baseLh / 2 + botRailH / 2, zFace);
         bRail.castShadow = true;
         leaf.add(bRail);
 
         // Middle lock rail
-        const mRail = new THREE.Mesh(box3d(lw - 0.2, midRailH, trimDep), woodMat);
+        const mRail = new THREE.Mesh(box3d(lw - 0.2, midRailH, trimDep), trimMat);
         setLeafPos(mRail, 0, yMid, zFace);
         mRail.castShadow = true;
         leaf.add(mRail);
 
         // Lower raised panel field
-        const lowField = new THREE.Mesh(box3d(Math.max(1, innerW - 1.2), Math.max(1, lowH - 1.2), 0.14), woodMat);
+        const lowField = new THREE.Mesh(box3d(Math.max(1, innerW - 1.2), Math.max(1, lowH - 1.2), 0.14), panelMat);
         setLeafPos(lowField, 0, lowY, side * (dep / 2 + 0.07));
         leaf.add(lowField);
 
         // Upper arched raised panel field
-        const upMesh = new THREE.Mesh(upPanelGeo, woodMat);
+        const upMesh = new THREE.Mesh(upPanelGeo, panelMat);
         setLeafPos(upMesh, 0, 0, side * (dep / 2 + 0.07));
         leaf.add(upMesh);
       }
 
       // Astragal for double doors (on meeting stile of active leaf 0)
       if (leaves === 2 && li === 0) {
-        const astragal = new THREE.Mesh(box3d(0.65, baseLh, dep + 0.35), woodMat);
-        setLeafPos(astragal, lw / 2, 0, 0);
+        const astragal = new THREE.Mesh(box3d(0.65, baseLh - 0.5, dep + 0.35), trimMat);
+        setLeafPos(astragal, lw / 2, -0.25, 0);
         astragal.castShadow = true;
         leaf.add(astragal);
       }
@@ -1830,27 +1840,24 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
         leaf.add(hinge);
       }
 
-      // Dual-sided polished brass lever handle and backplate
+      // Dual-sided polished brass lever handle & architectural rosette
       knob = new THREE.Group();
       const latchU = uMeet;
       const leverDir = leaves === 2 ? (li === 0 ? -1 : 1) : -1;
       for (const side of [-1, 1]) {
         const sideZ = side * (dep / 2 + trimDep + 0.02);
+        const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.25, 16), brassMat);
+        if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
+        setLeafPos(rosette, 0, 0, sideZ);
+        knob.add(rosette);
 
-        // Architectural backplate escutcheon
-        const escutcheon = new THREE.Mesh(box3d(1.3, 7.2, 0.22), brassMat);
-        setLeafPos(escutcheon, 0, 0, sideZ);
-        knob.add(escutcheon);
-
-        // Rosette collar
-        const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.4, 12), brassMat);
+        const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.5, 10), brassMat);
         if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
         setLeafPos(collar, 0, 0, sideZ + side * 0.22);
         knob.add(collar);
 
-        // Polished ergonomic lever handle
-        const lever = new THREE.Mesh(box3d(3.4, 0.45, 0.45), brassMat);
-        setLeafPos(lever, leverDir * 1.5, 0, sideZ + side * 0.45);
+        const lever = new THREE.Mesh(box3d(3.2, 0.45, 0.45), brassMat);
+        setLeafPos(lever, leverDir * 1.4, 0, sideZ + side * 0.45);
         lever.castShadow = true;
         knob.add(lever);
       }
