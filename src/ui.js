@@ -744,8 +744,19 @@ const DOOR_STYLE_DEFS = {
     name: 'Slide Glass',
     desc: 'Aluminum patio slider with clear glass',
     svg: `<svg width="100%" height="100%" viewBox="0 0 60 40"><rect x="10" y="3" width="40" height="34" fill="#282b30" stroke="#1c1d1f" stroke-width="1"/><rect x="13" y="6" width="16" height="28" fill="#bfe3ea" fill-opacity="0.6"/><rect x="31" y="6" width="16" height="28" fill="#bfe3ea" fill-opacity="0.6"/><line x1="29" y1="3" x2="29" y2="37" stroke="#282b30" stroke-width="2"/><line x1="27" y1="15" x2="27" y2="25" stroke="#d0d3d8" stroke-width="1.4"/></svg>`
+  },
+  archway: {
+    name: 'Archway',
+    desc: 'Cased architectural walkthrough archway without a door leaf',
+    svg: `<svg width="100%" height="100%" viewBox="0 0 60 40"><rect x="16" y="2" width="28" height="36" rx="1" fill="#ede8df" stroke="#4a3e35" stroke-width="1.2"/><path d="M 21 38 L 21 16 A 9 9 0 0 1 39 16 L 39 38 Z" fill="#2d3035"/><path d="M 21 16 A 9 9 0 0 1 39 16" stroke="#f8fafc" stroke-width="1.4" fill="none"/><line x1="16" y1="16" x2="21" y2="16" stroke="#4a3e35" stroke-width="1"/><line x1="39" y1="16" x2="44" y2="16" stroke="#4a3e35" stroke-width="1"/></svg>`
+  },
+  arched: {
+    name: 'Arched Door',
+    desc: 'Classic raised 4-panel door leaf with an arched top frame',
+    svg: `<svg width="100%" height="100%" viewBox="0 0 60 40"><rect x="16" y="2" width="28" height="36" rx="1" fill="#4a3e35" stroke="#332a22" stroke-width="1.2"/><path d="M 20 38 L 20 15 A 10 10 0 0 1 40 15 L 40 38 Z" fill="#f2ece2" stroke="#4a3e35" stroke-width="1.2"/><path d="M 23 18 A 7 7 0 0 1 37 18 L 37 22 L 23 22 Z" fill="#ded7ca" stroke="#b0a89a" stroke-width="0.8"/><rect x="23" y="24" width="6" height="12" rx="0.8" fill="#ded7ca" stroke="#b0a89a" stroke-width="0.8"/><rect x="31" y="24" width="6" height="12" rx="0.8" fill="#ded7ca" stroke="#b0a89a" stroke-width="0.8"/><circle cx="38" cy="24" r="1.3" fill="#c89d46"/></svg>`
   }
 };
+HP.DOOR_STYLE_DEFS = DOOR_STYLE_DEFS;
 
 const WINDOW_STYLE_DEFS = {
   casement: {

@@ -2008,6 +2008,46 @@ function drawDoor(g, s, t, regionOf) {
   const isSlide = style === 'slide' || style === 'slideglass';
   const isGlass = style === 'glass' || style === 'slideglass';
   const isModern = style === 'modern';
+  const isArch = style === 'archway';
+
+  if (isArch) {
+    const isH = s.d === 'h';
+    const xL = s.x * C, xR = (s.x + 2) * C;
+    const yT = s.y * C, yB = (s.y + 2) * C;
+    g.fillStyle = '#2e3138';
+    if (isH) {
+      g.fillRect(xL - 2, yT - t / 2, 5, t);
+      g.fillRect(xR - 3, yT - t / 2, 5, t);
+      g.strokeStyle = 'rgba(74, 62, 53, 0.7)';
+      g.lineWidth = 1.8;
+      if (g.setLineDash) g.setLineDash([3, 2]);
+      g.beginPath();
+      g.arc((xL + xR) / 2, yT, C - 2, 0, Math.PI);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = 'rgba(74, 62, 53, 0.75)';
+      g.font = 'bold 8px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('GRAND ARCH', (xL + xR) / 2, yT + dir * 7);
+    } else {
+      g.fillRect(xL - t / 2, yT - 2, t, 5);
+      g.fillRect(xL - t / 2, yB - 3, t, 5);
+      g.strokeStyle = 'rgba(74, 62, 53, 0.7)';
+      g.lineWidth = 1.8;
+      if (g.setLineDash) g.setLineDash([3, 2]);
+      g.beginPath();
+      g.arc(xL, (yT + yB) / 2, C - 2, -Math.PI / 2, Math.PI / 2);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = 'rgba(74, 62, 53, 0.75)';
+      g.font = 'bold 8px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('GRAND ARCH', xL + dir * 7, (yT + yB) / 2);
+    }
+    return;
+  }
 
   if (isSlide) {
     const isH = s.d === 'h';
@@ -2137,6 +2177,46 @@ function drawDoubleDoor(g, s, t, regionOf) {
   const isSlide = style === 'slide' || style === 'slideglass';
   const isGlass = style === 'glass' || style === 'slideglass';
   const isModern = style === 'modern';
+  const isArch = style === 'archway';
+
+  if (isArch) {
+    const isH = s.d === 'h';
+    const xL = s.x * C, xR = (s.x + 2) * C;
+    const yT = s.y * C, yB = (s.y + 2) * C;
+    g.fillStyle = '#2e3138';
+    if (isH) {
+      g.fillRect(xL - 2, yT - t / 2, 5, t);
+      g.fillRect(xR - 3, yT - t / 2, 5, t);
+      g.strokeStyle = 'rgba(74, 62, 53, 0.7)';
+      g.lineWidth = 1.8;
+      if (g.setLineDash) g.setLineDash([3, 2]);
+      g.beginPath();
+      g.arc((xL + xR) / 2, yT, C - 2, 0, Math.PI);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = 'rgba(74, 62, 53, 0.75)';
+      g.font = 'bold 8px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('GRAND ARCH', (xL + xR) / 2, yT + dir * 7);
+    } else {
+      g.fillRect(xL - t / 2, yT - 2, t, 5);
+      g.fillRect(xL - t / 2, yB - 3, t, 5);
+      g.strokeStyle = 'rgba(74, 62, 53, 0.7)';
+      g.lineWidth = 1.8;
+      if (g.setLineDash) g.setLineDash([3, 2]);
+      g.beginPath();
+      g.arc(xL, (yT + yB) / 2, C - 2, -Math.PI / 2, Math.PI / 2);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = 'rgba(74, 62, 53, 0.75)';
+      g.font = 'bold 8px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('GRAND ARCH', xL + dir * 7, (yT + yB) / 2);
+    }
+    return;
+  }
   const closed = rec && rec.c;
 
   if (isSlide) {

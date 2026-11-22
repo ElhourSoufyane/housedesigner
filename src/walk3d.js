@@ -653,7 +653,7 @@ function collide(nx, nz, vx, vz) {
       }
     }
     for (const d of HP.world3d.doorPivots) {
-      if (d.window && !d.casement) continue;           // lift sashes stay above the sill
+      if ((d.window && !d.casement) || d.doorStyle === 'archway' || !d.leaf) continue;           // lift sashes stay above the sill, archways are open
       if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY >= d.ly1 || (feetY + 42) <= d.ly0)) continue;
       const [rx, rz] = d.casement ? resolveCasement(d, nx, nz) : resolveBox(leafBox(d), nx, nz);
       if (!d.window && (rx !== nx || rz !== nz) && (vx || vz)) {
@@ -760,6 +760,7 @@ function nearestThing() {
     }
   }
   for (const d of HP.world3d.doorPivots) {
+    if (d.doorStyle === 'archway' || !d.leaf) continue;
     const a = d.a;
     if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY > d.ly1 + 15 || feetY + 55 < d.ly0)) continue;
     const dx = a.cx - px, dz = a.cz - pz;
@@ -1087,8 +1088,10 @@ function tick(t) {
     for (let pass = 0; pass < 2; pass++) {
       for (const b of HP.world3d.colliders)
         if (b !== m.box && b.y0 < m.sy && b.y1 > 2) hit(b);
-      for (const d of (HP.world3d.doorPivots || []))   // doors block furniture too
+      for (const d of (HP.world3d.doorPivots || [])) {  // doors block furniture too
+        if (d.doorStyle === 'archway' || !d.leaf) continue;
         if (!d.window || (d.casement && m.sy > d.ly0)) hit(leafBox(d));
+      }
       if (HP.world3d && HP.world3d.garageDoors) {
         for (const gd of HP.world3d.garageDoors)
           if (gd.open < 0.65) hit(gd.box);

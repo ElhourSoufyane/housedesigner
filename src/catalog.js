@@ -998,6 +998,87 @@ HP.CATALOG = [
       g.strokeStyle = HP.shade(c, 0.7); g.lineWidth = 2;
       g.strokeRect(2, 2, W - 4, H - 4);
     } },
+  { id: 'archway', name: 'Archway', cat: 'Build', brand: 'Heritage', w: 2, h: 1, colors: ['#f8fafc', '#ede8df', '#5c4033', '#334155', '#8d6e5c'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#f8fafc';
+      const dark = HP.shade(c, 0.45), mid = HP.shade(c, 0.75), light = c;
+      const jw = Math.max(6, Math.round(W * 0.16));
+      g.fillStyle = dark;
+      g.fillRect(1, 2, jw, H - 4);
+      g.fillRect(W - jw - 1, 2, jw, H - 4);
+      g.fillStyle = light;
+      g.fillRect(2, 3, jw - 2, H - 6);
+      g.fillRect(W - jw, 3, jw - 2, H - 6);
+      g.fillStyle = mid;
+      g.fillRect(1, H / 2 - 1, jw, 2);
+      g.fillRect(W - jw - 1, H / 2 - 1, jw, 2);
+      g.strokeStyle = mid;
+      g.lineWidth = 1.6;
+      if (g.setLineDash) g.setLineDash([3, 2]);
+      g.beginPath();
+      g.arc(W / 2, H / 2, (W - jw * 2) / 2, Math.PI, 0);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = mid;
+      g.font = 'bold 7px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('ARCH', W / 2, H / 2 + 1);
+    } },
+  { id: 'archway3', name: 'Grand Archway', cat: 'Build', brand: 'Heritage', w: 3, h: 1, colors: ['#f8fafc', '#ede8df', '#5c4033', '#334155', '#8d6e5c'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#f8fafc';
+      const dark = HP.shade(c, 0.45), mid = HP.shade(c, 0.75), light = c;
+      const jw = Math.max(7, Math.round(W * 0.12));
+      g.fillStyle = dark;
+      g.fillRect(1, 2, jw, H - 4);
+      g.fillRect(W - jw - 1, 2, jw, H - 4);
+      g.fillStyle = light;
+      g.fillRect(2, 3, jw - 2, H - 6);
+      g.fillRect(W - jw, 3, jw - 2, H - 6);
+      g.fillStyle = mid;
+      g.fillRect(1, H / 2 - 1, jw, 2);
+      g.fillRect(W - jw - 1, H / 2 - 1, jw, 2);
+      g.strokeStyle = mid;
+      g.lineWidth = 1.6;
+      if (g.setLineDash) g.setLineDash([3, 2]);
+      g.beginPath();
+      g.arc(W / 2, H / 2, (W - jw * 2) / 2, Math.PI, 0);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = mid;
+      g.font = 'bold 7px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('GRAND ARCH', W / 2, H / 2 + 1);
+    } },
+  { id: 'archway1', name: 'Narrow Archway', cat: 'Build', brand: 'Heritage', w: 1, h: 1, colors: ['#f8fafc', '#ede8df', '#5c4033', '#334155', '#8d6e5c'], walkable: true,
+    draw(g, W, H, v) {
+      const c = this.colors[v] || '#f8fafc';
+      const dark = HP.shade(c, 0.45), mid = HP.shade(c, 0.75), light = c;
+      const jw = Math.max(4, Math.round(W * 0.18));
+      g.fillStyle = dark;
+      g.fillRect(1, 2, jw, H - 4);
+      g.fillRect(W - jw - 1, 2, jw, H - 4);
+      g.fillStyle = light;
+      g.fillRect(2, 3, jw - 2, H - 6);
+      g.fillRect(W - jw, 3, jw - 2, H - 6);
+      g.fillStyle = mid;
+      g.fillRect(1, H / 2 - 1, jw, 2);
+      g.fillRect(W - jw - 1, H / 2 - 1, jw, 2);
+      g.strokeStyle = mid;
+      g.lineWidth = 1.4;
+      if (g.setLineDash) g.setLineDash([2, 2]);
+      g.beginPath();
+      g.arc(W / 2, H / 2, (W - jw * 2) / 2, Math.PI, 0);
+      g.stroke();
+      if (g.setLineDash) g.setLineDash([]);
+      g.fillStyle = mid;
+      g.font = 'bold 6px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('ARCH', W / 2, H / 2 + 1);
+    } },
   { id: 'sunsail', name: 'Sun Sail Shade', cat: 'Garden', w: 3, h: 3, colors: ['#f8fafc', '#fed7aa', '#bae6fd', '#bbf7d0'], walkable: true,
     draw(g, W, H, v) {
       const c = this.colors[v] || '#f8fafc';

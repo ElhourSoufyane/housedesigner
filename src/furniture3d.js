@@ -301,7 +301,7 @@ F.builder = function (group) {
           return { left: false, right: false };
         }
       }
-      const isScreen = /^(divider|shoji|screen|garagedoor|greenhouse)/i.test(it.type);
+      const isScreen = /^(divider|shoji|screen|garagedoor|greenhouse|archway)/i.test(it.type);
       width = Math.max(3, (it.w || def.w) * HP.CELL - (isScreen ? 0 : 3));
       depth = Math.max(3, (it.h || def.h) * HP.CELL - (isScreen ? 0 : 3));
       height = Math.max(1.5, h);
@@ -9057,6 +9057,58 @@ F.builder = function (group) {
         for (const sx of [-0.44, 0.44]) {
           boxSlope('metal', sx, 0.65, -0.44, sx, 0.85, 0.42, 0.02, 0.02, '#1e293b');
         }
+      } else if (/^archway/.test(t)) {
+        // Architectural Cased Walkthrough Archway (Full-height wall arch with curved spandrels & crown)
+        const wallCol = color || '#f8fafc';
+        const trimCol = HP.shade(wallCol, 0.88);
+        const darkTrim = HP.shade(wallCol, 0.65);
+        const wallThick = 0.32;
+        const trimThick = wallThick + 0.05;
+        const pw = /archway1/.test(t) ? 0.16 : (/archway3/.test(t) ? 0.08 : 0.12);
+        const R = 0.5 - pw;
+        const cy = 0.62;
+        const y_crown = 0.94;
+        const rise = y_crown - cy;
+
+        // 1. Side pilasters & plinths
+        for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
+          box('wood', sx, cy / 2, 0, pw, cy, wallThick, wallCol);
+          box('wood', sx, 0.03, 0, pw + 0.02, 0.06, trimThick, trimCol);
+          box('wood', sx, cy - 0.015, 0, pw + 0.02, 0.03, trimThick, trimCol);
+          box('wood', sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol);
+        }
+
+        // 2. Top header beam & ceiling crown moulding
+        box('wood', 0, (y_crown + 1.0) / 2, 0, 1.0, 1.0 - y_crown, wallThick, wallCol);
+        box('wood', 0, 0.985, 0, 1.0, 0.03, trimThick, trimCol);
+
+        // 3. Spandrel fill slices
+        const N = 16;
+        const stepW = (2 * R) / N;
+        for (let i = 0; i < N; i++) {
+          const cx = -R + (i + 0.5) * stepW;
+          const normX = cx / R;
+          const curveY = cy + Math.sqrt(Math.max(0, 1 - normX * normX)) * rise;
+          if (curveY < y_crown) {
+            const hSlice = y_crown - curveY;
+            box('wood', cx, curveY + hSlice / 2, 0, stepW * 1.02, hSlice, wallThick, wallCol);
+          }
+        }
+
+        // 4. Arch casing trim & intrados soffit
+        const M = 16;
+        for (let i = 0; i < M; i++) {
+          const a0 = (i / M) * Math.PI, a1 = ((i + 1) / M) * Math.PI;
+          const x0 = -Math.cos(a0) * R, y0 = cy + Math.sin(a0) * rise;
+          const x1 = -Math.cos(a1) * R, y1 = cy + Math.sin(a1) * rise;
+          boxSlope('wood', x0, y0, wallThick / 2 + 0.015, x1, y1, wallThick / 2 + 0.015, 0.025, 0.03, trimCol);
+          boxSlope('wood', x0, y0, -(wallThick / 2 + 0.015), x1, y1, -(wallThick / 2 + 0.015), 0.025, 0.03, trimCol);
+          boxSlope('wood', x0, y0, 0, x1, y1, 0, 0.02, wallThick, darkTrim);
+        }
+
+        // 5. Keystone at apex
+        box('wood', 0, y_crown + 0.01, 0, pw * 0.9, 0.065, trimThick + 0.03, trimCol);
+        box('wood', 0, y_crown + 0.01, 0, pw * 0.7, 0.055, trimThick + 0.04, darkTrim);
       } else if (/sunsail/.test(t)) {
         // Architectural Triangular/Quad Tensioned Fabric Sun Sail Shade
         const fabricCol = color || '#f8fafc';

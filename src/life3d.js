@@ -252,7 +252,7 @@ function addScreen(cx, cz, rot, screenW, screenH, offZ, iy) {
   screens.push(sc);
   L.interactables.push({ x: cx, z: cz, kind: 'tv', ref: sc });
 }
-function addLampBulb(cx, cy, cz, it) {
+function addLampBulb(cx, cy, cz, it, cfg) {
   /* nearest world light source → this lamp's switch controls it */
   let src = null;
   if (it && it.id !== undefined) {
@@ -265,7 +265,20 @@ function addLampBulb(cx, cy, cz, it) {
       if (d < bd) { bd = d; src = s; }
     }
   }
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 6), glowMat('#ffe3a8'));
+  const col = (cfg && cfg.color) || '#ffe3a8';
+  let geom;
+  if (cfg && cfg.geo === 'cylinder') {
+    // Sconce: slender vertical filament inside glass cylinder
+    geom = new THREE.CylinderGeometry(cfg.r || 0.38, cfg.r || 0.38, cfg.len || 12, 8);
+  } else if (cfg && cfg.geo === 'cylinderX') {
+    // Banker lamp: horizontal tubular bulb inside green shade
+    geom = new THREE.CylinderGeometry(cfg.r || 0.35, cfg.r || 0.35, cfg.len || 5, 8).rotateZ(Math.PI / 2);
+    if (cfg.rot) geom.rotateY(-cfg.rot * Math.PI / 2);
+  } else {
+    const rad = (cfg && cfg.r) || 0.9;
+    geom = new THREE.SphereGeometry(rad, 8, 6);
+  }
+  const mesh = new THREE.Mesh(geom, glowMat(col));
   mesh.position.set(cx, cy, cz); mesh.visible = false;
   group.add(mesh);
   const isOn = it ? (it.on !== false) : true;
@@ -554,7 +567,12 @@ L.build = function (g, entries) {
       else if (hang === 'w') mx = f.x * C() + IN;
       else if (hang === 'e') mx = (f.x + f.w) * C() - IN;
       if (/walltv/.test(t)) addScreen(mx, mz, rot, 47.6, 26.4, 2.52, 42.0);
-      else addLampBulb(mx, 38, mz, it);
+      else {
+        const def = HP.itemDef ? HP.itemDef(it.type) : null;
+        const lt = HP.getLampLightTransform ? HP.getLampLightTransform(it, def, f, C(), lvlWalls, geomEnv) : null;
+        if (lt) addLampBulb(lt.x, lt.y, lt.z, it, lt);
+        else addLampBulb(mx, 38, mz, it);
+      }
     }
     else if (/aquarium/.test(t)) addFish(cx, cz, w, dep, e.h * 0.73);
     else if (/fireplace/.test(t)) { addFire(cx, cz, it.rot || 0, dep, e.h); L.ambience.fire.push({ x: cx, z: cz }); }
@@ -567,10 +585,16 @@ L.build = function (g, entries) {
       // 65" 16:9 OLED TV screen on lowline credenza: exact bezel width=32.8, height=18.4, y=25.2
       addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep - 0.65, 25.2);
     }
-    else if (/lamp|torch|lantern|light/i.test(t) && !/candle/i.test(t)) {
-      const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
-      const bulbY = bY + (/torch/i.test(t) ? 30 : (/nightlight/i.test(t) ? 6 : Math.max(12, e.h * 0.8)));
-      addLampBulb(cx, bulbY, cz, it);
+    else if (/lamp|torch|candle|lantern|light/i.test(t)) {
+      const def = HP.itemDef ? HP.itemDef(it.type) : null;
+      const lt = HP.getLampLightTransform ? HP.getLampLightTransform(it, def, f, C(), null, null) : null;
+      if (lt) {
+        addLampBulb(lt.x, lt.y, lt.z, it, lt);
+      } else {
+        const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
+        const bulbY = bY + (/torch/i.test(t) ? 30 : (/nightlight/i.test(t) ? 6 : Math.max(12, e.h * 0.8)));
+        addLampBulb(cx, bulbY, cz, it);
+      }
     }
     if (hi && /flower|veggie|tomato|seedling|rose/i.test(t)) spots.push({ x: cx, z: cz });
     if (/doghouse|petbed|kennel/.test(t)) dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };

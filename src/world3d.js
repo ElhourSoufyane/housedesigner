@@ -204,17 +204,17 @@ function assignLamps(night) {
     if (!L) break;
     L.src = s; L.light.intensity = 0;                     // fade in, no pop
     const bY = Math.floor((s.y || 0) / WALL_H) * WALL_H;
-    const clampedY = Math.min(s.y, bY + 30);
+    const clampedY = Math.min(s.y, bY + 54);
     let lx = s.x, lz = s.z;
-    if (env && env.rAt) {
+    if (env && env.rAt && !s.it?.hang && !/sconce/i.test((s.it && s.it.type) || '')) {
       const C = HP.CELL;
       const scx = Math.floor(s.x / C), scz = Math.floor(s.z / C);
       const myRoom = env.rAt(scx, scz);
       if (myRoom >= 0) {
         const offX = s.x - (scx + 0.5) * C;
         const offZ = s.z - (scz + 0.5) * C;
-        if (Math.abs(offX) > 4) lx -= Math.sign(offX) * 4;
-        if (Math.abs(offZ) > 4) lz -= Math.sign(offZ) * 4;
+        if (Math.abs(offX) > 6) lx -= Math.sign(offX) * 4;
+        if (Math.abs(offZ) > 6) lz -= Math.sign(offZ) * 4;
       }
     }
     L.light.position.set(lx, clampedY, lz);
@@ -295,6 +295,7 @@ function geomEnv(targetLvl) {
 
 /* ---------- furniture blockout heights (px) ---------- */
 const H3D = [
+  [/^archway/i, 74],
   [/lamppost/i, 56],
   [/planter$/i, 22],
   [/car_ev/i, 28],
@@ -831,11 +832,12 @@ function populateWindowAssembly(assembly, sashMat, paneMat, targetDoorPivots) {
   }
 }
 
-function buildOverheadTrack(a, span, leaves, s0, s1, flipVal, parentGroup) {
+function buildOverheadTrack(a, span, leaves, s0, s1, flipVal, parentGroup, overrideMid, overrideSpan) {
   const isH = a.d === 'h';
-  const trackLen = leaves === 2 ? span * 2.2 : span * 2.1;
-  const trackH = 1.6, trackD = 1.8;
-  const trackMat = HP.graphics3d ? HP.graphics3d.material('metal', '#1a1b1d') : new THREE.MeshLambertMaterial({ color: 0x1a1b1d });
+  const effectiveSpan = overrideSpan !== undefined ? overrideSpan : span;
+  const trackLen = leaves === 2 ? effectiveSpan * 2.2 : effectiveSpan * 2.1;
+  const trackH = 1.4, trackD = 1.4;
+  const trackMat = HP.graphics3d ? HP.graphics3d.material('metal', '#18191b') : new THREE.MeshLambertMaterial({ color: 0x18191b });
   const group = new THREE.Group();
   const bY = (a && a.baseY) || 0;
   group.position.y = bY;
@@ -846,7 +848,7 @@ function buildOverheadTrack(a, span, leaves, s0, s1, flipVal, parentGroup) {
   group.add(trackMesh);
 
   // End stop bumpers on both ends of the track
-  const bumpGeo = new THREE.BoxGeometry(isH ? 0.8 : trackD + 0.6, trackH + 0.6, isH ? trackD + 0.6 : 0.8);
+  const bumpGeo = new THREE.BoxGeometry(isH ? 0.7 : trackD + 0.5, trackH + 0.5, isH ? trackD + 0.5 : 0.7);
   const bump1 = new THREE.Mesh(bumpGeo, trackMat);
   const bump2 = new THREE.Mesh(bumpGeo, trackMat);
   const halfLen = trackLen / 2;
@@ -855,18 +857,18 @@ function buildOverheadTrack(a, span, leaves, s0, s1, flipVal, parentGroup) {
   group.add(bump1); group.add(bump2);
 
   // Wall standoff mounting spacers
-  const standoffGeo = new THREE.BoxGeometry(isH ? 0.9 : 1.2, 0.9, isH ? 1.2 : 0.9);
-  const wallOffset = (flipVal > 0 ? 0.6 : -0.6);
-  for (let f = -0.4; f <= 0.41; f += 0.2) {
+  const standoffGeo = new THREE.BoxGeometry(isH ? 0.8 : 1.1, 0.8, isH ? 1.1 : 0.8);
+  const wallOffset = (flipVal > 0 ? 0.55 : -0.55);
+  for (let f = -0.42; f <= 0.43; f += 0.21) {
     const so = new THREE.Mesh(standoffGeo, trackMat);
     so.position.set(isH ? halfLen * f : wallOffset, 0, isH ? wallOffset : halfLen * f);
     group.add(so);
   }
 
   const lh = HP.geom3d.DOOR_H + 1;
-  const mid = (s0 + s1) / 2;
-  const faceZ = isH ? (flipVal > 0 ? a.z0 - 1.2 : a.z1 + 1.2) : mid;
-  const faceX = isH ? mid : (flipVal > 0 ? a.x0 - 1.2 : a.x1 + 1.2);
+  const mid = overrideMid !== undefined ? overrideMid : (s0 + s1) / 2;
+  const faceZ = isH ? (flipVal > 0 ? a.z0 - 1.1 : a.z1 + 1.1) : mid;
+  const faceX = isH ? mid : (flipVal > 0 ? a.x0 - 1.1 : a.x1 + 1.1);
   group.position.set(faceX, lh + 2, faceZ);
   parentGroup.add(group);
   return group;
@@ -886,9 +888,12 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   const isModern = doorStyle === 'modern' || doorStyle === 'slideglass';
   const isSlide = doorStyle === 'slide';
   const isGlass = doorStyle === 'glass';
+  const isArch = doorStyle === 'archway' || doorStyle === 'arched';
 
   let frameMat;
-  if (isModern) {
+  if (isArch) {
+    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#f4f0e6') : new THREE.MeshLambertMaterial({ color: 0xf4f0e6 });
+  } else if (isModern) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#282a2e') : new THREE.MeshLambertMaterial({ color: 0x282a2e });
   } else if (isGlass) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#1d1f22') : new THREE.MeshLambertMaterial({ color: 0x1d1f22 });
@@ -904,6 +909,118 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   group.position.y = bY;
   const jt = 0.8;
   const jd = Math.max(3.2, wThick + 0.4);
+
+  if (isArch) {
+    const R = span / 2;
+    const sy = Math.max(30, dh - R);
+    const archH = dh - sy;
+
+    // Left jamb up to springline
+    const sideGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
+    const leftMesh = new THREE.Mesh(sideGeo, frameMat);
+    leftMesh.position.set(isH ? s0 + jt / 2 : wMid, sy / 2, isH ? wMid : s0 + jt / 2);
+    leftMesh.castShadow = leftMesh.receiveShadow = true;
+    group.add(leftMesh);
+
+    // Right jamb up to springline
+    const rightMesh = new THREE.Mesh(sideGeo, frameMat);
+    rightMesh.position.set(isH ? s1 - jt / 2 : wMid, sy / 2, isH ? wMid : s1 - jt / 2);
+    rightMesh.castShadow = rightMesh.receiveShadow = true;
+    group.add(rightMesh);
+
+    // Curved arch soffit
+    const arcSegments = 16;
+    for (let i = 0; i < arcSegments; i++) {
+      const a0 = (i / arcSegments) * Math.PI, a1 = ((i + 1) / arcSegments) * Math.PI;
+      const u0 = midU - Math.cos(a0) * R, y0 = sy + Math.sin(a0) * archH;
+      const u1 = midU - Math.cos(a1) * R, y1 = sy + Math.sin(a1) * archH;
+      const du = u1 - u0, dy = y1 - y0;
+      const segLen = Math.hypot(du, dy);
+      const segGeo = new THREE.BoxGeometry(isH ? segLen : jd, jt, isH ? jd : segLen);
+      const segMesh = new THREE.Mesh(segGeo, frameMat);
+      segMesh.position.set(isH ? (u0 + u1) / 2 : wMid, (y0 + y1) / 2, isH ? wMid : (u0 + u1) / 2);
+      if (isH) segMesh.rotation.z = Math.atan2(dy, du);
+      else segMesh.rotation.x = -Math.atan2(dy, du);
+      segMesh.castShadow = segMesh.receiveShadow = true;
+      group.add(segMesh);
+    }
+
+    // Solid spandrels filling top corners
+    const N = 14;
+    const stepU = span / N;
+    for (let i = 0; i < N; i++) {
+      const u = s0 + (i + 0.5) * stepU;
+      const normU = (u - midU) / R;
+      const curveY = sy + Math.sqrt(Math.max(0, 1 - normU * normU)) * archH;
+      if (curveY < dh) {
+        const sh = dh - curveY;
+        const spandrelGeo = new THREE.BoxGeometry(isH ? stepU * 1.02 : wThick, sh, isH ? wThick : stepU * 1.02);
+        const spMesh = new THREE.Mesh(spandrelGeo, frameMat);
+        spMesh.position.set(isH ? u : wMid, curveY + sh / 2, isH ? wMid : u);
+        spMesh.castShadow = spMesh.receiveShadow = true;
+        group.add(spMesh);
+      }
+    }
+
+    // Casing trim bands on both wall faces
+    const casingW = 1.0, casingT = 0.25;
+    const casingGeoV = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
+    const keystoneGeo = new THREE.BoxGeometry(isH ? casingW * 1.8 : casingT * 1.5, casingW * 2.2, isH ? casingT * 1.5 : casingW * 1.8);
+    const impostGeo = new THREE.BoxGeometry(isH ? casingW * 1.4 : casingT * 1.3, casingW * 0.8, isH ? casingT * 1.3 : casingW * 1.4);
+
+    for (const f of [-1, 1]) {
+      const facePos = wMid + f * (wThick / 2 + casingT / 2);
+
+      const cl = new THREE.Mesh(casingGeoV, frameMat);
+      cl.position.set(isH ? s0 - casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s0 - casingW / 2);
+      cl.castShadow = true;
+      group.add(cl);
+
+      const cr = new THREE.Mesh(casingGeoV, frameMat);
+      cr.position.set(isH ? s1 + casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s1 + casingW / 2);
+      cr.castShadow = true;
+      group.add(cr);
+
+      for (const iu of [s0 - casingW / 2, s1 + casingW / 2]) {
+        const imp = new THREE.Mesh(impostGeo, frameMat);
+        imp.position.set(isH ? iu : facePos, sy, isH ? facePos : iu);
+        imp.castShadow = true;
+        group.add(imp);
+      }
+
+      for (let i = 0; i < arcSegments; i++) {
+        const a0 = (i / arcSegments) * Math.PI, a1 = ((i + 1) / arcSegments) * Math.PI;
+        const u0 = midU - Math.cos(a0) * (R + casingW / 2), y0 = sy + Math.sin(a0) * (archH + casingW / 2);
+        const u1 = midU - Math.cos(a1) * (R + casingW / 2), y1 = sy + Math.sin(a1) * (archH + casingW / 2);
+        const du = u1 - u0, dy = y1 - y0;
+        const segLen = Math.hypot(du, dy);
+        const segGeo = new THREE.BoxGeometry(isH ? segLen : casingT, casingW, isH ? casingT : segLen);
+        const segMesh = new THREE.Mesh(segGeo, frameMat);
+        segMesh.position.set(isH ? (u0 + u1) / 2 : facePos, (y0 + y1) / 2, isH ? facePos : (u0 + u1) / 2);
+        if (isH) segMesh.rotation.z = Math.atan2(dy, du);
+        else segMesh.rotation.x = -Math.atan2(dy, du);
+        segMesh.castShadow = true;
+        group.add(segMesh);
+      }
+
+      const ks = new THREE.Mesh(keystoneGeo, frameMat);
+      ks.position.set(isH ? midU : facePos, dh + casingW / 2, isH ? facePos : midU);
+      ks.castShadow = true;
+      group.add(ks);
+    }
+
+    if (doorStyle === 'arched') {
+      const sillH = 0.35, sillD = jd + 0.4;
+      const sillGeo = new THREE.BoxGeometry(isH ? span : sillD, sillH, isH ? sillD : span);
+      const sillMesh = new THREE.Mesh(sillGeo, sillMat);
+      sillMesh.position.set(isH ? midU : wMid, sillH / 2, isH ? wMid : midU);
+      sillMesh.receiveShadow = true;
+      group.add(sillMesh);
+    }
+
+    parentGroup.add(group);
+    return group;
+  }
 
   // Top header jamb
   const headGeo = new THREE.BoxGeometry(isH ? span : jd, jt, isH ? jd : span);
@@ -932,6 +1049,26 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   sillMesh.position.set(isH ? midU : wMid, sillH / 2, isH ? wMid : midU);
   sillMesh.receiveShadow = true;
   group.add(sillMesh);
+
+  if (doorStyle === 'slideglass') {
+    // Twin metallic runner rails embedded into the floor sill (clearly visible when doors slide open)
+    const railMat = HP.graphics3d ? HP.graphics3d.material('metal', '#b0b5be') : new THREE.MeshLambertMaterial({ color: 0xb0b5be });
+    const railW = 0.16, railH = 0.18;
+    for (const rOff of [-0.5, 0.5]) {
+      const rGeo = new THREE.BoxGeometry(isH ? span : railW, railH, isH ? railW : span);
+      const rMesh = new THREE.Mesh(rGeo, railMat);
+      rMesh.position.set(isH ? midU : wMid + rOff, sillH + railH / 2, isH ? wMid + rOff : midU);
+      rMesh.receiveShadow = true;
+      group.add(rMesh);
+    }
+
+    // Top integrated guide track channel inside the header jamb
+    const headTrackMat = HP.graphics3d ? HP.graphics3d.material('metal', '#282b30') : frameMat;
+    const htGeo = new THREE.BoxGeometry(isH ? span : 1.4, 0.25, isH ? 1.4 : span);
+    const htMesh = new THREE.Mesh(htGeo, headTrackMat);
+    htMesh.position.set(isH ? midU : wMid, dh - jt - 0.12, isH ? wMid : midU);
+    group.add(htMesh);
+  }
 
   // Casing trim bands on both wall faces
   const casingW = 1.0, casingT = 0.25;
@@ -979,6 +1116,13 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     const c = pivot.children[0];
     pivot.remove(c);
     if (c.geometry && !c.geometry.userData?.shared3d) c.geometry.dispose();
+  }
+
+  if (doorStyle === 'archway') {
+    dp.doorStyle = 'archway';
+    dp.leaf = null;
+    dp.knob = null;
+    return;
   }
 
   const lw = isSlide
@@ -1255,6 +1399,61 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       }
       setPos(knob, latchU, 27 - lh / 2, 0);
       leaf.add(knob);
+    } else if (doorStyle === 'arched') {
+      // Arched Raised 4-Panel Heritage Door
+      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#f2ece2') : leafMat;
+      const panelTrimMat = HP.graphics3d ? HP.graphics3d.material('wood', '#e5dfd2') : leafMat;
+      const panelFieldMat = HP.graphics3d ? HP.graphics3d.material('wood', '#d9d2c4') : leafMat;
+      const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
+
+      leaf = new THREE.Mesh(box3d(lw, lh, dep), woodMat);
+      setPos(leaf, (li === 0 ? lw / 2 : -lw / 2), lh / 2 - 0.5, v);
+      leaf.castShadow = leaf.receiveShadow = true;
+      pivot.add(leaf);
+
+      const pW = Math.max(2, (lw - 6.5) / 2);
+      const panels = [
+        { y: 11, h: 18 },
+        { y: -12, h: 16 }
+      ];
+      for (const p of panels) {
+        for (const col of [-lw / 4 + 0.3, lw / 4 - 0.3]) {
+          for (const side of [-1, 1]) {
+            const pZ = side * (dep / 2 + 0.08);
+            const trim = new THREE.Mesh(box3d(pW, p.h, 0.2), panelTrimMat);
+            setPos(trim, col, p.y, pZ);
+            leaf.add(trim);
+            const field = new THREE.Mesh(box3d(pW - 1.0, p.h - 1.0, 0.15), panelFieldMat);
+            setPos(field, col, p.y, pZ - side * 0.04);
+            leaf.add(field);
+          }
+        }
+      }
+
+      for (const hy of [12, 29, 44]) {
+        const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.8, 8), brassMat);
+        hinge.position.set(0, hy, 0);
+        pivot.add(hinge);
+      }
+
+      knob = new THREE.Group();
+      const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.3, 12), brassMat);
+      if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
+      knob.add(rosette);
+
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.6, 8), brassMat);
+      if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
+      setPos(collar, 0, 0, 0.3 * flipVal);
+      knob.add(collar);
+
+      const leverDir = li === 0 ? -1 : 1;
+      const lever = new THREE.Mesh(box3d(3.6, 0.5, 0.5), brassMat);
+      setPos(lever, leverDir * 1.6, -0.1, 0.6 * flipVal);
+      lever.castShadow = true;
+      knob.add(lever);
+
+      setPos(knob, (li === 0 ? lw - 4.5 : -lw + 4.5), 27, kv);
+      pivot.add(knob);
     } else {
       // Classic 4-Panel Stile-and-Rail Door ('panel')
       const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#f2ece2') : leafMat;
@@ -2375,25 +2574,168 @@ function buildSingleHangItem(it, i2, ctx) {
   if (models) models.add(it, d, f, 0, i);
 }
 
+HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
+  C = C || (HP.CELL || 24);
+  const t = ((it && it.type) || (def && def.id) || '').toLowerCase();
+  def = def || (HP.itemDef && HP.itemDef(t)) || {};
+  f = f || (HP.footprint && HP.footprint(it)) || { x: it.x, y: it.y, w: it.w || def.w || 1, h: it.h || def.h || 1 };
+  const bY = (it && it._baseY !== undefined) ? it._baseY : 0;
+  const rot = (it && it.rot) || 0;
+
+  if (def.hangs || /sconce/i.test(t)) {
+    const hang = (it && it.hang) || (HP.hangSide && HP.hangSide(t, it.x, it.y, rot, { w: f.w, h: f.h })) || 'n';
+    const IN = (HP.geom3d && HP.geom3d.wallInset) ? HP.geom3d.wallInset(hang, f, lvlWalls, geomEnv) : 7.0;
+    let x = (f.x + f.w / 2) * C;
+    let z = (f.y + f.h / 2) * C;
+    const forward = 2.2; // exactly matches sconce glass cylinder & filament center in furniture3d
+    if (hang === 'n') z = f.y * C + IN + forward;
+    else if (hang === 's') z = (f.y + f.h) * C - IN - forward;
+    else if (hang === 'w') x = f.x * C + IN + forward;
+    else if (hang === 'e') x = (f.x + f.w) * C - IN - forward;
+    return {
+      x, y: bY + 38, z,
+      power: 0.9,
+      geo: 'cylinder',
+      r: 0.38,
+      len: 12.0,
+      color: '#ffe0a8'
+    };
+  }
+
+  const h = itemH3D(def, it);
+  const width = Math.max(3, f.w * C - 3);
+  const depth = Math.max(3, f.h * C - 3);
+  const height = Math.max(1.5, h);
+
+  let lx = 0, lz = 0, ly = height * 0.8;
+  let power = 1.2;
+  let geo = 'sphere';
+  let r = 1.0;
+  let len = 0;
+  let color = '#ffe3a8';
+
+  if (/^lamparc$/i.test(t)) {
+    // Flos Arco lamp: pendant neck and chrome dome hood at x = +0.25 * width, y = 0.74 * height
+    lx = 0.25 * width;
+    lz = 0;
+    ly = 0.74 * height;
+    power = 1.4;
+    r = 1.0;
+    color = '#fef08a';
+  } else if (/^floorlamp$/i.test(t)) {
+    ly = 0.80 * height;
+    power = 1.4;
+    r = 1.0;
+  } else if (/^lamptripod$/i.test(t)) {
+    ly = 0.83 * height;
+    power = 1.3;
+    r = 1.0;
+  } else if (/^lamptorch$/i.test(t)) {
+    ly = 0.94 * height;
+    power = 1.5;
+    r = 1.1;
+    color = '#fef3c7';
+  } else if (/^lamptable$/i.test(t)) {
+    ly = 0.72 * height;
+    power = 1.1;
+    r = 0.85;
+  } else if (/^lamppaper$/i.test(t)) {
+    ly = 0.55 * height;
+    power = 1.2;
+    r = 1.1;
+    color = '#fef08a';
+  } else if (/^lampmush$/i.test(t)) {
+    ly = 0.42 * height;
+    power = 1.0;
+    r = 0.8;
+  } else if (/^lampcandle$/i.test(t)) {
+    ly = 0.445 * height;
+    power = 0.8;
+    r = 0.6;
+    color = '#f59e0b';
+  } else if (/^lampbanker$/i.test(t)) {
+    lx = 0;
+    lz = 0.04 * depth;
+    ly = 0.47 * height;
+    power = 1.0;
+    geo = 'cylinderX';
+    r = 0.35;
+    len = 5.0;
+    color = '#fef08a';
+  } else if (/^topcandles$/i.test(t)) {
+    ly = 0.38 * height;
+    power = 0.75;
+    r = 0.55;
+    color = '#f59e0b';
+  } else if (/^fllantern$/i.test(t)) {
+    ly = 0.45 * height;
+    power = 0.9;
+    r = 0.65;
+    color = '#f59e0b';
+  } else if (/^nightlight$/i.test(t)) {
+    ly = 0.42 * height;
+    power = 0.8;
+    r = 0.7;
+    color = '#fef08a';
+  } else if (/^lamppost$/i.test(t)) {
+    ly = 0.945 * height;
+    power = 1.6;
+    r = 1.1;
+    color = '#fef08a';
+  } else if (/^pathlight$/i.test(t)) {
+    ly = 0.72 * height;
+    power = 0.85;
+    r = 0.6;
+    color = '#fef08a';
+  }
+
+  // Rotate local offset (rot * 90 deg counter-clockwise in Three.js coordinates, angle -rot * PI/2)
+  let rx = lx, rz = lz;
+  if (rot === 1) { rx = -lz; rz = lx; }
+  else if (rot === 2) { rx = -lx; rz = -lz; }
+  else if (rot === 3) { rx = lz; rz = -lx; }
+
+  const cx = (f.x + f.w / 2) * C;
+  const cz = (f.y + f.h / 2) * C;
+
+  return {
+    x: cx + rx,
+    y: bY + ly,
+    z: cz + rz,
+    power,
+    geo,
+    r,
+    len,
+    rot,
+    color
+  };
+};
+
 function buildFurnitureLamps(ctx) {
   const { items, hangs, furnLamps, C, env } = ctx;
   const seenPos = new Set();
   const getRoom = (wx, wz) => (env && env.rAt ? env.rAt(Math.floor(wx / C), Math.floor(wz / C)) : -1);
+  const lvl = (HP.cur && HP.cur()) || null;
+  const lvlWalls = (lvl && lvl.walls) || {};
+
   for (const it of items) {
     if (!/lamp|torch|candle|lantern|light|sconce/i.test(it.type) || /fireplace/i.test(it.type)) continue;
     const posKey = it.type + '@' + it.x + ',' + it.y;
     if (seenPos.has(posKey)) continue;
     seenPos.add(posKey);
-    const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
-    const isPost = /lamppost/i.test(it.type);
-    const isPath = /pathlight/i.test(it.type);
-    const isNight = /nightlight/i.test(it.type);
-    const isCandle = /candle/i.test(it.type);
-    const lightPower = isPost ? 1.6 : (isPath ? 0.9 : (isNight ? 0.8 : (isCandle ? 0.75 : 1.4)));
-    const bY = it._baseY !== undefined ? it._baseY : 0;
-    const lightY = bY + (/fireplace/i.test(it.type) ? 10 : (isNight ? 6 : (isCandle ? Math.max(3.5, Math.min(6.5, h * 0.38)) : Math.max(12, h * 0.85))));
-    const lx = (f.x + f.w / 2) * C, lz = (f.y + f.h / 2) * C;
-    furnLamps.push({ id: it.id, it, x: lx, z: lz, y: lightY, power: lightPower, room: getRoom(lx, lz), on: it.on !== false });
+    const def = HP.itemDef ? HP.itemDef(it.type) : {};
+    const f = HP.footprint ? HP.footprint(it) : { x: it.x, y: it.y, w: it.w || def.w || 1, h: it.h || def.h || 1 };
+    const lt = HP.getLampLightTransform(it, def, f, C, lvlWalls, env);
+    furnLamps.push({
+      id: it.id,
+      it,
+      x: lt.x,
+      z: lt.z,
+      y: lt.y,
+      power: lt.power,
+      room: getRoom(lt.x, lt.z),
+      on: it.on !== false
+    });
   }
   for (const it of items) {
     if (/^greenhouse/i.test(it.type)) {
@@ -2421,13 +2763,19 @@ function buildFurnitureLamps(ctx) {
     const posKey = it.type + '@' + it.x + ',' + it.y;
     if (seenPos.has(posKey)) continue;
     seenPos.add(posKey);
-    const f = HP.footprint(it);
-    const hang = it.hang || HP.hangSide(it.type, it.x, it.y, it.rot || 0, { w: it.w || f.w, h: it.h || f.h });
-    let mx = (f.x + f.w / 2) * C, mz = (f.y + f.h / 2) * C;
-    if (hang === 'n') mz = f.y * C + 5.2; else if (hang === 's') mz = (f.y + f.h) * C - 5.2;
-    else if (hang === 'w') mx = f.x * C + 5.2; else if (hang === 'e') mx = (f.x + f.w) * C - 5.2;
-    const bY = it._baseY !== undefined ? it._baseY : 0;
-    furnLamps.push({ id: it.id, it, x: mx, z: mz, y: bY + 38, power: 0.8, room: getRoom(mx, mz), on: it.on !== false });
+    const def = HP.itemDef ? HP.itemDef(it.type) : {};
+    const f = HP.footprint ? HP.footprint(it) : { x: it.x, y: it.y, w: it.w || def.w || 1, h: it.h || def.h || 1 };
+    const lt = HP.getLampLightTransform(it, def, f, C, lvlWalls, env);
+    furnLamps.push({
+      id: it.id,
+      it,
+      x: lt.x,
+      z: lt.z,
+      y: lt.y,
+      power: lt.power,
+      room: getRoom(lt.x, lt.z),
+      on: it.on !== false
+    });
   }
 }
 

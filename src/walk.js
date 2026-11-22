@@ -40,7 +40,7 @@ function solidBetween(x, y, nx, ny) {
   if (!k) return false;
   const s = w[k];
   if (s && s.f !== 'door') return true;
-  if (s && s.f === 'door' && s.c) return true;              // closed door blocks
+  if (s && s.f === 'door' && s.c && s.doorStyle !== 'archway') return true;              // closed door blocks (archway is open)
   const f = HP.cur().fences[k];                        // fences block too; gates / step-over edges don't
   return !!(f && f.t !== 'gate' && f.t !== 'rope' && f.t !== 'fieldstone');
 }

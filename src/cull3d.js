@@ -115,7 +115,7 @@ function buildWallEdges(walls, pivots) {
   const h = new Uint8Array((gw + 2) * (gh + 2));
   for (const k in walls) {
     const w = walls[k];
-    if (w.f === 'window' || w.style === 'glass' || w.doorStyle === 'glass' || w.doorStyle === 'slideglass') continue;          // glass: see straight through
+    if (w.f === 'window' || w.style === 'glass' || w.doorStyle === 'glass' || w.doorStyle === 'slideglass' || w.doorStyle === 'archway') continue;          // glass/archway: see straight through
     const s = HP.parseWallKey(k);
     if (s.x < 0 || s.y < 0 || s.x > gw || s.y > gh) continue;
     (s.d === 'v' ? v : h)[s.y * (gw + 2) + s.x] = w.f === 'door' ? 2 : 1;
@@ -124,7 +124,7 @@ function buildWallEdges(walls, pivots) {
   const dEdges = [];
   const seen = new Set();
   for (const d of pivots || []) {
-    if (d.doorStyle === 'glass' || d.doorStyle === 'slideglass') {
+    if (d.doorStyle === 'glass' || d.doorStyle === 'slideglass' || d.doorStyle === 'archway') {
       const s = HP.parseWallKey(d.a.k), n = d.a.dbl ? 2 : 1;
       const arr = s.d === 'v' ? v : h;
       for (let i = 0; i < n; i++) {
