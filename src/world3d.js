@@ -1190,72 +1190,131 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       setPos(knob, handleU, 27, 0);
       pivot.add(knob);
     } else {
-      // Sliding Barn Door ('slide'): Rustic timber slab with perimeter frame, battens & Z-brace
+      // Sliding Barn Door ('slide'): Refined craftsman timber slab with perimeter stiles/rails, vertical planking, balanced braces & sleek iron hardware
       const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#6a4c33') : leafMat;
-      const braceMat = HP.graphics3d ? HP.graphics3d.material('wood', '#583e29') : leafMat;
-      const ironMat = HP.graphics3d ? HP.graphics3d.material('metal', '#1a1b1d') : knobMat;
+      const trimMat = HP.graphics3d ? HP.graphics3d.material('wood', '#563c26') : leafMat;
+      const ironMat = HP.graphics3d ? HP.graphics3d.material('metal', '#18191b') : knobMat;
 
+      // Base slab
       leaf = new THREE.Mesh(box3d(lw, lh, dep), woodMat);
       leaf.position.set(0, lh / 2 - 0.5, 0);
       leaf.castShadow = leaf.receiveShadow = true;
       pivot.add(leaf);
 
-      // Horizontal mid rail
-      const midRail = new THREE.Mesh(box3d(lw - 0.4, 4.0, dep + 0.2), braceMat);
+      // Perimeter craftsman stiles & rails (front and back)
+      const stileW = 2.4;
+      const topRailH = 3.4;
+      const botRailH = 4.8;
+      const midRailH = 3.2;
+      const trimDep = dep + 0.16;
+
+      // Center mid-rail
+      const midRail = new THREE.Mesh(box3d(lw - 0.2, midRailH, trimDep), trimMat);
       leaf.add(midRail);
 
-      // Vertical plank seam grooves on front and back
-      for (const pu of [-lw * 0.25, 0, lw * 0.25]) {
+      // Top rail
+      const topRail = new THREE.Mesh(box3d(lw - 0.2, topRailH, trimDep), trimMat);
+      setPos(topRail, 0, lh / 2 - topRailH / 2, 0);
+      leaf.add(topRail);
+
+      // Bottom rail
+      const botRail = new THREE.Mesh(box3d(lw - 0.2, botRailH, trimDep), trimMat);
+      setPos(botRail, 0, -lh / 2 + botRailH / 2, 0);
+      leaf.add(botRail);
+
+      // Left stile
+      const leftStile = new THREE.Mesh(box3d(stileW, lh - topRailH - botRailH, trimDep), trimMat);
+      setPos(leftStile, -lw / 2 + stileW / 2, (botRailH - topRailH) / 2, 0);
+      leaf.add(leftStile);
+
+      // Right stile
+      const rightStile = new THREE.Mesh(box3d(stileW, lh - topRailH - botRailH, trimDep), trimMat);
+      setPos(rightStile, lw / 2 - stileW / 2, (botRailH - topRailH) / 2, 0);
+      leaf.add(rightStile);
+
+      // Subtle vertical plank grooves across the central panels
+      const innerW = lw - stileW * 2;
+      const plankStep = 3.6;
+      for (let pu = -innerW / 2 + plankStep; pu < innerW / 2 - 0.5; pu += plankStep) {
         for (const side of [-1, 1]) {
-          const seam = new THREE.Mesh(box3d(0.2, lh - 2, 0.15), braceMat);
-          setPos(seam, pu, 0, side * (dep / 2 + 0.05));
-          leaf.add(seam);
+          const groove = new THREE.Mesh(box3d(0.18, lh - topRailH - botRailH - 0.2, 0.12), trimMat);
+          setPos(groove, pu, (botRailH - topRailH) / 2, side * (dep / 2 + 0.04));
+          leaf.add(groove);
         }
       }
 
-      // Diagonal Z-brace battens on front and back
-      const bLen = Math.hypot(lw / 2, lh / 4);
-      const bAng = Math.atan2(lh / 4, lw / 2);
+      // Elegant craftsman diagonal bracing (symmetrical on double doors, classic Z on single)
+      // On double doors: leaf 0 has slant / and leaf 1 has slant \ to form a balanced craftsman V pattern
+      const braceSlope = leaves === 2 ? (li === 0 ? 1 : -1) : 1;
+      const bayH = (lh - topRailH - botRailH - midRailH) / 2;
+      const bayW = innerW;
+      const bLen = Math.hypot(bayW, bayH);
+      const bAng = Math.atan2(bayH, bayW);
+
       for (const side of [-1, 1]) {
-        const braceZ = side * (dep / 2 + 0.12);
+        const braceZ = side * (dep / 2 + 0.11);
         // Upper diagonal brace
-        const b1 = new THREE.Mesh(box3d(bLen, 2.6, 0.25), braceMat);
-        setPos(b1, 0, lh / 4, braceZ);
-        if (isH) b1.rotation.z = -bAng; else b1.rotation.x = -bAng;
+        const b1 = new THREE.Mesh(box3d(bLen, 2.2, 0.22), trimMat);
+        const b1Y = (botRailH - topRailH) / 2 + bayH / 2 + midRailH / 2;
+        setPos(b1, 0, b1Y, braceZ);
+        if (isH) b1.rotation.z = -bAng * braceSlope; else b1.rotation.x = -bAng * braceSlope;
         leaf.add(b1);
 
         // Lower diagonal brace
-        const b2 = new THREE.Mesh(box3d(bLen, 2.6, 0.25), braceMat);
-        setPos(b2, 0, -lh / 4, braceZ);
-        if (isH) b2.rotation.z = bAng; else b2.rotation.x = bAng;
+        const b2 = new THREE.Mesh(box3d(bLen, 2.2, 0.22), trimMat);
+        const b2Y = (botRailH - topRailH) / 2 - bayH / 2 - midRailH / 2;
+        setPos(b2, 0, b2Y, braceZ);
+        if (isH) b2.rotation.z = bAng * braceSlope; else b2.rotation.x = bAng * braceSlope;
         leaf.add(b2);
       }
 
-      // Heavy Iron Hanger Straps with Pulley Roller Wheels
-      const hOffset = Math.max(3, lw * 0.32);
+      // Refined architectural hanger straps with low-profile pulley wheels
+      const hOffset = Math.max(2.8, lw * 0.28);
       for (const ho of [-hOffset, hOffset]) {
         // Vertical iron strap
-        const strap = new THREE.Mesh(box3d(1.4, 7.5, 0.6), ironMat);
-        setPos(strap, ho, lh + 1.2, 0);
+        const strap = new THREE.Mesh(box3d(0.95, 6.2, 0.38), ironMat);
+        setPos(strap, ho, lh + 0.8, 0);
         pivot.add(strap);
 
-        // Roller pulley wheel on the track
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 0.7, 12), ironMat);
+        // Pulley wheel on the overhead track
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.45, 16), ironMat);
         if (isH) wheel.rotation.x = Math.PI / 2; else wheel.rotation.z = Math.PI / 2;
-        setPos(wheel, ho, lh + 3.8, 0);
+        setPos(wheel, ho, lh + 3.2, 0);
         pivot.add(wheel);
 
-        // Hex bolt rivets
-        const bolt = new THREE.Mesh(box3d(0.6, 0.6, 0.8), ironMat);
-        setPos(bolt, ho, lh - 1.2, 0);
-        pivot.add(bolt);
+        // Center axle hub pin
+        const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.55, 10), ironMat);
+        if (isH) axle.rotation.x = Math.PI / 2; else axle.rotation.z = Math.PI / 2;
+        setPos(axle, ho, lh + 3.2, 0);
+        pivot.add(axle);
+
+        // Fastener bolt rivets along the strap
+        for (const by of [lh - 0.8, lh - 3.2]) {
+          const bolt = new THREE.Mesh(box3d(0.45, 0.45, 0.55), ironMat);
+          setPos(bolt, ho, by, 0);
+          pivot.add(bolt);
+        }
       }
 
-      // Recessed flush cup pull handle
-      const handleU = leaves === 2 ? (li === 0 ? lw / 2 - 2.8 : -lw / 2 + 2.8) : (lw / 2 - 2.8);
-      knob = new THREE.Mesh(box3d(1.6, 8.5, dep + 0.3), ironMat);
-      setPos(knob, handleU, 27, 0);
-      pivot.add(knob);
+      // Dual ergonomic handles:
+      // Front (room) side: vertical D-pull handle bar on standoffs
+      // Back (wall) side: flush recessed cup pull so the door slides along the wall with proper clearance
+      const handleU = leaves === 2 ? (li === 0 ? lw / 2 - 2.2 : -lw / 2 + 2.2) : (lw / 2 - 2.2);
+      const pullBar = new THREE.Mesh(box3d(0.6, 11.0, 0.6), ironMat);
+      setPos(pullBar, handleU, 27, dep / 2 + 0.7);
+      pivot.add(pullBar);
+
+      for (const py of [27 - 4.5, 27 + 4.5]) {
+        const standoff = new THREE.Mesh(box3d(0.45, 0.45, 0.7), ironMat);
+        setPos(standoff, handleU, py, dep / 2 + 0.35);
+        pivot.add(standoff);
+      }
+
+      // Backside flush cup pull
+      const cupPull = new THREE.Mesh(box3d(1.1, 7.5, 0.1), ironMat);
+      setPos(cupPull, handleU, 27, -(dep / 2 + 0.05));
+      pivot.add(cupPull);
+      knob = pullBar;
     }
 
     // Determine slide direction away from obstructions:
@@ -2357,6 +2416,26 @@ W3.buildLevel = function () {
                         ly0: bY, ly1: bY + gh });
     }
 
+    // Group connected sliding barn door apertures into unified runs so adjacent doors share one clean, continuous track
+    const slideRuns = [];
+    for (const a of geo.doors) {
+      const rec = curLvl && curLvl.walls && curLvl.walls[a.k];
+      const doorStyle = (rec && rec.doorStyle) || 'panel';
+      if (doorStyle === 'slide') {
+        const isH = a.d === 'h';
+        const u0 = isH ? a.x0 : a.z0, u1 = isH ? a.x1 : a.z1;
+        const v = isH ? (a.z0 + a.z1) / 2 : (a.x0 + a.x1) / 2;
+        let match = slideRuns.find(r => r.d === a.d && Math.abs(r.v - v) < 2 && (Math.abs(r.u1 - u0) < 2 || Math.abs(r.u0 - u1) < 2));
+        if (match) {
+          match.u0 = Math.min(match.u0, u0);
+          match.u1 = Math.max(match.u1, u1);
+          match.doors.push(a);
+        } else {
+          slideRuns.push({ d: a.d, v, u0, u1, doors: [a] });
+        }
+      }
+    }
+
     for (const a of geo.doors) {
       const da = { ...a, y0: a.y0 + bY, y1: a.y1 + bY };
       let s0 = da.d === 'h' ? da.x0 : da.z0, s1 = da.d === 'h' ? da.x1 : da.z1;
@@ -2392,8 +2471,17 @@ W3.buildLevel = function () {
         if (li === 0) {
           dp.frameMesh = buildDoorFrame(da, s0, s1, sg, bY);
         }
-        if ((dp.doorStyle === 'slide' || dp.doorStyle === 'slideglass') && li === 0) {
-          dp.trackMesh = buildOverheadTrack(da, span, leaves, s0, s1, da.flip !== undefined ? da.flip : 1, sg, bY);
+        if (dp.doorStyle === 'slide' && li === 0) {
+          const run = slideRuns.find(r => r.doors.includes(a));
+          if (run && run.doors.length > 1) {
+            if (run.doors[0] === a) {
+              const runSpan = run.u1 - run.u0;
+              const runMid = (run.u0 + run.u1) / 2;
+              dp.trackMesh = buildOverheadTrack(da, span, 2, s0, s1, da.flip !== undefined ? da.flip : 1, sg, runMid, runSpan);
+            }
+          } else {
+            dp.trackMesh = buildOverheadTrack(da, span, leaves, s0, s1, da.flip !== undefined ? da.flip : 1, sg);
+          }
         }
         doorPivots.push(dp);
       }
@@ -3359,7 +3447,7 @@ W3.updateApertures = function () {
         if (dp.trackMesh.parent) dp.trackMesh.parent.remove(dp.trackMesh);
         dp.trackMesh = null;
       }
-      if ((dp.doorStyle === 'slide' || dp.doorStyle === 'slideglass') && dp.li === 0 && dp.pivot && dp.pivot.parent) {
+      if (dp.doorStyle === 'slide' && dp.li === 0 && dp.pivot && dp.pivot.parent) {
         dp.trackMesh = buildOverheadTrack(dp.a, span, leaves, s0, s1, targetFlip !== undefined ? targetFlip : 1, dp.pivot.parent);
       }
       dp.open = 0;

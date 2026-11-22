@@ -2,12 +2,18 @@
 const fs = require('fs'), path = require('path'), assert = require('assert'), vm = require('vm');
 const THREE = require('./lib/three.min.js');
 
+const mockCtx = () => ({
+  createRadialGradient: () => ({ addColorStop() {} }),
+  createLinearGradient: () => ({ addColorStop() {} }),
+  fillRect() {}, fill() {}, stroke() {}, arc() {}, beginPath() {},
+  scale() {}, translate() {}, save() {}, restore() {},
+});
 const storage = {}, context = {
   THREE, console, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 720,
   navigator: { hardwareConcurrency: 8, deviceMemory: 8 },
   matchMedia: () => ({ matches: false }), addEventListener() {},
   localStorage: { getItem: k => storage[k] || null, setItem: (k, v) => storage[k] = v },
-  document: { hidden: false, createElement: () => ({ getContext: () => ({}) }), getElementById: () => null },
+  document: { hidden: false, createElement: () => ({ getContext: () => mockCtx() }), getElementById: () => null },
 };
 context.window = context;
 vm.createContext(context);
@@ -17,6 +23,7 @@ for (const file of ['grid', 'catalog', 'graphics3d', 'cull3d', 'sky3d', 'furnitu
 }
 
 const { HP } = context;
+HP.graphics3d.init({ setPixelRatio: () => {}, capabilities: {} }, () => {});
 
 // 1. Check catalog items
 const archDef = HP.CATALOG.find(d => d.id === 'archway');
