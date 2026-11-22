@@ -3659,9 +3659,10 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
     byStyle.get(key).cells.push(c);
   }
 
-  const roofMat = HP.graphics3d
-    ? HP.graphics3d.material('concrete', '#475569')
-    : new THREE.MeshLambertMaterial({ color: 0x475569 });
+  const roofMat = (HP.graphics3d
+    ? HP.graphics3d.material('concrete', '#475569').clone()
+    : new THREE.MeshLambertMaterial({ color: 0x475569 }));
+  roofMat.shadowSide = THREE.DoubleSide;
   roofMat.userData.shared3d = true;
 
   const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
@@ -3680,11 +3681,11 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   for (const [key, { style, color, cells }] of byStyle) {
     const ceilMat = HP.graphics3d
       ? HP.graphics3d.ceilingMaterial(style, color)
-      : new THREE.MeshLambertMaterial({ color: color || 0xf3ecdc, side: THREE.FrontSide });
+      : new THREE.MeshLambertMaterial({ color: color || 0xf3ecdc, side: THREE.FrontSide, shadowSide: THREE.DoubleSide });
 
     if (style !== 'pergola') {
       // Interior ceiling: cast shadow to seal sunlight, no receiveShadow to eliminate shadow acne
-      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => cellPart(c, ceilY)), { cast: true, receive: false, lvlIdx, isCeil: true });
+      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => cellPart(c, ceilY)), { cast: style !== 'glass', receive: false, lvlIdx, isCeil: true });
 
       // Roof plane: ONLY for cells that do NOT have a second/higher floor stacked directly above them!
       if (style !== 'glass') {

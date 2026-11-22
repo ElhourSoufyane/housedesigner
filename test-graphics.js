@@ -54,14 +54,22 @@ assert(G.presets.low.lite && !G.presets.medium.lite, 'Low uses the cheap materia
   delete context.navigator.userAgent;
 }
 
+// Ceiling/roof shadow casting: ceiling material MUST have shadowSide = DoubleSide
+// because ceilings are downward-facing quads and the sun shines from above.
+// FrontSide or null would cause Three.js shadow maps to cull the backface, letting sunlight penetrate the roof!
+assert.equal(G.ceilingMaterial('plaster').shadowSide, THREE.DoubleSide, 'Ceiling material must use DoubleSide for shadows');
+assert.equal(G.ceilingMaterial('wood').shadowSide, THREE.DoubleSide, 'Wood ceiling must use DoubleSide for shadows');
+
 // Occlusion: a solid wall hides the room behind it; a closed door does too,
 // an open door or a window lets you see through.
 {
   const V = HP.cull3d, C = HP.CELL;
   V.reset();
   const near = { visible: false }, behind = { visible: false };
+  const ceilBehind = { visible: false };
   V.add(near, 15 * C, 10 * C, 16 * C, 11 * C);
   V.add(behind, 40 * C, 10 * C, 41 * C, 11 * C);
+  V.add(ceilBehind, 40 * C, 10 * C, 41 * C, 11 * C, { isCeil: true });
   const walls = {};
   for (let y = 0; y < HP.GRID_H; y++) walls['v,24,' + y] = {};
   const door = { a: { k: 'v,24,10', dbl: false }, open: 0 };
@@ -70,6 +78,7 @@ assert(G.presets.low.lite && !G.presets.medium.lite, 'Low uses the cheap materia
   V.update(10.5 * C, 10.5 * C, true);
   assert(near.visible, 'Same-room object must draw');
   assert(!behind.visible, 'Object behind a wall + closed door must be culled');
+  assert(ceilBehind.visible, 'Ceilings must stay visible to cast continuous shadows from the sun');
   door.open = 1; V.update(10.5 * C, 10.5 * C);
   assert(behind.visible, 'Opening the door must reveal the next room');
   walls['v,24,10'] = { f: 'window' };

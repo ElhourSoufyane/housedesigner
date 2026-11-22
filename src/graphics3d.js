@@ -1330,7 +1330,7 @@ G.ceilingMaterial = function (style, color) {
   if (materials.has(key)) return materials.get(key);
   const m = G.material(kind, col).clone();
   m.side = THREE.FrontSide;
-  m.shadowSide = THREE.FrontSide;
+  m.shadowSide = THREE.DoubleSide;
   m.roughness = 0.95;
   m.metalness = 0.0;
   m.userData.shared3d = true;

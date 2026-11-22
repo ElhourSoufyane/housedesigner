@@ -244,7 +244,7 @@ V.update = function (px, pz, force, camFloor) {
   const detail = !q || q.detail, farScale = q ? q.far : 1e9;
   let drawn = 0;
   for (const e of entries) {
-    if (e.isRoof) {
+    if (e.isRoof || e.isCeil) {
       e.obj.visible = true;
       drawn++;
       continue;
