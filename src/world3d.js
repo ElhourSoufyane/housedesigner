@@ -2693,6 +2693,26 @@ HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
   const bY = (it && it._baseY !== undefined) ? it._baseY : 0;
   const rot = (it && it.rot) || 0;
 
+  if (!lvlWalls) {
+    const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+    lvlWalls = (lvl && lvl.walls) || {};
+  }
+  if (!geomEnv) {
+    if (HP.world3d && HP.world3d.geomEnv) geomEnv = HP.world3d.geomEnv();
+    else if (HP.state && HP.computeRegions) {
+      try {
+        const cr = HP.computeRegions();
+        if (cr && cr.regionOf && cr.regions) {
+          geomEnv = {
+            C,
+            rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : cr.regionOf[y * HP.GRID_W + x],
+            rsz: id => id >= 0 && cr.regions[id] ? cr.regions[id].cells.length : 1e9
+          };
+        }
+      } catch (e) {}
+    }
+  }
+
   if (def.hangs || /sconce/i.test(t)) {
     const hang = (it && it.hang) || (HP.hangSide && HP.hangSide(t, it.x, it.y, rot, { w: f.w, h: f.h })) || 'n';
     const IN = (HP.geom3d && HP.geom3d.wallInset) ? HP.geom3d.wallInset(hang, f, lvlWalls, geomEnv) : 7.0;
@@ -2713,15 +2733,27 @@ HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
     };
   }
 
+  let width = Math.max(3, ((it && it.w) || (def && def.w) || 1) * C - 3);
+  let depth = Math.max(3, ((it && it.h) || (def && def.h) || 1) * C - 3);
+  let clDx = 0, clDz = 0;
+
+  if (HP.geom3d && HP.geom3d.floorClearance) {
+    const cl = HP.geom3d.floorClearance(f, lvlWalls, geomEnv, width, depth, rot);
+    if (cl && (cl.dx || cl.dz || cl.w !== width || cl.d !== depth)) {
+      clDx = cl.dx || 0;
+      clDz = cl.dz || 0;
+      width = cl.w;
+      depth = cl.d;
+    }
+  }
+
   const h = itemH3D(def, it);
-  const width = Math.max(3, f.w * C - 3);
-  const depth = Math.max(3, f.h * C - 3);
   const height = Math.max(1.5, h);
 
   let lx = 0, lz = 0, ly = height * 0.8;
   let power = 1.2;
   let geo = 'sphere';
-  let r = 1.0;
+  let r = 0.55;
   let len = 0;
   let color = '#ffe3a8';
 
@@ -2731,38 +2763,38 @@ HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
     lz = 0;
     ly = 0.74 * height;
     power = 1.4;
-    r = 1.0;
+    r = 0.75;
     color = '#fef08a';
   } else if (/^floorlamp$/i.test(t)) {
-    ly = 0.80 * height;
+    ly = 0.78 * height;
     power = 1.4;
-    r = 1.0;
+    r = 0.55;
   } else if (/^lamptripod$/i.test(t)) {
     ly = 0.83 * height;
     power = 1.3;
-    r = 1.0;
+    r = 0.55;
   } else if (/^lamptorch$/i.test(t)) {
     ly = 0.94 * height;
     power = 1.5;
-    r = 1.1;
+    r = 0.75;
     color = '#fef3c7';
   } else if (/^lamptable$/i.test(t)) {
     ly = 0.72 * height;
     power = 1.1;
-    r = 0.85;
+    r = 0.55;
   } else if (/^lamppaper$/i.test(t)) {
     ly = 0.55 * height;
     power = 1.2;
-    r = 1.1;
+    r = 0.75;
     color = '#fef08a';
   } else if (/^lampmush$/i.test(t)) {
     ly = 0.42 * height;
     power = 1.0;
-    r = 0.8;
+    r = 0.65;
   } else if (/^lampcandle$/i.test(t)) {
     ly = 0.445 * height;
     power = 0.8;
-    r = 0.6;
+    r = 0.45;
     color = '#f59e0b';
   } else if (/^lampbanker$/i.test(t)) {
     lx = 0;
@@ -2776,27 +2808,27 @@ HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
   } else if (/^topcandles$/i.test(t)) {
     ly = 0.38 * height;
     power = 0.75;
-    r = 0.55;
+    r = 0.45;
     color = '#f59e0b';
   } else if (/^fllantern$/i.test(t)) {
     ly = 0.45 * height;
     power = 0.9;
-    r = 0.65;
+    r = 0.55;
     color = '#f59e0b';
   } else if (/^nightlight$/i.test(t)) {
     ly = 0.42 * height;
     power = 0.8;
-    r = 0.7;
+    r = 0.55;
     color = '#fef08a';
   } else if (/^lamppost$/i.test(t)) {
     ly = 0.945 * height;
     power = 1.6;
-    r = 1.1;
+    r = 1.0;
     color = '#fef08a';
   } else if (/^pathlight$/i.test(t)) {
     ly = 0.72 * height;
     power = 0.85;
-    r = 0.6;
+    r = 0.55;
     color = '#fef08a';
   }
 
@@ -2806,8 +2838,8 @@ HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
   else if (rot === 2) { rx = -lx; rz = -lz; }
   else if (rot === 3) { rx = lz; rz = -lx; }
 
-  const cx = (f.x + f.w / 2) * C;
-  const cz = (f.y + f.h / 2) * C;
+  const cx = (f.x + f.w / 2) * C + clDx;
+  const cz = (f.y + f.h / 2) * C + clDz;
 
   return {
     x: cx + rx,

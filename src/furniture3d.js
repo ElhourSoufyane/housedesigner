@@ -140,7 +140,8 @@ F.builder = function (group) {
   let index, width, depth, height, fp, small;
   const base = { wood: '#c3a383', fabric: '#e4ded1', metal: '#8b918c',
     ceramic: '#f1eee5', foliage: '#60845a', dark: '#343c3d', glass: '#92bbc0',
-    water: '#b6e0db', stone: '#bdb5a5', soil: '#5c4839', art: '#ffffff', glow: '#fff1d6' };
+    water: '#b6e0db', stone: '#bdb5a5', soil: '#5c4839', art: '#ffffff', glow: '#fff1d6',
+    plaster: '#f4efe4', brick: '#ffffff', brick_white: '#ffffff', tile: '#ffffff', concrete: '#ffffff', shiplap: '#ffffff' };
   /* see-through or decal parts never cast a shadow                    */
   const NO_CAST = { glass: 1, water: 1, art: 1 };
   /* render the item's own 2D sprite onto the canvas face of wall art —
@@ -9058,10 +9059,59 @@ F.builder = function (group) {
           boxSlope('metal', sx, 0.65, -0.44, sx, 0.85, 0.42, 0.02, 0.02, '#1e293b');
         }
       } else if (/^archway/.test(t)) {
-        // Architectural Cased Walkthrough Archway (Full-height wall arch with curved spandrels & crown)
-        const wallCol = color || '#f8fafc';
-        const trimCol = HP.shade(wallCol, 0.88);
-        const darkTrim = HP.shade(wallCol, 0.65);
+        // Architectural Cased Walkthrough Archway (Matches the connecting wall's material & color: plaster, brick, tile, stone, concrete, etc.)
+        const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+        const lvlWalls = (lvl && lvl.walls) || {};
+
+        // Find touching or nearby wall to match its style and color
+        let neighborWall = null;
+        const isHoriz = (rot === 0 || rot === 2);
+        const checkKeys = isHoriz
+          ? [`h,${f.x - 1},${f.y}`, `h,${f.x + f.w},${f.y}`, `v,${f.x},${f.y}`, `v,${f.x},${f.y - 1}`, `v,${f.x + f.w},${f.y}`, `v,${f.x + f.w},${f.y - 1}`]
+          : [`v,${f.x},${f.y - 1}`, `v,${f.x},${f.y + f.h}`, `h,${f.x},${f.y}`, `h,${f.x - 1},${f.y}`, `h,${f.x},${f.y + f.h}`, `h,${f.x - 1},${f.y + f.h}`];
+        for (const k of checkKeys) {
+          if (lvlWalls[k]) { neighborWall = lvlWalls[k]; break; }
+        }
+        if (!neighborWall) {
+          for (let cx = f.x - 1; cx <= f.x + f.w; cx++) {
+            for (let cy = f.y - 1; cy <= f.y + f.h; cy++) {
+              const wh = lvlWalls[`h,${cx},${cy}`], wv = lvlWalls[`v,${cx},${cy}`];
+              if (wh) { neighborWall = wh; break; }
+              if (wv) { neighborWall = wv; break; }
+            }
+            if (neighborWall) break;
+          }
+        }
+
+        const vIdx = it.v || 0;
+        let matKind = 'plaster';
+        let wallCol = '#f4efe4';
+
+        if (vIdx === 0) {
+          // Auto: match touching wall
+          const st = (neighborWall && neighborWall.style) || HP.wallStyle || 'plaster';
+          matKind = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'wood' || st === 'shiplap') ? st : 'plaster';
+          wallCol = (neighborWall && (neighborWall.ca || neighborWall.cb)) || (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' ? '#ffffff' : '#f4efe4');
+        } else if (vIdx === 1) {
+          matKind = 'plaster'; wallCol = '#f4efe4';
+        } else if (vIdx === 2) {
+          matKind = 'brick'; wallCol = '#ffffff';
+        } else if (vIdx === 3) {
+          matKind = 'brick_white'; wallCol = '#ffffff';
+        } else if (vIdx === 4) {
+          matKind = 'stone'; wallCol = '#ffffff';
+        } else if (vIdx === 5) {
+          matKind = 'tile'; wallCol = '#ffffff';
+        } else if (vIdx === 6) {
+          matKind = 'concrete'; wallCol = '#ffffff';
+        } else if (vIdx === 7) {
+          matKind = 'wood'; wallCol = '#6a4c33';
+        }
+
+        const trimKind = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'concrete') ? 'stone' : (matKind === 'tile' ? 'ceramic' : (matKind === 'wood' ? 'wood' : 'plaster'));
+        const trimCol = (matKind === 'brick' || matKind === 'stone') ? '#ede8df' : (matKind === 'wood' ? HP.shade(wallCol, 0.8) : HP.shade(wallCol, 0.94));
+        const darkTrim = (matKind === 'brick' || matKind === 'stone') ? '#cfc8b8' : HP.shade(trimCol, 0.78);
+
         const wallThick = 0.32;
         const trimThick = wallThick + 0.05;
         const pw = /archway1/.test(t) ? 0.16 : (/archway3/.test(t) ? 0.08 : 0.12);
@@ -9072,15 +9122,15 @@ F.builder = function (group) {
 
         // 1. Side pilasters & plinths
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
-          box('wood', sx, cy / 2, 0, pw, cy, wallThick, wallCol);
-          box('wood', sx, 0.03, 0, pw + 0.02, 0.06, trimThick, trimCol);
-          box('wood', sx, cy - 0.015, 0, pw + 0.02, 0.03, trimThick, trimCol);
-          box('wood', sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol);
+          box(matKind, sx, cy / 2, 0, pw, cy, wallThick, wallCol);
+          box(trimKind, sx, 0.03, 0, pw + 0.02, 0.06, trimThick, trimCol);
+          box(trimKind, sx, cy - 0.015, 0, pw + 0.02, 0.03, trimThick, trimCol);
+          box(matKind, sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol);
         }
 
         // 2. Top header beam & ceiling crown moulding
-        box('wood', 0, (y_crown + 1.0) / 2, 0, 1.0, 1.0 - y_crown, wallThick, wallCol);
-        box('wood', 0, 0.985, 0, 1.0, 0.03, trimThick, trimCol);
+        box(matKind, 0, (y_crown + 1.0) / 2, 0, 1.0, 1.0 - y_crown, wallThick, wallCol);
+        box(trimKind, 0, 0.985, 0, 1.0, 0.03, trimThick, trimCol);
 
         // 3. Spandrel fill slices
         const N = 16;
@@ -9091,7 +9141,7 @@ F.builder = function (group) {
           const curveY = cy + Math.sqrt(Math.max(0, 1 - normX * normX)) * rise;
           if (curveY < y_crown) {
             const hSlice = y_crown - curveY;
-            box('wood', cx, curveY + hSlice / 2, 0, stepW * 1.02, hSlice, wallThick, wallCol);
+            box(matKind, cx, curveY + hSlice / 2, 0, stepW * 1.02, hSlice, wallThick, wallCol);
           }
         }
 
@@ -9101,14 +9151,14 @@ F.builder = function (group) {
           const a0 = (i / M) * Math.PI, a1 = ((i + 1) / M) * Math.PI;
           const x0 = -Math.cos(a0) * R, y0 = cy + Math.sin(a0) * rise;
           const x1 = -Math.cos(a1) * R, y1 = cy + Math.sin(a1) * rise;
-          boxSlope('wood', x0, y0, wallThick / 2 + 0.015, x1, y1, wallThick / 2 + 0.015, 0.025, 0.03, trimCol);
-          boxSlope('wood', x0, y0, -(wallThick / 2 + 0.015), x1, y1, -(wallThick / 2 + 0.015), 0.025, 0.03, trimCol);
-          boxSlope('wood', x0, y0, 0, x1, y1, 0, 0.02, wallThick, darkTrim);
+          boxSlope(trimKind, x0, y0, wallThick / 2 + 0.015, x1, y1, wallThick / 2 + 0.015, 0.025, 0.03, trimCol);
+          boxSlope(trimKind, x0, y0, -(wallThick / 2 + 0.015), x1, y1, -(wallThick / 2 + 0.015), 0.025, 0.03, trimCol);
+          boxSlope(matKind, x0, y0, 0, x1, y1, 0, 0.02, wallThick, darkTrim);
         }
 
         // 5. Keystone at apex
-        box('wood', 0, y_crown + 0.01, 0, pw * 0.9, 0.065, trimThick + 0.03, trimCol);
-        box('wood', 0, y_crown + 0.01, 0, pw * 0.7, 0.055, trimThick + 0.04, darkTrim);
+        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.9, 0.065, trimThick + 0.03, trimCol);
+        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.7, 0.055, trimThick + 0.04, darkTrim);
       } else if (/sunsail/.test(t)) {
         // Architectural Triangular/Quad Tensioned Fabric Sun Sail Shade
         const fabricCol = color || '#f8fafc';

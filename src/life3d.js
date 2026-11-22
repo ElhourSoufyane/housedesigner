@@ -500,6 +500,21 @@ L.build = function (g, entries) {
   const spots = [];
   L.ambience = { water: [], fire: [], fan: [] };
   let dogHome = null;
+  const lvl = (HP.state && HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+  const lvlWalls = (lvl && lvl.walls) || {};
+  let geomEnv = null;
+  if (HP.state && HP.computeRegions) {
+    try {
+      const cr = HP.computeRegions();
+      if (cr && cr.regionOf && cr.regions) {
+        geomEnv = {
+          C: C(),
+          rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : cr.regionOf[y * HP.GRID_W + x],
+          rsz: id => id >= 0 && cr.regions[id] ? cr.regions[id].cells.length : 1e9
+        };
+      }
+    } catch (err) {}
+  }
   for (const e of entries) {
     const it = e.it, f = e.f;
     const cx = (f.x + f.w / 2) * C(), cz = (f.y + f.h / 2) * C();
@@ -587,7 +602,7 @@ L.build = function (g, entries) {
     }
     else if (/lamp|torch|candle|lantern|light/i.test(t)) {
       const def = HP.itemDef ? HP.itemDef(it.type) : null;
-      const lt = HP.getLampLightTransform ? HP.getLampLightTransform(it, def, f, C(), null, null) : null;
+      const lt = HP.getLampLightTransform ? HP.getLampLightTransform(it, def, f, C(), lvlWalls, geomEnv) : null;
       if (lt) {
         addLampBulb(lt.x, lt.y, lt.z, it, lt);
       } else {
