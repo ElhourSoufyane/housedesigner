@@ -120,14 +120,16 @@ F.builder = function (group) {
   const ONE = new THREE.Vector3(1, 1, 1);
   const matIds = new Map(); let matId = 0;          // per-material batch keys
   const artTexCache = new Map();                    // it -> painted canvas texture
-  let cachedGeomEnv = null;
-  function getGeomEnv() {
-    if (cachedGeomEnv) return cachedGeomEnv;
-    const C = HP.CELL;
+  function getGeomEnv(targetLvl) {
+    const lvl = targetLvl || (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]);
+    if (HP.world3d && HP.world3d.geomEnv) {
+      return HP.world3d.geomEnv(lvl);
+    }
+    const C = (HP && HP.CELL) || 28;
     let rAt = () => -1, rsz = () => 1e9;
-    if (HP.state && HP.computeRegions) {
+    if (HP.computeRegions) {
       try {
-        const cr = HP.computeRegions();
+        const cr = HP.computeRegions(lvl);
         if (cr && cr.regionOf && cr.regions) {
           const { regionOf, regions } = cr;
           rAt = (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : regionOf[y * HP.GRID_W + x];
@@ -135,7 +137,7 @@ F.builder = function (group) {
         }
       } catch (e) {}
     }
-    return (cachedGeomEnv = { C, rAt, rsz });
+    return { C, rAt, rsz };
   }
   let index, width, depth, height, fp, small;
   const base = { wood: '#c3a383', fabric: '#e4ded1', metal: '#8b918c',
@@ -324,11 +326,14 @@ F.builder = function (group) {
       if (/^archway/i.test(it.type)) {
         const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
         const lvlWalls = (lvl && lvl.walls) || {};
-        const env = getGeomEnv();
+        const env = getGeomEnv(lvl);
         const C = (env && env.C) || (HP && HP.CELL) || 28;
         const isHoriz = (rot === 0 || rot === 2);
         let neighborWall = null;
         let wallThickPx = 0.30 * C;
+
+        const geo = (HP.world3d && HP.world3d.geom) || (HP.geom3d && HP.geom3d.build(lvlWalls, env));
+        const allBoxes = (geo && geo.boxes) ? geo.boxes.filter(b => b.tag === 'wall') : [];
 
         if (isHoriz) {
           let bestLineY = null;
@@ -382,11 +387,20 @@ F.builder = function (group) {
           }
 
           if (bestLineY !== null) {
-            const s = bestKey ? HP.parseWallKey(bestKey) : { d: 'h', x: f.x - 1, y: bestLineY, k: 'h,' + (f.x - 1) + ',' + bestLineY };
-            const z = (HP.geom3d && HP.geom3d.segZone) ? HP.geom3d.segZone(s, env) : null;
-            const wallMidZ = bestLineY * C + (z ? (z.w0 + z.w1) / 2 : 0);
-            if (z) wallThickPx = Math.max(2, Math.abs(z.w1 - z.w0));
-            pos.z = wallMidZ;
+            const touchingBox = allBoxes.find(b => b.d === 'h' && (
+              (Math.abs(b.x1 - f.x * C) < 3.0 && Math.abs((b.z0 + b.z1) / 2 - bestLineY * C) < C) ||
+              (Math.abs(b.x0 - (f.x + f.w) * C) < 3.0 && Math.abs((b.z0 + b.z1) / 2 - bestLineY * C) < C)
+            )) || allBoxes.find(b => b.d === 'h' && b.line === bestLineY);
+
+            if (touchingBox) {
+              pos.z = (touchingBox.z0 + touchingBox.z1) / 2;
+              wallThickPx = Math.max(2, Math.abs(touchingBox.z1 - touchingBox.z0));
+            } else {
+              const s = bestKey ? HP.parseWallKey(bestKey) : { d: 'h', x: f.x - 1, y: bestLineY, k: 'h,' + (f.x - 1) + ',' + bestLineY };
+              const z = (HP.geom3d && HP.geom3d.segZone) ? HP.geom3d.segZone(s, env) : null;
+              pos.z = bestLineY * C + (z ? (z.w0 + z.w1) / 2 : 0);
+              if (z) wallThickPx = Math.max(2, Math.abs(z.w1 - z.w0));
+            }
             neighborWall = bestWall;
           }
         } else {
@@ -441,11 +455,20 @@ F.builder = function (group) {
           }
 
           if (bestLineX !== null) {
-            const s = bestKey ? HP.parseWallKey(bestKey) : { d: 'v', x: bestLineX, y: f.y - 1, k: 'v,' + bestLineX + ',' + (f.y - 1) };
-            const z = (HP.geom3d && HP.geom3d.segZone) ? HP.geom3d.segZone(s, env) : null;
-            const wallMidX = bestLineX * C + (z ? (z.w0 + z.w1) / 2 : 0);
-            if (z) wallThickPx = Math.max(2, Math.abs(z.w1 - z.w0));
-            pos.x = wallMidX;
+            const touchingBox = allBoxes.find(b => b.d === 'v' && (
+              (Math.abs(b.z1 - f.y * C) < 3.0 && Math.abs((b.x0 + b.x1) / 2 - bestLineX * C) < C) ||
+              (Math.abs(b.z0 - (f.y + f.h) * C) < 3.0 && Math.abs((b.x0 + b.x1) / 2 - bestLineX * C) < C)
+            )) || allBoxes.find(b => b.d === 'v' && b.line === bestLineX);
+
+            if (touchingBox) {
+              pos.x = (touchingBox.x0 + touchingBox.x1) / 2;
+              wallThickPx = Math.max(2, Math.abs(touchingBox.x1 - touchingBox.x0));
+            } else {
+              const s = bestKey ? HP.parseWallKey(bestKey) : { d: 'v', x: bestLineX, y: f.y - 1, k: 'v,' + bestLineX + ',' + (f.y - 1) };
+              const z = (HP.geom3d && HP.geom3d.segZone) ? HP.geom3d.segZone(s, env) : null;
+              pos.x = bestLineX * C + (z ? (z.w0 + z.w1) / 2 : 0);
+              if (z) wallThickPx = Math.max(2, Math.abs(z.w1 - z.w0));
+            }
             neighborWall = bestWall;
           }
         }
@@ -9280,7 +9303,7 @@ F.builder = function (group) {
         const wallThickPx = it._wallThickPx || 8.4;
         const depthPx = depth || (HP.CELL || 28);
         const wallThick = wallThickPx / depthPx;
-        const casingTPx = 0.45;
+        const casingTPx = 0.28;
         const trimThick = (wallThickPx + casingTPx * 2) / depthPx;
         const pw = /archway1/.test(t) ? 0.16 : (/archway3/.test(t) ? 0.08 : 0.12);
         const R = 0.5 - pw;
@@ -9291,8 +9314,8 @@ F.builder = function (group) {
         // 1. Side pilasters & plinths
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
           box(matKind, sx, cy / 2, 0, pw, cy, wallThick, wallCol, false, wallMat);
-          box(trimKind, sx, 0.018, 0, pw + 0.015, 0.036, trimThick + 0.015, trimCol, false, wallMat);
-          box(trimKind, sx, cy - 0.015, 0, pw + 0.015, 0.03, trimThick + 0.02, trimCol, false, wallMat);
+          box(trimKind, sx, 0.018, 0, pw + 0.015, 0.036, trimThick + 0.01, trimCol, false, wallMat);
+          box(trimKind, sx, cy - 0.015, 0, pw + 0.015, 0.03, trimThick + 0.015, trimCol, false, wallMat);
           box(matKind, sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol, false, wallMat);
         }
 

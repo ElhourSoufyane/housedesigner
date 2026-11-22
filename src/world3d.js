@@ -281,9 +281,9 @@ function tickTime(dt, now) {
 }
 
 /* ---------- geometry env for geom3d ---------- */
-function geomEnv(targetLvl) {
+const geomEnv = W3.geomEnv = function (targetLvl) {
   const lvl = targetLvl || HP.cur();
-  const { regionOf, regions } = HP.computeRegions(lvl);
+  const { regionOf, regions } = HP.computeRegions ? HP.computeRegions(lvl) : { regionOf: null, regions: [] };
   return {
     C: HP.CELL,
     fences: lvl.fences,

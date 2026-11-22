@@ -20,7 +20,7 @@ const storage = {}, context = {
 context.window = context;
 vm.createContext(context);
 
-for (const file of ['grid', 'catalog', 'geom3d', 'graphics3d', 'cull3d', 'sky3d', 'furniture3d', 'world3d', 'ui', 'walk3d', 'walk']) {
+for (const file of ['grid', 'catalog', 'rooms', 'geom3d', 'graphics3d', 'cull3d', 'sky3d', 'furniture3d', 'world3d', 'ui', 'walk3d', 'walk']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'src', file + '.js'), 'utf8'), context);
 }
 
@@ -90,4 +90,73 @@ const spandrelMesh = frameGroup.children.find(c => c.geometry && (c.geometry.typ
 assert(spandrelMesh, 'Archway door frame must have spandrel geometry');
 assert(spandrelMesh.material, 'Spandrel mesh must have a valid material');
 
-console.log('✓ PASS test-archway.js: Catalog archways (1x1, 2x1, 3x1) & Door styles (archway, arched) verified with batched 60fps geometry!');
+// 5. Test front & behind wall flush alignment and symmetry across interior & exterior walls
+for (const wallType of ['interior', 'exterior']) {
+  for (const rot of [0, 1]) {
+    const isH = (rot === 0 || rot === 2);
+    const isExt = (wallType === 'exterior');
+    const walls = {};
+    if (isH) {
+      for (let x = 2; x < 8; x++) walls['h,' + x + ',2'] = { style: 'plaster' };
+      for (let y = 2; y < 4; y++) { walls['v,2,' + y] = { style: 'plaster' }; walls['v,8,' + y] = { style: 'plaster' }; }
+      walls['h,2,4'] = { style: 'plaster' }; walls['h,3,4'] = { style: 'plaster' };
+      walls['h,6,4'] = { style: 'plaster' }; walls['h,7,4'] = { style: 'plaster' };
+      if (!isExt) {
+        for (let x = 2; x < 8; x++) walls['h,' + x + ',6'] = { style: 'plaster' };
+        for (let y = 4; y < 6; y++) { walls['v,2,' + y] = { style: 'plaster' }; walls['v,8,' + y] = { style: 'plaster' }; }
+      }
+    } else {
+      for (let y = 2; y < 8; y++) walls['v,2,' + y] = { style: 'plaster' };
+      for (let x = 2; x < 4; x++) { walls['h,' + x + ',2'] = { style: 'plaster' }; walls['h,' + x + ',8'] = { style: 'plaster' }; }
+      walls['v,4,2'] = { style: 'plaster' }; walls['v,4,3'] = { style: 'plaster' };
+      walls['v,4,6'] = { style: 'plaster' }; walls['v,4,7'] = { style: 'plaster' };
+      if (!isExt) {
+        for (let y = 2; y < 8; y++) walls['v,6,' + y] = { style: 'plaster' };
+        for (let x = 4; x < 6; x++) { walls['h,' + x + ',2'] = { style: 'plaster' }; walls['h,' + x + ',8'] = { style: 'plaster' }; }
+      }
+    }
+
+    const arch = { type: 'archway', x: 4, y: 4, rot, v: 0 };
+    const curLvl = { walls, furniture: [arch] };
+    HP.cur = () => curLvl;
+    HP.state = { level: 0, levels: [curLvl] };
+
+    const env = HP.world3d.geomEnv(curLvl);
+    const geo = HP.geom3d.build(curLvl.walls, env);
+    HP.world3d.geom = geo;
+
+    const gTest = new THREE.Group();
+    const bld = HP.furniture3d.builder(gTest);
+    const dArch = HP.CATALOG.find(d => d.id === 'archway');
+    bld.add(arch, dArch, HP.footprint(arch), 74, 0);
+    bld.finish();
+
+    const C = 28;
+    const f = HP.footprint(arch);
+    const touchingBox = geo.boxes.find(b => b.tag === 'wall' && (
+      isH ? (b.d === 'h' && (Math.abs(b.x1 - f.x * C) < 3 || Math.abs(b.x0 - (f.x + f.w) * C) < 3))
+          : (b.d === 'v' && (Math.abs(b.z1 - f.y * C) < 3 || Math.abs(b.z0 - (f.y + f.h) * C) < 3))
+    ));
+    assert(touchingBox, 'Must find touching wall box');
+
+    const wallU0 = isH ? touchingBox.z0 : touchingBox.x0;
+    const wallU1 = isH ? touchingBox.z1 : touchingBox.x1;
+
+    for (const c of gTest.children) c.geometry.computeBoundingBox();
+    const aMesh = gTest.children.find(c => c.geometry.boundingBox.max.y > 70);
+    assert(aMesh, 'Must have archway mesh');
+    const bb = aMesh.geometry.boundingBox;
+    const archU0 = isH ? bb.min.z : bb.min.x;
+    const archU1 = isH ? bb.max.z : bb.max.x;
+
+    const midDiff = Math.abs(((archU0 + archU1)/2) - ((wallU0 + wallU1)/2));
+    const u0Diff = Math.abs(archU0 - wallU0);
+    const u1Diff = Math.abs(archU1 - wallU1);
+
+    assert(midDiff < 0.01, 'Centerline must match wall exactly: ' + midDiff);
+    assert(Math.abs(u0Diff - u1Diff) < 0.01, 'Front and back must be perfectly symmetric: ' + Math.abs(u0Diff - u1Diff));
+    assert(u0Diff < 0.9 && u1Diff < 0.9, 'Must be flush with wall within plinth trim tolerance');
+  }
+}
+
+console.log('✓ PASS test-archway.js: Catalog archways (1x1, 2x1, 3x1), Door styles (archway, arched) & dual-sided wall flush alignment verified!');
