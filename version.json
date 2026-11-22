@@ -1,8 +1,8 @@
 {
   "version": "1.3.23",
-  "build": 1795356264965,
-  "updatedAt": "2026-11-22T14:04:24.965Z",
-  "notes": "Refine sliding glass door tracks and clean up sliding barn doors",
+  "build": 1795356354242,
+  "updatedAt": "2026-11-22T14:05:54.242Z",
+  "notes": "Fix sunlight penetrating roof and ceilings in 3D view",
   "files": [
     "version.json",
     "index.html",
