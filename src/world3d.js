@@ -933,6 +933,143 @@ function mergeGeometries(geos) {
   return merged;
 }
 
+
+function toOrientedExtrudeGeo(shape, depth, isH) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  g.translate(0, 0, -depth / 2);
+  if (!isH) {
+    const pos = g.attributes.position, norm = g.attributes.normal;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), z = pos.getZ(i);
+      pos.setX(i, z); pos.setZ(i, x);
+      const nx = norm.getX(i), nz = norm.getZ(i);
+      norm.setX(i, nz); norm.setZ(i, nx);
+    }
+    const idx = g.index;
+    if (idx) {
+      for (let i = 0; i < idx.count; i += 3) {
+        const tmp = idx.getX(i);
+        idx.setX(i, idx.getX(i + 1));
+        idx.setX(i + 1, tmp);
+      }
+    }
+    g.computeVertexNormals();
+  }
+  return g;
+}
+
+function makeArchedLeafGeometry(leaves, li, span, dh, sy, dep, isH) {
+  const R = span / 2;
+  const archH = dh - sy;
+  const lw = leaves === 2 ? span / 2 : span;
+  const lh = dh;
+  const N = 32;
+  const shape = new THREE.Shape();
+
+  if (leaves === 2) {
+    if (li === 0) {
+      shape.moveTo(-lw / 2, -lh / 2);
+      shape.lineTo(lw / 2, -lh / 2);
+      shape.lineTo(lw / 2, lh / 2);
+      for (let i = 0; i <= N; i++) {
+        const theta = (Math.PI / 2) * (1 - i / N);
+        const u = R * (1 - Math.cos(theta)) - lw / 2;
+        const y = sy + archH * Math.sin(theta) - lh / 2;
+        shape.lineTo(u, y);
+      }
+      shape.lineTo(-lw / 2, -lh / 2);
+    } else {
+      shape.moveTo(-lw / 2, -lh / 2);
+      shape.lineTo(lw / 2, -lh / 2);
+      shape.lineTo(lw / 2, sy - lh / 2);
+      for (let i = 0; i <= N; i++) {
+        const theta = Math.PI - (Math.PI / 2) * (i / N);
+        const u = -R * (1 + Math.cos(theta)) + lw / 2;
+        const y = sy + archH * Math.sin(theta) - lh / 2;
+        shape.lineTo(u, y);
+      }
+      shape.lineTo(-lw / 2, -lh / 2);
+    }
+  } else {
+    shape.moveTo(-lw / 2, -lh / 2);
+    shape.lineTo(lw / 2, -lh / 2);
+    shape.lineTo(lw / 2, sy - lh / 2);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (1 - i / N);
+      const u = -R * Math.cos(theta);
+      const y = sy + archH * Math.sin(theta) - lh / 2;
+      shape.lineTo(u, y);
+    }
+    shape.lineTo(-lw / 2, -lh / 2);
+  }
+
+  const geo = toOrientedExtrudeGeo(shape, dep, isH);
+  geo.parameters = {
+    width: isH ? lw : dep,
+    height: lh,
+    depth: isH ? dep : lw
+  };
+  geo.computeBoundingBox();
+  return geo;
+}
+
+function makeUpperArchedPanelShape(leaves, li, span, dh, sy, inset) {
+  const R = span / 2;
+  const archH = dh - sy;
+  const lw = leaves === 2 ? span / 2 : span;
+  const lh = dh;
+  const N = 24;
+  const yBot = (27 - lh / 2) + 3.4 / 2;
+  const shape = new THREE.Shape();
+
+  if (leaves === 2) {
+    if (li === 0) {
+      const uHinge = -lw / 2 + inset;
+      const uMeet = lw / 2 - inset;
+      shape.moveTo(uHinge, yBot);
+      shape.lineTo(uMeet, yBot);
+      shape.lineTo(uMeet, lh / 2 - inset);
+      for (let i = 0; i <= N; i++) {
+        const theta = (Math.PI / 2) * (1 - i / N);
+        const u = R * (1 - Math.cos(theta)) - lw / 2;
+        const clampedU = Math.max(uHinge, Math.min(uMeet, u));
+        const y = (sy + archH * Math.sin(theta) - lh / 2) - inset;
+        shape.lineTo(clampedU, Math.max(yBot, y));
+      }
+      shape.lineTo(uHinge, yBot);
+    } else {
+      const uMeet = -lw / 2 + inset;
+      const uHinge = lw / 2 - inset;
+      shape.moveTo(uMeet, yBot);
+      shape.lineTo(uHinge, yBot);
+      const topHingeY = (sy - lh / 2) - inset;
+      shape.lineTo(uHinge, Math.max(yBot, topHingeY));
+      for (let i = 0; i <= N; i++) {
+        const theta = Math.PI - (Math.PI / 2) * (i / N);
+        const u = -R * (1 + Math.cos(theta)) + lw / 2;
+        const clampedU = Math.max(uMeet, Math.min(uHinge, u));
+        const y = (sy + archH * Math.sin(theta) - lh / 2) - inset;
+        shape.lineTo(clampedU, Math.max(yBot, y));
+      }
+      shape.lineTo(uMeet, yBot);
+    }
+  } else {
+    const uLeft = -lw / 2 + inset;
+    const uRight = lw / 2 - inset;
+    shape.moveTo(uLeft, yBot);
+    shape.lineTo(uRight, yBot);
+    shape.lineTo(uRight, Math.max(yBot, (sy - lh / 2) - inset));
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (1 - i / N);
+      const u = -R * Math.cos(theta);
+      const clampedU = Math.max(uLeft, Math.min(uRight, u));
+      const y = (sy + archH * Math.sin(theta) - lh / 2) - inset;
+      shape.lineTo(clampedU, Math.max(yBot, y));
+    }
+    shape.lineTo(uLeft, yBot);
+  }
+  return shape;
+}
 function buildDoorFrame(a, s0, s1, parentGroup) {
   const isH = a.d === 'h';
   const span = s1 - s0;
@@ -967,9 +1104,10 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     if (!wallCol) {
       wallCol = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'tile' || wallStyle === 'concrete' || wallStyle === 'marble') ? '#ffffff' : '#f4efe4';
     }
-    const trimKind = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'concrete') ? 'stone' : (wallStyle === 'tile' ? 'ceramic' : (wallStyle === 'wood' ? 'wood' : 'plaster'));
-    const trimColor = (wallStyle === 'brick' || wallStyle === 'stone') ? '#ede8df' : (wallStyle === 'wood' ? '#5a3d28' : (wallStyle === 'concrete' ? '#d1d5db' : '#f4f0e6'));
-    frameMat = HP.graphics3d ? HP.graphics3d.material(trimKind, trimColor) : new THREE.MeshLambertMaterial({ color: 0xf4f0e6 });
+    const isStoneWall = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'concrete');
+    const trimKind = isStoneWall ? 'stone' : (wallStyle === 'tile' ? 'ceramic' : (wallStyle === 'wood' || doorStyle === 'arched' ? 'wood' : 'plaster'));
+    const trimColor = (wallStyle === 'brick' || wallStyle === 'stone') ? '#ede8df' : (wallStyle === 'concrete' ? '#d1d5db' : (doorStyle === 'arched' ? '#5c4033' : (wallStyle === 'wood' ? '#5a3d28' : '#f4f0e6')));
+    frameMat = HP.graphics3d ? HP.graphics3d.material(trimKind, trimColor) : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
     wallMat = HP.graphics3d ? HP.graphics3d.material(wallStyle, wallCol) : frameMat;
   } else if (isModern) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#282a2e') : new THREE.MeshLambertMaterial({ color: 0x282a2e });
@@ -994,87 +1132,122 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     const archH = dh - sy;
     const frameGeos = [];
     const spandrelGeos = [];
+    const casingW = 2.0;
+    const casingT = 0.65;
+    const N = 36;
 
     // Left jamb up to springline
     const leftGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
     leftGeo.translate(isH ? s0 + jt / 2 : wMid, sy / 2, isH ? wMid : s0 + jt / 2);
-    spandrelGeos.push(leftGeo);
+    frameGeos.push(leftGeo);
 
     // Right jamb up to springline
     const rightGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
     rightGeo.translate(isH ? s1 - jt / 2 : wMid, sy / 2, isH ? wMid : s1 - jt / 2);
-    spandrelGeos.push(rightGeo);
+    frameGeos.push(rightGeo);
 
-    // Curved arch soffit
-    const arcSegments = 16;
-    for (let i = 0; i < arcSegments; i++) {
-      const a0 = (i / arcSegments) * Math.PI, a1 = ((i + 1) / arcSegments) * Math.PI;
-      const u0 = midU - Math.cos(a0) * R, y0 = sy + Math.sin(a0) * archH;
-      const u1 = midU - Math.cos(a1) * R, y1 = sy + Math.sin(a1) * archH;
-      const du = u1 - u0, dy = y1 - y0;
-      const segLen = Math.hypot(du, dy);
-      const segGeo = new THREE.BoxGeometry(isH ? segLen : jd, jt, isH ? jd : segLen);
-      const rot = Math.atan2(dy, du);
-      if (isH) segGeo.rotateZ(rot);
-      else segGeo.rotateX(-rot);
-      segGeo.translate(isH ? (u0 + u1) / 2 : wMid, (y0 + y1) / 2, isH ? wMid : (u0 + u1) / 2);
-      frameGeos.push(segGeo);
+    // Curved arch soffit — smooth continuous curved band
+    const soffitShape = new THREE.Shape();
+    soffitShape.moveTo(-(R + jt), sy);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (i / N);
+      const u = -(R + jt) * Math.cos(theta);
+      const y = sy + (archH + jt) * Math.sin(theta);
+      soffitShape.lineTo(u, y);
     }
+    soffitShape.lineTo(R, sy);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (1 - i / N);
+      const u = -R * Math.cos(theta);
+      const y = sy + archH * Math.sin(theta);
+      soffitShape.lineTo(u, y);
+    }
+    soffitShape.closePath();
+    const soffitGeo = toOrientedExtrudeGeo(soffitShape, jd, isH);
+    soffitGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
+    frameGeos.push(soffitGeo);
 
-    // Solid spandrels filling top corners using the exact wall material & color
-    const N = 14;
-    const stepU = span / N;
-    for (let i = 0; i < N; i++) {
-      const u = s0 + (i + 0.5) * stepU;
-      const normU = (u - midU) / R;
-      const curveY = sy + Math.sqrt(Math.max(0, 1 - normU * normU)) * archH;
-      if (curveY < dh) {
-        const sh = dh - curveY;
-        const spGeo = new THREE.BoxGeometry(isH ? stepU * 1.02 : wThick, sh, isH ? wThick : stepU * 1.02);
-        spGeo.translate(isH ? u : wMid, curveY + sh / 2, isH ? wMid : u);
-        spandrelGeos.push(spGeo);
-      }
+    // Solid smooth spandrels filling top corners using the exact wall material & color
+    const leftSpShape = new THREE.Shape();
+    leftSpShape.moveTo(-R, sy);
+    leftSpShape.lineTo(-R, dh);
+    leftSpShape.lineTo(0, dh);
+    for (let i = 0; i <= N; i++) {
+      const theta = (Math.PI / 2) * (1 - i / N);
+      const u = -R * Math.cos(theta);
+      const y = sy + archH * Math.sin(theta);
+      leftSpShape.lineTo(u, y);
     }
+    leftSpShape.closePath();
+    const lSpGeo = toOrientedExtrudeGeo(leftSpShape, wThick, isH);
+    lSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
+    spandrelGeos.push(lSpGeo);
+
+    const rightSpShape = new THREE.Shape();
+    rightSpShape.moveTo(0, dh);
+    rightSpShape.lineTo(R, dh);
+    rightSpShape.lineTo(R, sy);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI - (Math.PI / 2) * (1 - i / N);
+      const u = -R * Math.cos(theta);
+      const y = sy + archH * Math.sin(theta);
+      rightSpShape.lineTo(u, y);
+    }
+    rightSpShape.closePath();
+    const rSpGeo = toOrientedExtrudeGeo(rightSpShape, wThick, isH);
+    rSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
+    spandrelGeos.push(rSpGeo);
 
     // Casing trim bands on both wall faces
-    const casingW = 1.4, casingT = 0.55;
-    const keystoneW = casingW * 1.8, keystoneH = casingW * 2.2, keystoneD = casingT * 1.5;
-    const impostW = casingW * 1.4, impostH = casingW * 0.8, impostD = casingT * 1.3;
+    const archCasingShape = new THREE.Shape();
+    archCasingShape.moveTo(-(R + casingW), sy);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (i / N);
+      const u = -(R + casingW) * Math.cos(theta);
+      const y = sy + (archH + casingW) * Math.sin(theta);
+      archCasingShape.lineTo(u, y);
+    }
+    archCasingShape.lineTo(R, sy);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (1 - i / N);
+      const u = -R * Math.cos(theta);
+      const y = sy + archH * Math.sin(theta);
+      archCasingShape.lineTo(u, y);
+    }
+    archCasingShape.closePath();
+
+    const ksTopW = casingW * 1.8, ksBotW = casingW * 1.2, ksH = casingW * 2.2;
+    const keystoneShape = new THREE.Shape();
+    keystoneShape.moveTo(-ksBotW / 2, -ksH / 2);
+    keystoneShape.lineTo(ksBotW / 2, -ksH / 2);
+    keystoneShape.lineTo(ksTopW / 2, ksH / 2);
+    keystoneShape.lineTo(-ksTopW / 2, ksH / 2);
+    keystoneShape.closePath();
 
     for (const f of [-1, 1]) {
       const facePos = wMid + f * (wThick / 2 + casingT / 2);
 
-      const cl = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
-      cl.translate(isH ? s0 - casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s0 - casingW / 2);
+      const cl = new THREE.BoxGeometry(isH ? casingW : casingT, sy, isH ? casingT : casingW);
+      cl.translate(isH ? s0 - casingW / 2 : facePos, sy / 2, isH ? facePos : s0 - casingW / 2);
       frameGeos.push(cl);
 
-      const cr = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
-      cr.translate(isH ? s1 + casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s1 + casingW / 2);
+      const cr = new THREE.BoxGeometry(isH ? casingW : casingT, sy, isH ? casingT : casingW);
+      cr.translate(isH ? s1 + casingW / 2 : facePos, sy / 2, isH ? facePos : s1 + casingW / 2);
       frameGeos.push(cr);
 
       for (const iu of [s0 - casingW / 2, s1 + casingW / 2]) {
-        const imp = new THREE.BoxGeometry(isH ? impostW : impostD, impostH, isH ? impostD : impostW);
+        const imp = new THREE.BoxGeometry(isH ? casingW * 1.3 : casingT * 1.4, 1.2, isH ? casingT * 1.4 : casingW * 1.3);
         imp.translate(isH ? iu : facePos, sy, isH ? facePos : iu);
         frameGeos.push(imp);
       }
 
-      for (let i = 0; i < arcSegments; i++) {
-        const a0 = (i / arcSegments) * Math.PI, a1 = ((i + 1) / arcSegments) * Math.PI;
-        const u0 = midU - Math.cos(a0) * (R + casingW / 2), y0 = sy + Math.sin(a0) * (archH + casingW / 2);
-        const u1 = midU - Math.cos(a1) * (R + casingW / 2), y1 = sy + Math.sin(a1) * (archH + casingW / 2);
-        const du = u1 - u0, dy = y1 - y0;
-        const segLen = Math.hypot(du, dy);
-        const segGeo = new THREE.BoxGeometry(isH ? segLen : casingT, casingW, isH ? casingT : segLen);
-        const rot = Math.atan2(dy, du);
-        if (isH) segGeo.rotateZ(rot);
-        else segGeo.rotateX(-rot);
-        segGeo.translate(isH ? (u0 + u1) / 2 : facePos, (y0 + y1) / 2, isH ? facePos : (u0 + u1) / 2);
-        frameGeos.push(segGeo);
-      }
+      const acGeo = toOrientedExtrudeGeo(archCasingShape, casingT, isH);
+      acGeo.translate(isH ? midU : facePos, 0, isH ? facePos : midU);
+      frameGeos.push(acGeo);
 
-      const ks = new THREE.BoxGeometry(isH ? keystoneW : keystoneD, keystoneH, isH ? keystoneD : keystoneW);
-      ks.translate(isH ? midU : facePos, dh + casingW / 2, isH ? facePos : midU);
-      frameGeos.push(ks);
+      const ksGeo = toOrientedExtrudeGeo(keystoneShape, casingT * 1.5, isH);
+      ksGeo.translate(isH ? midU : facePos + f * 0.15, dh + casingW / 2, isH ? facePos + f * 0.15 : midU);
+      frameGeos.push(ksGeo);
     }
 
     const mergedSpandrel = mergeGeometries(spandrelGeos);
@@ -1179,6 +1352,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   return group;
 }
 W3.buildDoorFrame = buildDoorFrame;
+W3.populateDoorLeaf = populateDoorLeaf;
 
 function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat, knobMat, knobGeo) {
   const lvl = HP.cur();
@@ -1570,62 +1744,117 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       setPos(knob, latchU, 27 - lh / 2, 0);
       leaf.add(knob);
     } else if (doorStyle === 'arched') {
-      // Arched Raised 4-Panel Heritage Door
-      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#6a4c33') : leafMat;
+      // Arched Heritage Craftsman Door
+      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#5c4033') : leafMat;
       const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
 
-      leaf = new THREE.Mesh(box3d(lw, lh, dep), woodMat);
-      setPos(leaf, (li === 0 ? lw / 2 : -lw / 2), lh / 2 - 0.5, v);
+      const R = span / 2;
+      const sy = Math.max(30, dh - R);
+      const archH = dh - sy;
+      const baseLh = dh;
+
+      const geo = makeArchedLeafGeometry(leaves, li, span, dh, sy, dep, isH);
+      leaf = new THREE.Mesh(geo, woodMat);
+      setPos(leaf, (li === 0 ? lw / 2 : -lw / 2), baseLh / 2 - 0.5, v);
       leaf.castShadow = leaf.receiveShadow = true;
       pivot.add(leaf);
 
-      const pW = Math.max(2, (lw - 6.5) / 2);
-      const panels = [
-        { y: 11, h: 18 },
-        { y: -12, h: 16 }
-      ];
-      for (const p of panels) {
-        for (const col of [-lw / 4 + 0.3, lw / 4 - 0.3]) {
-          for (const side of [-1, 1]) {
-            const pZ = side * (dep / 2 + 0.08);
-            const trim = new THREE.Mesh(box3d(pW, p.h, 0.2), woodMat);
-            setPos(trim, col, p.y, pZ);
-            leaf.add(trim);
-            const field = new THREE.Mesh(box3d(pW - 1.0, p.h - 1.0, 0.15), woodMat);
-            setPos(field, col, p.y, pZ - side * 0.04);
-            leaf.add(field);
-          }
-        }
+      const setLeafPos = (mesh, u, y, vPos) => mesh.position.set(isH ? u : vPos, y, isH ? vPos : u);
+
+      const stileW = 2.4;
+      const botRailH = 5.2;
+      const midRailH = 3.4;
+      const trimDep = 0.22;
+      const yMid = 27 - baseLh / 2;
+
+      const uMeet = leaves === 2 ? (li === 0 ? (lw / 2 - stileW / 2) : (-lw / 2 + stileW / 2)) : (lw / 2 - stileW / 2);
+      const uHinge = leaves === 2 ? (li === 0 ? (-lw / 2 + stileW / 2) : (lw / 2 - stileW / 2)) : (-lw / 2 + stileW / 2);
+
+      const innerW = lw - stileW * 2 - 0.4;
+      const lowH = (yMid - midRailH / 2) - (-baseLh / 2 + botRailH);
+      const lowY = (-baseLh / 2 + botRailH + yMid - midRailH / 2) / 2;
+
+      const upPanelShape = makeUpperArchedPanelShape(leaves, li, span, dh, sy, stileW);
+      const upPanelGeo = toOrientedExtrudeGeo(upPanelShape, 0.14, isH);
+
+      for (const side of [-1, 1]) {
+        const zFace = side * (dep / 2 + trimDep / 2);
+
+        // Meeting stile (full height)
+        const mStile = new THREE.Mesh(box3d(stileW, baseLh, trimDep), woodMat);
+        setLeafPos(mStile, uMeet, 0, zFace);
+        mStile.castShadow = true;
+        leaf.add(mStile);
+
+        // Hinge stile (up to springline sy)
+        const hStile = new THREE.Mesh(box3d(stileW, sy, trimDep), woodMat);
+        setLeafPos(hStile, uHinge, -baseLh / 2 + sy / 2, zFace);
+        hStile.castShadow = true;
+        leaf.add(hStile);
+
+        // Bottom kick rail
+        const bRail = new THREE.Mesh(box3d(lw - 0.2, botRailH, trimDep), woodMat);
+        setLeafPos(bRail, 0, -baseLh / 2 + botRailH / 2, zFace);
+        bRail.castShadow = true;
+        leaf.add(bRail);
+
+        // Middle lock rail
+        const mRail = new THREE.Mesh(box3d(lw - 0.2, midRailH, trimDep), woodMat);
+        setLeafPos(mRail, 0, yMid, zFace);
+        mRail.castShadow = true;
+        leaf.add(mRail);
+
+        // Lower raised panel field
+        const lowField = new THREE.Mesh(box3d(Math.max(1, innerW - 1.2), Math.max(1, lowH - 1.2), 0.14), woodMat);
+        setLeafPos(lowField, 0, lowY, side * (dep / 2 + 0.07));
+        leaf.add(lowField);
+
+        // Upper arched raised panel field
+        const upMesh = new THREE.Mesh(upPanelGeo, woodMat);
+        setLeafPos(upMesh, 0, 0, side * (dep / 2 + 0.07));
+        leaf.add(upMesh);
       }
 
-      const hingeU = li === 0 ? (-lw / 2 + 0.2) : (lw / 2 - 0.2);
-      for (const hy of [12, 29, 44]) {
-        const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.8, 8), brassMat);
-        setPos(hinge, hingeU, hy - lh / 2, 0);
+      // Astragal for double doors (on meeting stile of active leaf 0)
+      if (leaves === 2 && li === 0) {
+        const astragal = new THREE.Mesh(box3d(0.65, baseLh, dep + 0.35), woodMat);
+        setLeafPos(astragal, lw / 2, 0, 0);
+        astragal.castShadow = true;
+        leaf.add(astragal);
+      }
+
+      // Authentic brass hinge barrels along hinge edge
+      for (const hy of [10, 24, Math.max(28, sy - 4)]) {
+        const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 2.0, 10), brassMat);
+        setLeafPos(hinge, uHinge + (leaves === 2 && li === 1 ? 0.8 : -0.8), hy - baseLh / 2, 0);
         leaf.add(hinge);
       }
 
+      // Dual-sided polished brass lever handle and backplate
       knob = new THREE.Group();
-      const latchU = li === 0 ? (lw / 2 - 2.5) : (-lw / 2 + 2.5);
-      const leverDir = li === 0 ? -1 : 1;
+      const latchU = uMeet;
+      const leverDir = leaves === 2 ? (li === 0 ? -1 : 1) : -1;
       for (const side of [-1, 1]) {
-        const sideZ = side * (dep / 2 + 0.15);
-        const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.25, 16), brassMat);
-        if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
-        setPos(rosette, 0, 0, sideZ);
-        knob.add(rosette);
+        const sideZ = side * (dep / 2 + trimDep + 0.02);
 
-        const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.5, 10), brassMat);
+        // Architectural backplate escutcheon
+        const escutcheon = new THREE.Mesh(box3d(1.3, 7.2, 0.22), brassMat);
+        setLeafPos(escutcheon, 0, 0, sideZ);
+        knob.add(escutcheon);
+
+        // Rosette collar
+        const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.4, 12), brassMat);
         if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
-        setPos(collar, 0, 0, sideZ + side * 0.25);
+        setLeafPos(collar, 0, 0, sideZ + side * 0.22);
         knob.add(collar);
 
+        // Polished ergonomic lever handle
         const lever = new THREE.Mesh(box3d(3.4, 0.45, 0.45), brassMat);
-        setPos(lever, leverDir * 1.5, 0, sideZ + side * 0.45);
+        setLeafPos(lever, leverDir * 1.5, 0, sideZ + side * 0.45);
         lever.castShadow = true;
         knob.add(lever);
       }
-      setPos(knob, latchU, 27 - lh / 2, 0);
+      setLeafPos(knob, latchU, yMid, 0);
       leaf.add(knob);
     } else {
       // Classic 4-Panel Stile-and-Rail Door ('panel')

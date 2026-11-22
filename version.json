@@ -1,8 +1,8 @@
 {
   "version": "1.3.25",
-  "build": 1795365293123,
-  "updatedAt": "2026-11-22T16:34:53.123Z",
-  "notes": "Batch archway door frame geometry for 60fps performance and fix single arch 2D bounds",
+  "build": 1795365375148,
+  "updatedAt": "2026-11-22T16:36:15.148Z",
+  "notes": "Batch archway door frame geometry for 60fps performance and authentic arched leaf geometry",
   "files": [
     "version.json",
     "index.html",
@@ -69,7 +69,7 @@
     "src/ui.js": "676fe4979613",
     "src/walk.js": "30dc56dd423a",
     "src/walk3d.js": "19132600b58e",
-    "src/world3d.js": "189d474bafec",
+    "src/world3d.js": "a72796ab1c68",
     "src/play3d-inpage.js": "fb411245c669"
   }
 }
