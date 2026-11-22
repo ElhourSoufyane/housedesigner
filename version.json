@@ -1,8 +1,8 @@
 {
   "version": "1.3.27",
-  "build": 1795379960000,
-  "updatedAt": "2026-11-22T20:39:20.000Z",
-  "notes": "Refine archway with smooth radial vault, classical impost capitals, elegant archivolt casing and tapered keystone",
+  "build": 1795381061426,
+  "updatedAt": "2026-11-22T20:57:41.425Z",
+  "notes": "Refine archway to authentic circular arch proportions with lowered realistic height and solid soffit",
   "files": [
     "version.json",
     "index.html",
@@ -49,7 +49,7 @@
     "src/catalog.js": "bb85f4d4746c",
     "src/cull3d.js": "55178727ab57",
     "src/default-house.js": "e4d70f0b9afa",
-    "src/furniture3d.js": "74c840316ada",
+    "src/furniture3d.js": "6c253a0310dc",
     "src/geom3d.js": "aa87f3205b42",
     "src/graphics3d.js": "be02d48a0529",
     "src/grid.js": "6218c5e1eadb",

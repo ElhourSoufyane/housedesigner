@@ -158,7 +158,7 @@ F.builder = function (group) {
       const pt0 = arcPts[i], pt1 = arcPts[i + 1];
       const n0 = [Math.cos(pt0.th), -Math.sin(pt0.th), 0];
       const n1 = [Math.cos(pt1.th), -Math.sin(pt1.th), 0];
-      const pA = [pt0.x, pt0.y, 0.5], pB = [pt1.x, pt1.y, 0.5], pC = [pt1.x, pt1.y, -0.5], pD = [pt0.x, pt0.y, -0.5];
+      const pA = [pt0.x, pt0.y, -0.5], pB = [pt1.x, pt1.y, -0.5], pC = [pt1.x, pt1.y, 0.5], pD = [pt0.x, pt0.y, 0.5];
       const b = positions.length / 3;
       positions.push(...pA, ...pB, ...pC, ...pD);
       normals.push(...n0, ...n1, ...n1, ...n0);
@@ -315,7 +315,7 @@ F.builder = function (group) {
     const material = mat || (shape === 'shadow' ? G.contactMaterial() : G.material(kind, base[kind]));
     /* small items share a distance limit; big ones (car, pool, shed)
        always draw so they never pop in across the yard              */
-    const key = mat ? 'm' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId)
+    const key = mat ? (shape + ':m' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId))
       : shape + ':' + kind + ':' + !!detail + ':' + small;
     if (!batches.has(key)) batches.set(key, { shape, kind, material, parts: [], detail, small });
     local.makeScale(w * width, h * height, d * depth);
@@ -326,7 +326,7 @@ F.builder = function (group) {
   const _partQ = new THREE.Quaternion(), _partPos = new THREE.Vector3(), _partScale = new THREE.Vector3();
   function partRot(shape, kind, x, y, z, w, h, d, ry, color, detail, mat) {
     const material = mat || (shape === 'shadow' ? G.contactMaterial() : G.material(kind, base[kind]));
-    const key = mat ? 'm' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId)
+    const key = mat ? (shape + ':m' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId))
       : shape + ':' + kind + ':' + !!detail + ':' + small;
     if (!batches.has(key)) batches.set(key, { shape, kind, material, parts: [], detail, small });
     _partPos.set(x * width, y * height, z * depth);
@@ -339,7 +339,7 @@ F.builder = function (group) {
   const _partEuler = new THREE.Euler();
   function partRotEuler(shape, kind, x, y, z, w, h, d, rx, ry, rz, color, detail, mat) {
     const material = mat || (shape === 'shadow' ? G.contactMaterial() : G.material(kind, base[kind]));
-    const key = mat ? 'm' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId)
+    const key = mat ? (shape + ':m' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId))
       : shape + ':' + kind + ':' + !!detail + ':' + small;
     if (!batches.has(key)) batches.set(key, { shape, kind, material, parts: [], detail, small });
     _partPos.set(x * width, y * height, z * depth);
@@ -353,7 +353,7 @@ F.builder = function (group) {
   const _dir = new THREE.Vector3(), _mid = new THREE.Vector3(), _up = new THREE.Vector3(1, 0, 0);
   function partSlope(shape, kind, x0, y0, z0, x1, y1, z1, thickY, thickZ, color, detail, mat) {
     const material = mat || (shape === 'shadow' ? G.contactMaterial() : G.material(kind, base[kind]));
-    const key = mat ? 'm' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId)
+    const key = mat ? (shape + ':m' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId))
       : shape + ':' + kind + ':' + !!detail + ':' + small;
     if (!batches.has(key)) batches.set(key, { shape, kind, material, parts: [], detail, small });
     const p0x = x0 * width, p0y = y0 * height, p0z = z0 * depth;
@@ -372,7 +372,7 @@ F.builder = function (group) {
   const _xAxis = new THREE.Vector3(1, 0, 0);
   function partSlopeYZ(shape, kind, x, y0, z0, y1, z1, widthX, thickY, color, detail, mat) {
     const material = mat || (shape === 'shadow' ? G.contactMaterial() : G.material(kind, base[kind]));
-    const key = mat ? 'm' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId)
+    const key = mat ? (shape + ':m' + (matIds.get(mat) || matIds.set(mat, ++matId) && matId))
       : shape + ':' + kind + ':' + !!detail + ':' + small;
     if (!batches.has(key)) batches.set(key, { shape, kind, material, parts: [], detail, small });
     const p0y = y0 * height, p0z = z0 * depth;
@@ -9478,11 +9478,15 @@ F.builder = function (group) {
         const casingTPx = 0.32;
         const casingThick = casingTPx / depthPx;
         const trimThick = (wallThickPx + casingTPx * 2) / depthPx;
-        const pw = /archway1/.test(t) ? 0.16 : (/archway3/.test(t) ? 0.08 : 0.12);
+        const pw = /archway1/.test(t) ? 0.14 : (/archway3/.test(t) ? 0.08 : 0.10);
         const R = 0.5 - pw;
-        const cy = /archway1/.test(t) ? 0.62 : 0.58;
-        const y_top = 0.915;
-        const rise = y_top - cy;
+        const R_px = R * (width || (f.w * (HP.CELL || 28)));
+        const targetTop_px = /archway1/.test(t) ? 58 : (/archway3/.test(t) ? 66 : 60);
+        const h_total = height || 74;
+        const y_top = targetTop_px / h_total;
+        const rise_px = R_px; // Authentic circular arch: vertical rise in px equals horizontal radius in px
+        const rise = rise_px / h_total;
+        const cy = y_top - rise;
 
         // 1. Classical Side Pilaster Columns & 3-Tier Impost Capitals
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
@@ -9513,7 +9517,7 @@ F.builder = function (group) {
         part('archCasing', trimKind, 0, cy + rise / 2, -(wallThick / 2 + casingThick / 2), 2 * R, rise, casingThick, trimCol, false, wallMat);
 
         // 4. Classical Wedge-Shaped Keystone (Voussoir at Apex)
-        const kH = 0.055;
+        const kH = Math.min(0.065, rise * 0.45);
         const kY = y_top + kH * 0.32;
         const kW = pw * 0.88;
         part('keystone', trimKind, 0, kY, 0, kW, kH, trimThick + 0.018, trimCol, false, wallMat);
@@ -9523,7 +9527,7 @@ F.builder = function (group) {
         const beamH = 1.0 - y_top;
         box(matKind, 0, (y_top + 1.0) / 2, 0, 1.0, beamH, wallThick, wallCol, false, wallMat);
         // Continuous horizontal frieze fillet
-        box(trimKind, 0, 0.962, 0, 1.0, 0.012, trimThick + 0.006, trimCol, false, wallMat);
+        box(trimKind, 0, Math.min(0.962, y_top + 0.02), 0, 1.0, 0.012, trimThick + 0.006, trimCol, false, wallMat);
         // Continuous crowning cornice molding
         box(trimKind, 0, 0.985, 0, 1.0, 0.030, trimThick + 0.018, trimCol, false, wallMat);
       } else if (/sunsail/.test(t)) {
