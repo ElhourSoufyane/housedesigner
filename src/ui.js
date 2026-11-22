@@ -967,6 +967,20 @@ function wallSelectedUI(selWall) {
       HP.pushUndo();
       w.style = st;
       HP.wallStyle = st;
+      const s = HP.parseWallKey(selWall);
+      const isH = s.d === 'h';
+      for (const dir of [-1, 1]) {
+        for (let step = 1; step <= 25; step++) {
+          const nx = isH ? s.x + dir * step : s.x;
+          const ny = isH ? s.y : s.y + dir * step;
+          const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
+          const nw = HP.cur()?.walls?.[nk];
+          if (!nw) break;
+          if (nw.f === 'door' || nw.f === 'window') {
+            nw.style = st;
+          }
+        }
+      }
       HP.saveState();
       HP.markDirty();
       if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
@@ -1172,6 +1186,40 @@ function setDoorStyle(k, style) {
 }
 HP.setDoorStyle = setDoorStyle;
 
+function setDoorWallStyle(k, style) {
+  const lvl = HP.cur();
+  if (!lvl || !lvl.walls) return;
+  const w = lvl.walls[k];
+  if (!w) return;
+  const s = HP.parseWallKey(k);
+  w.style = style;
+  const isH = s.d === 'h';
+  const adjKeys = [
+    isH ? 'h,' + (s.x + 1) + ',' + s.y : 'v,' + s.x + ',' + (s.y + 1),
+    isH ? 'h,' + (s.x - 1) + ',' + s.y : 'v,' + s.x + ',' + (s.y - 1)
+  ];
+  for (const ak of adjKeys) {
+    if (lvl.walls[ak] && lvl.walls[ak].f === 'door') {
+      lvl.walls[ak].style = style;
+    }
+  }
+  for (const dir of [-1, 1]) {
+    for (let step = 1; step <= 25; step++) {
+      const nx = isH ? s.x + dir * step : s.x;
+      const ny = isH ? s.y : s.y + dir * step;
+      const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
+      const nw = lvl.walls[nk];
+      if (!nw) break;
+      nw.style = style;
+    }
+  }
+  HP.wallStyle = style;
+  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) {
+    HP.world3d.buildLevel();
+  }
+}
+HP.setDoorWallStyle = setDoorWallStyle;
+
 HP.defaultWinStyle = HP.defaultWinStyle || 'casement';
 
 function setWindowStyle(k, style) {
@@ -1345,6 +1393,10 @@ function featureSelectedUI(feat) {
       <label>Door Style</label>
       <div id="feat-doorstyle-picker-wrap"></div>
     </div>
+    <div class="field" style="margin-top:10px">
+      <label>Wall Material (Wall & Casing)</label>
+      <div id="feat-wallstyle-picker-wrap"></div>
+    </div>
     ` : `
     <div class="field" style="margin-top:10px">
       <label>Window Style & Animation</label>
@@ -1397,6 +1449,19 @@ function featureSelectedUI(feat) {
       HP.markDirty();
       featureSelectedUI(feat);
       HP.status('Door style set to: ' + st);
+    });
+  }
+
+  const wWrap = $('#feat-wallstyle-picker-wrap');
+  if (wWrap) {
+    const curWallStyle = (w.style) || (HP.world3d && HP.world3d.resolveDoorWallStyle && HP.world3d.resolveDoorWallStyle(HP.cur(), { k: feat.k, d: feat.k.split(',')[0], dbl: false }).style) || HP.wallStyle || 'plaster';
+    renderWallStylePicker(wWrap, curWallStyle, st => {
+      HP.pushUndo();
+      setDoorWallStyle(feat.k, st);
+      HP.saveState();
+      HP.markDirty();
+      featureSelectedUI(feat);
+      HP.status('Wall & door style set to: ' + st);
     });
   }
 

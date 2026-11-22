@@ -947,18 +947,26 @@ function toOrientedExtrudeGeo(shape, depth, isH) {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), z = pos.getZ(i);
       pos.setX(i, z); pos.setZ(i, x);
+      if (norm) {
+        const nx = norm.getX(i), nz = norm.getZ(i);
+        norm.setX(i, nz); norm.setZ(i, nx);
+      }
     }
     for (let i = 0; i < pos.count; i += 3) {
       const x0 = pos.getX(i), y0 = pos.getY(i), z0 = pos.getZ(i);
       pos.setXYZ(i, pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1));
       pos.setXYZ(i + 1, x0, y0, z0);
+      if (norm) {
+        const nx0 = norm.getX(i), ny0 = norm.getY(i), nz0 = norm.getZ(i);
+        norm.setXYZ(i, norm.getX(i + 1), norm.getY(i + 1), norm.getZ(i + 1));
+        norm.setXYZ(i + 1, nx0, ny0, nz0);
+      }
       if (uv) {
         const u0 = uv.getX(i), v0 = uv.getY(i);
         uv.setXY(i, uv.getX(i + 1), uv.getY(i + 1));
         uv.setXY(i + 1, u0, v0);
       }
     }
-    g.computeVertexNormals();
   }
   return g;
 }
@@ -1146,6 +1154,186 @@ function makeUpperArchedPanelShape(leaves, li, span, dh, sy, stileW, railW, midR
   }
   return shape;
 }
+const WALL_DOOR_THEMES = {
+  brick: {
+    casingKind: 'stone', casingColor: '#ede8df',
+    leafWood: '#4a3222', leafTrim: '#3c2719', leafPanel: '#543927',
+    hardwareKind: 'metal', hardwareColor: '#2b2724',
+    sillColor: '#3a3835'
+  },
+  brick_white: {
+    casingKind: 'stone', casingColor: '#f2ede4',
+    leafWood: '#523a28', leafTrim: '#422c1d', leafPanel: '#5c412e',
+    hardwareKind: 'metal', hardwareColor: '#242426',
+    sillColor: '#45423f'
+  },
+  stone: {
+    casingKind: 'stone', casingColor: '#dcd6ca',
+    leafWood: '#3e2718', leafTrim: '#321e12', leafPanel: '#462e1d',
+    hardwareKind: 'metal', hardwareColor: '#1c1c1e',
+    sillColor: '#2f3136'
+  },
+  wood: {
+    casingKind: 'wood', casingColor: '#3a2416',
+    leafWood: '#63442a', leafTrim: '#4e331e', leafPanel: '#6d4c30',
+    hardwareKind: 'metal', hardwareColor: '#1e1f22',
+    sillColor: '#322014'
+  },
+  shiplap: {
+    casingKind: 'wood', casingColor: '#f4f1ea',
+    leafWood: '#583e2a', leafTrim: '#46301f', leafPanel: '#624630',
+    hardwareKind: 'metal', hardwareColor: '#2a2a2d',
+    sillColor: '#3c3a37'
+  },
+  concrete: {
+    casingKind: 'metal', casingColor: '#2c2e33',
+    leafWood: '#26282c', leafTrim: '#1c1d20', leafPanel: '#2e3035',
+    hardwareKind: 'metal', hardwareColor: '#94a3b8',
+    sillColor: '#202226'
+  },
+  tile: {
+    casingKind: 'ceramic', casingColor: '#e8e5dc',
+    leafWood: '#543c2b', leafTrim: '#442f20', leafPanel: '#5e4331',
+    hardwareKind: 'metal', hardwareColor: '#c89d46',
+    sillColor: '#3a3c40'
+  },
+  marble: {
+    casingKind: 'stone', casingColor: '#f5f3ed',
+    leafWood: '#4d3728', leafTrim: '#3d2a1d', leafPanel: '#583f2f',
+    hardwareKind: 'metal', hardwareColor: '#d4af37',
+    sillColor: '#dedad2'
+  },
+  glass: {
+    casingKind: 'metal', casingColor: '#1d1f22',
+    leafWood: '#242629', leafTrim: '#1a1b1d', leafPanel: '#2d3034',
+    hardwareKind: 'metal', hardwareColor: '#dce0e5',
+    sillColor: '#1e2023'
+  },
+  plaster: {
+    casingKind: 'plaster', casingColor: '#ede8df',
+    leafWood: '#5c4033', leafTrim: '#4a3325', leafPanel: '#65483a',
+    hardwareKind: 'metal', hardwareColor: '#c89d46',
+    sillColor: '#3e4146'
+  }
+};
+HP.WALL_DOOR_THEMES = WALL_DOOR_THEMES;
+
+function resolveDoorWallStyle(lvl, a) {
+  if (!lvl || !lvl.walls) return { style: HP.wallStyle || 'plaster', ca: '#f4efe4', cb: '#f4efe4' };
+  const k = a ? a.k : null;
+  const isH = a ? a.d === 'h' : false;
+  const seg = k ? HP.parseWallKey(k) : null;
+  const leaves = (a && a.dbl) ? 2 : 1;
+
+  if (k) {
+    const keys = [k];
+    if (a.dbl && seg) {
+      keys.push(isH ? 'h,' + (seg.x + 1) + ',' + seg.y : 'v,' + seg.x + ',' + (seg.y + 1));
+    }
+    for (const key of keys) {
+      const w = lvl.walls[key];
+      if (w && (w.style || w._resolvedStyle)) {
+        const st = w.style || w._resolvedStyle;
+        const defC = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'marble') ? '#ffffff' : '#f4efe4';
+        return { style: st, ca: w.ca || w._resolvedCa || defC, cb: w.cb || w._resolvedCb || defC };
+      }
+    }
+  }
+
+  // Walk along continuous wall run in negative and positive directions
+  if (seg) {
+    for (const dir of [-1, 1]) {
+      for (let step = 1; step <= 25; step++) {
+        const offset = (dir < 0) ? -step : (leaves - 1 + step);
+        const nx = isH ? seg.x + offset : seg.x;
+        const ny = isH ? seg.y : seg.y + offset;
+        const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
+        const nw = lvl.walls[nk];
+        if (!nw) break;
+        if (nw.style) {
+          const defC = (nw.style === 'brick' || nw.style === 'brick_white' || nw.style === 'stone' || nw.style === 'tile' || nw.style === 'concrete' || nw.style === 'marble') ? '#ffffff' : '#f4efe4';
+          return { style: nw.style, ca: nw.ca || defC, cb: nw.cb || defC };
+        }
+      }
+    }
+
+    // Check perpendicular corner connections
+    for (const endIdx of [0, leaves]) {
+      const vx = isH ? seg.x + endIdx : seg.x;
+      const vy = isH ? seg.y : seg.y + endIdx;
+      const perpKeys = isH
+        ? [`v,${vx},${vy}`, `v,${vx},${vy - 1}`]
+        : [`h,${vx},${vy}`, `h,${vx - 1},${vy}`];
+      for (const pk of perpKeys) {
+        const pw = lvl.walls[pk];
+        if (pw && pw.style) {
+          const defC = (pw.style === 'brick' || pw.style === 'brick_white' || pw.style === 'stone' || pw.style === 'tile' || pw.style === 'concrete' || pw.style === 'marble') ? '#ffffff' : '#f4efe4';
+          return { style: pw.style, ca: pw.ca || defC, cb: pw.cb || defC };
+        }
+      }
+    }
+  }
+
+  // Check adjacent rooms
+  if (lvl.rooms && lvl.rooms.length && seg) {
+    const c0 = isH ? [seg.x, seg.y - 1] : [seg.x - 1, seg.y];
+    const c1 = isH ? [seg.x, seg.y] : [seg.x, seg.y];
+    for (const r of lvl.rooms) {
+      if (r && r.cells && r.cells.some(([cx, cy]) => (cx === c0[0] && cy === c0[1]) || (cx === c1[0] && cy === c1[1]))) {
+        for (const [cx, cy] of r.cells) {
+          for (const wk of [`h,${cx},${cy}`, `h,${cx},${cy+1}`, `v,${cx},${cy}`, `v,${cx+1},${cy}`]) {
+            const rw = lvl.walls[wk];
+            if (rw && rw.style) {
+              const defC = (rw.style === 'brick' || rw.style === 'brick_white' || rw.style === 'stone' || rw.style === 'tile' || rw.style === 'concrete' || rw.style === 'marble') ? '#ffffff' : '#f4efe4';
+              return { style: rw.style, ca: rw.ca || defC, cb: rw.cb || defC };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const defStyle = HP.wallStyle || 'plaster';
+  const defC = (defStyle === 'brick' || defStyle === 'brick_white' || defStyle === 'stone' || defStyle === 'tile' || defStyle === 'concrete' || defStyle === 'marble') ? '#ffffff' : '#f4efe4';
+  return { style: defStyle, ca: defC, cb: defC };
+}
+W3.resolveDoorWallStyle = resolveDoorWallStyle;
+
+function setDoorWallStyle(k, style) {
+  const lvl = HP.cur ? HP.cur() : null;
+  if (!lvl || !lvl.walls) return;
+  const w = lvl.walls[k];
+  if (!w) return;
+  const s = HP.parseWallKey(k);
+  w.style = style;
+  const isH = s.d === 'h';
+  const adjKeys = [
+    isH ? 'h,' + (s.x + 1) + ',' + s.y : 'v,' + s.x + ',' + (s.y + 1),
+    isH ? 'h,' + (s.x - 1) + ',' + s.y : 'v,' + s.x + ',' + (s.y - 1)
+  ];
+  for (const ak of adjKeys) {
+    if (lvl.walls[ak] && lvl.walls[ak].f === 'door') {
+      lvl.walls[ak].style = style;
+    }
+  }
+  for (const dir of [-1, 1]) {
+    for (let step = 1; step <= 25; step++) {
+      const nx = isH ? s.x + dir * step : s.x;
+      const ny = isH ? s.y : s.y + dir * step;
+      const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
+      const nw = lvl.walls[nk];
+      if (!nw) break;
+      nw.style = style;
+    }
+  }
+  HP.wallStyle = style;
+  if (HP.world3d && HP.world3d.buildLevel) {
+    HP.world3d.buildLevel();
+  }
+}
+W3.setDoorWallStyle = setDoorWallStyle;
+HP.setDoorWallStyle = setDoorWallStyle;
+
 function buildDoorFrame(a, s0, s1, parentGroup) {
   const isH = a.d === 'h';
   const span = s1 - s0;
@@ -1162,39 +1350,27 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   const isGlass = doorStyle === 'glass';
   const isArch = doorStyle === 'archway' || doorStyle === 'arched';
 
+  const ws = resolveDoorWallStyle(lvl, a);
+  const wallStyle = ws.style;
+  const wallCol = ws.ca;
+  const theme = WALL_DOOR_THEMES[wallStyle] || WALL_DOOR_THEMES.plaster;
+
   let frameMat, wallMat;
   if (isArch) {
-    const seg = a.k ? HP.parseWallKey(a.k) : null;
-    let wPrev = null, wNext = null;
-    if (seg && lvl && lvl.walls) {
-      if (isH) {
-        wPrev = lvl.walls['h,' + (seg.x - 1) + ',' + seg.y];
-        wNext = lvl.walls['h,' + (seg.x + 1) + ',' + seg.y];
-      } else {
-        wPrev = lvl.walls['v,' + seg.x + ',' + (seg.y - 1)];
-        wNext = lvl.walls['v,' + seg.x + ',' + (seg.y + 1)];
-      }
-    }
-    const wallStyle = (rec && rec.style) || (wPrev && wPrev.style) || (wNext && wNext.style) || HP.wallStyle || 'plaster';
-    let wallCol = (rec && (rec.ca || rec.cb)) || (wPrev && (wPrev.ca || wPrev.cb)) || (wNext && (wNext.ca || wNext.cb));
-    if (!wallCol) {
-      wallCol = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'tile' || wallStyle === 'concrete' || wallStyle === 'marble') ? '#ffffff' : '#f4efe4';
-    }
-    const isStoneWall = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'concrete');
-    const trimKind = isStoneWall ? 'stone' : (wallStyle === 'tile' ? 'ceramic' : (wallStyle === 'wood' ? 'wood' : 'plaster'));
-    const trimColor = (wallStyle === 'brick' || wallStyle === 'stone') ? '#ede8df' : (wallStyle === 'concrete' ? '#d1d5db' : (wallStyle === 'wood' ? '#5a3d28' : '#ede8df'));
-    frameMat = HP.graphics3d ? HP.graphics3d.material(trimKind, trimColor) : new THREE.MeshLambertMaterial({ color: 0xede8df });
-    wallMat = HP.graphics3d ? HP.graphics3d.material(wallStyle, wallCol) : frameMat;
+    frameMat = HP.graphics3d ? HP.graphics3d.material(theme.casingKind, theme.casingColor) : new THREE.MeshLambertMaterial({ color: 0xede8df });
+    wallMat = (HP.world3d && HP.world3d.getWallMat)
+      ? HP.world3d.getWallMat(wallStyle)
+      : (HP.graphics3d ? HP.graphics3d.worldUV(HP.graphics3d.material(wallStyle, wallCol).clone(), (HP.CELL || 28) * 2) : frameMat);
   } else if (isModern) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#282a2e') : new THREE.MeshLambertMaterial({ color: 0x282a2e });
   } else if (isGlass) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#1d1f22') : new THREE.MeshLambertMaterial({ color: 0x1d1f22 });
   } else if (isSlide) {
-    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#3d2c1d') : new THREE.MeshLambertMaterial({ color: 0x3d2c1d });
+    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', theme.leafTrim || '#3d2c1d') : new THREE.MeshLambertMaterial({ color: 0x3d2c1d });
   } else {
-    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#5c4033') : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
+    frameMat = HP.graphics3d ? HP.graphics3d.material(theme.casingKind, theme.casingColor) : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
   }
-  const sillMat = HP.graphics3d ? HP.graphics3d.material('metal', '#3e4146') : new THREE.MeshLambertMaterial({ color: 0x3e4146 });
+  const sillMat = HP.graphics3d ? HP.graphics3d.material('metal', theme.sillColor) : new THREE.MeshLambertMaterial({ color: 0x3e4146 });
 
   const group = new THREE.Group();
   const bY = (a && a.baseY) || 0;
@@ -1824,10 +2000,12 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       leaf.add(knob);
     } else if (doorStyle === 'arched') {
       // Arched Heritage Craftsman Door
-      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#5c4033') : leafMat;
-      const trimMat = HP.graphics3d ? HP.graphics3d.material('wood', '#4a3325') : leafMat;
-      const panelMat = HP.graphics3d ? HP.graphics3d.material('wood', '#65483a') : leafMat;
-      const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
+      const ws = resolveDoorWallStyle(lvl, a);
+      const theme = WALL_DOOR_THEMES[ws.style] || WALL_DOOR_THEMES.plaster;
+      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', theme.leafWood) : leafMat;
+      const trimMat = HP.graphics3d ? HP.graphics3d.material('wood', theme.leafTrim) : leafMat;
+      const panelMat = HP.graphics3d ? HP.graphics3d.material('wood', theme.leafPanel) : leafMat;
+      const brassMat = HP.graphics3d ? HP.graphics3d.material(theme.hardwareKind, theme.hardwareColor) : knobMat;
 
       const R = span / 2;
       const sy = Math.max(30, dh - R);
@@ -1946,8 +2124,10 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       leaf.add(knob);
     } else {
       // Classic 4-Panel Stile-and-Rail Door ('panel')
-      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#6a4c33') : leafMat;
-      const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
+      const ws = resolveDoorWallStyle(lvl, a);
+      const theme = WALL_DOOR_THEMES[ws.style] || WALL_DOOR_THEMES.plaster;
+      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', theme.leafWood) : leafMat;
+      const brassMat = HP.graphics3d ? HP.graphics3d.material(theme.hardwareKind, theme.hardwareColor) : knobMat;
 
       leaf = new THREE.Mesh(box3d(lw, lh, dep), woodMat);
       setPos(leaf, (li === 0 ? lw / 2 : -lw / 2), lh / 2 - 0.5, v);
@@ -2713,15 +2893,15 @@ W3.buildLevel = function () {
         for (let i = 0; i + 1 < cuts.length; i++) {
           const s0 = cuts[i], s1 = cuts[i + 1];
           const ci = Math.floor(((s0 + s1) / 2) / C);
-          const w = curLvl.walls[b.d + ',' + (isH ? ci : b.line) + ',' + (isH ? b.line : ci)];
-          let st = (w && w.style);
-          let ca = w && w.ca, cb = w && w.cb;
+          const wk = b.d + ',' + (isH ? ci : b.line) + ',' + (isH ? b.line : ci);
+          const w = curLvl.walls[wk];
+          let st = (w && (w.style || w._resolvedStyle));
+          let ca = w && (w.ca || w._resolvedCa), cb = w && (w.cb || w._resolvedCb);
           if (w && (w.f === 'door' || w.f === 'window')) {
-            const wPrev = curLvl.walls[b.d + ',' + (isH ? (ci - 1) : b.line) + ',' + (isH ? b.line : (ci - 1))];
-            const wNext = curLvl.walls[b.d + ',' + (isH ? (ci + 1) : b.line) + ',' + (isH ? b.line : (ci + 1))];
-            if (!st) st = (wPrev && wPrev.style) || (wNext && wNext.style);
-            if (!ca) ca = (wPrev && wPrev.ca) || (wNext && wNext.ca);
-            if (!cb) cb = (wPrev && wPrev.cb) || (wNext && wNext.cb);
+            const ws = resolveDoorWallStyle(curLvl, { k: wk, d: b.d, dbl: false });
+            if (!st) st = ws.style;
+            if (!ca) ca = ws.ca;
+            if (!cb) cb = ws.cb;
           }
           st = st || 'plaster';
           const sDefC = styleDefaultCol(st, b.ext);
