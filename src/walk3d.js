@@ -399,6 +399,7 @@ function showOverlay(title, sub) {
 /* world-space XZ footprint of a door leaf at rotation ang (default:
    current) — an open leaf still blocks where it physically stands   */
 function leafBox(d, ang) {
+  if (d.doorStyle === 'archway' || !d.leaf) return { x0: 0, x1: 0, z0: 0, z1: 0 };
   if (d.slide) {
     if (d.open > 0.5) {
       const P = d.pivot.position, L = d.leaf, g = L && L.geometry && L.geometry.parameters;
@@ -434,7 +435,8 @@ function leafBox(d, ang) {
      its edge).  Once it swings out, only the leaf itself blocks.    */
   if (Math.abs(th) < 0.18)
     return { x0: d.a.x0 - 0.4, x1: d.a.x1 + 0.4, z0: d.a.z0 - 0.4, z1: d.a.z1 + 0.4 };
-  const P = d.pivot.position, L = d.leaf, g = L.geometry.parameters;
+  const P = d.pivot.position, L = d.leaf, g = L && L.geometry && L.geometry.parameters;
+  if (!g) return { x0: 0, x1: 0, z0: 0, z1: 0 };
   const cs = Math.cos(th), sn = Math.sin(th);
   const h = d.a.d === 'h';
   /* leaf's real local rect: u along the door line, v across the zone */
@@ -456,6 +458,7 @@ K._leafBox = leafBox;
 
 /* the leaf's four corners at a hypothetical angle — for swing tests  */
 function leafCorners(d, ang) {
+  if (d.doorStyle === 'archway' || !d.leaf) return [[0, 0], [0, 0], [0, 0], [0, 0]];
   if (d.casement) {
     const root = d.pivot.parent.position, p = d.pivot.position;
     const cs = Math.cos(ang), sn = Math.sin(ang), h = d.a.d === 'h';
@@ -464,7 +467,8 @@ function leafCorners(d, ang) {
       return [root.x + p.x + x * cs + z * sn, root.z + p.z - x * sn + z * cs];
     });
   }
-  const P = d.pivot.position, L = d.leaf, g = L.geometry.parameters;
+  const P = d.pivot.position, L = d.leaf, g = L && L.geometry && L.geometry.parameters;
+  if (!g) return [[0, 0], [0, 0], [0, 0], [0, 0]];
   const cs = Math.cos(ang), sn = Math.sin(ang), h = d.a.d === 'h';
   const u0 = (h ? L.position.x : L.position.z) - (h ? g.width : g.depth) / 2;
   const u1 = u0 + (h ? g.width : g.depth);
@@ -527,7 +531,7 @@ function swingWindow(d, from, to) {
       rectPen(pts, [[b.x0, b.z0], [b.x1, b.z0], [b.x1, b.z1], [b.x0, b.z1]]) > 0.001;
     let blocked = HP.world3d.colliders.some(hit) || HP.world3d.geom.boxes.some(hit);
     if (!blocked) for (const other of HP.world3d.doorPivots) {
-      if (other === d || other.slide || other.ly1 <= d.ly0 || other.ly0 >= d.ly1) continue;
+      if (other === d || other.slide || other.ly1 <= d.ly0 || other.ly0 >= d.ly1 || other.doorStyle === 'archway' || !other.leaf) continue;
       if (rectPen(pts, leafCorners(other, other.pivot.rotation.y)) > 0.001) { blocked = true; break; }
     }
     if (!blocked && started && d.ly0 < 50) {
@@ -543,19 +547,26 @@ function swingWindow(d, from, to) {
    side, f=-1 swings the other way so a blocked door opens somewhere */
 function setFlip(d, f) {
   d.flip = f;
-  if (d.gate || d.window || !d.dep) return;              // centred leaves
+  if (d.gate || d.window || !d.dep || d.doorStyle === 'archway' || !d.leaf) return;              // centred leaves
   /* the hinge pin must move to the face the leaf folds toward —
      same corner, other edge of the slot                              */
   if (d.a.d === 'h') d.pivot.position.z = f > 0 ? d.a.z0 : d.a.z1;
   else               d.pivot.position.x = f > 0 ? d.a.x0 : d.a.x1;
   const v  = (d.dep / 2 - 0.3) * f;
   const kv = (d.dep - 0.5) * f;
-  if (d.a.d === 'h') { d.leaf.position.z = v; if (d.knob && d.knob.parent === d.pivot) d.knob.position.z = kv; }
-  else               { d.leaf.position.x = v; if (d.knob && d.knob.parent === d.pivot) d.knob.position.x = kv; }
+  if (d.leaf) {
+    if (d.a.d === 'h') d.leaf.position.z = v;
+    else               d.leaf.position.x = v;
+  }
+  if (d.knob && d.knob.parent === d.pivot) {
+    if (d.a.d === 'h') d.knob.position.z = kv;
+    else               d.knob.position.x = kv;
+  }
 }
 /* test both swing directions for an aperture; keep the roomier side —
    all leaves of a (double) door share the choice                   */
 function chooseFlip(d) {
+  if (d.doorStyle === 'archway' || !d.leaf) return;
   const fam = HP.world3d.doorPivots.filter(o => o.a === d.a);
   const lim = f => { for (const o of fam) setFlip(o, f);
                      return Math.min(...fam.map(swingLimit)); };
@@ -570,6 +581,7 @@ function chooseFlip(d) {
 /* furthest the leaf can swing before ~2px inside a static solid —
    doors can't fold through walls or furniture                      */
 function swingLimit(d) {
+  if (d.doorStyle === 'archway' || !d.leaf) return 0;
   const maxDeg = (d.a && d.a.dbl) ? 90 : 166;
   const dir = (d.a.d === 'h' ? 1 : -1) * (d.li === 1 ? -1 : 1) * (d.flip || 1);
   const cs = HP.world3d.colliders || [];
@@ -829,6 +841,7 @@ function interact() {
     else if (HP.sync3d && d.it) HP.sync3d.broadcastLamp(d.it.id, d.it.on);
     return;
   }
+  if (d.doorStyle === 'archway' || !d.leaf) return;
   /* latch the whole door (both leaves of a double) — a latched door
      stays open until E again; unlatching lets the spring shut it    */
   const open = !(d.latched || d.holdT > 0.2 || d.open > 0.5);
@@ -978,6 +991,7 @@ function tick(t) {
      the spring pulls it home (open while latched/held, shut after),
      with a small overshoot so it feels hinged, not robotic          */
   for (const d of (HP.world3d.doorPivots || [])) {
+    if (d.doorStyle === 'archway' || !d.leaf) continue;
     if (d.holdT > 0) d.holdT -= dt;
     if (d.maxAng === undefined) {
       if (d.casement) d.maxAng = Math.PI / 2;
