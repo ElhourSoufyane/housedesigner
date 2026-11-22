@@ -623,6 +623,13 @@ t('Escape resume also preserves position', pos().x === beforePause.x && pos().z 
     W3.updateApertures();
     t('in-place door style switch updated dp.doorStyle', dPanel.doorStyle === 'slide');
     t('in-place door style switch gave slide vector', !!(dPanel.slide && dPanel.slide.x));
+
+    // Test in-place switch to arched heritage door
+    fix.walls['h,19,10'].doorStyle = 'arched';
+    W3.updateApertures();
+    t('in-place switch to arched updated dp.doorStyle', dPanel.doorStyle === 'arched');
+    t('arched door leaf has geometric parameters', !!(dPanel.leaf && dPanel.leaf.geometry && dPanel.leaf.geometry.parameters && dPanel.leaf.geometry.parameters.width));
+    t('arched door has no slide vector (hinged)', !dPanel.slide);
   }
 
   // Test double sliding doors
