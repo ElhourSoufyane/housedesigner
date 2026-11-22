@@ -919,7 +919,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   } else if (isSlide) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#3d2c1d') : new THREE.MeshLambertMaterial({ color: 0x3d2c1d });
   } else {
-    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#eee9df') : new THREE.MeshLambertMaterial({ color: 0xeee9df });
+    frameMat = HP.graphics3d ? HP.graphics3d.material('wood', '#5c4033') : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
   }
   const sillMat = HP.graphics3d ? HP.graphics3d.material('metal', '#3e4146') : new THREE.MeshLambertMaterial({ color: 0x3e4146 });
 
@@ -982,7 +982,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     }
 
     // Casing trim bands on both wall faces
-    const casingW = 1.0, casingT = 0.25;
+    const casingW = 1.4, casingT = 0.55;
     const casingGeoV = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
     const keystoneGeo = new THREE.BoxGeometry(isH ? casingW * 1.8 : casingT * 1.5, casingW * 2.2, isH ? casingT * 1.5 : casingW * 1.8);
     const impostGeo = new THREE.BoxGeometry(isH ? casingW * 1.4 : casingT * 1.3, casingW * 0.8, isH ? casingT * 1.3 : casingW * 1.4);
@@ -1090,7 +1090,7 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   }
 
   // Casing trim bands on both wall faces
-  const casingW = 1.0, casingT = 0.25;
+  const casingW = 1.4, casingT = 0.55;
   const casingGeoH = new THREE.BoxGeometry(isH ? span + casingW * 2 : casingT, casingW, isH ? casingT : span + casingW * 2);
   const casingGeoV = new THREE.BoxGeometry(isH ? casingW : casingT, dh + casingW, isH ? casingT : casingW);
 
@@ -1417,20 +1417,25 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
         }
       }
 
-      // Vertical architectural pull bar with standoffs
+      // Vertical architectural pull bar with standoffs on both sides
       knob = new THREE.Group();
-      const pullBar = new THREE.Mesh(box3d(0.8, 22, 0.8), barMat);
-      pullBar.castShadow = true;
-      knob.add(pullBar);
+      const pullU = li === 0 ? (lw / 2 - 2.2) : (-lw / 2 + 2.2);
+      for (const side of [-1, 1]) {
+        const sideZ = side * (dep / 2 + 0.65);
+        const pullBar = new THREE.Mesh(box3d(0.8, 22, 0.8), barMat);
+        setPos(pullBar, 0, 0, sideZ);
+        pullBar.castShadow = true;
+        knob.add(pullBar);
 
-      // Standoff mounting brackets at top and bottom
-      for (const sy of [-8, 8]) {
-        const so = new THREE.Mesh(box3d(0.5, 0.5, 1.2), barMat);
-        setPos(so, 0, sy, -0.5 * flipVal);
-        knob.add(so);
+        // Standoff mounting brackets at top and bottom
+        for (const sy of [-8, 8]) {
+          const so = new THREE.Mesh(box3d(0.5, 0.5, 0.6), barMat);
+          setPos(so, 0, sy, side * (dep / 2 + 0.3));
+          knob.add(so);
+        }
       }
-      setPos(knob, (li === 0 ? lw - 4.5 : -lw + 4.5), 27, kv);
-      pivot.add(knob);
+      setPos(knob, pullU, 27 - lh / 2, 0);
+      leaf.add(knob);
     } else if (doorStyle === 'glass') {
       // Glass French Door with Divided Lites
       const frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#222428') : knobMat;
@@ -1503,9 +1508,7 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       leaf.add(knob);
     } else if (doorStyle === 'arched') {
       // Arched Raised 4-Panel Heritage Door
-      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#f2ece2') : leafMat;
-      const panelTrimMat = HP.graphics3d ? HP.graphics3d.material('wood', '#e5dfd2') : leafMat;
-      const panelFieldMat = HP.graphics3d ? HP.graphics3d.material('wood', '#d9d2c4') : leafMat;
+      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#6a4c33') : leafMat;
       const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
 
       leaf = new THREE.Mesh(box3d(lw, lh, dep), woodMat);
@@ -1522,45 +1525,48 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
         for (const col of [-lw / 4 + 0.3, lw / 4 - 0.3]) {
           for (const side of [-1, 1]) {
             const pZ = side * (dep / 2 + 0.08);
-            const trim = new THREE.Mesh(box3d(pW, p.h, 0.2), panelTrimMat);
+            const trim = new THREE.Mesh(box3d(pW, p.h, 0.2), woodMat);
             setPos(trim, col, p.y, pZ);
             leaf.add(trim);
-            const field = new THREE.Mesh(box3d(pW - 1.0, p.h - 1.0, 0.15), panelFieldMat);
+            const field = new THREE.Mesh(box3d(pW - 1.0, p.h - 1.0, 0.15), woodMat);
             setPos(field, col, p.y, pZ - side * 0.04);
             leaf.add(field);
           }
         }
       }
 
+      const hingeU = li === 0 ? (-lw / 2 + 0.2) : (lw / 2 - 0.2);
       for (const hy of [12, 29, 44]) {
         const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.8, 8), brassMat);
-        hinge.position.set(0, hy, 0);
-        pivot.add(hinge);
+        setPos(hinge, hingeU, hy - lh / 2, 0);
+        leaf.add(hinge);
       }
 
       knob = new THREE.Group();
-      const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.3, 12), brassMat);
-      if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
-      knob.add(rosette);
-
-      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.6, 8), brassMat);
-      if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
-      setPos(collar, 0, 0, 0.3 * flipVal);
-      knob.add(collar);
-
+      const latchU = li === 0 ? (lw / 2 - 2.5) : (-lw / 2 + 2.5);
       const leverDir = li === 0 ? -1 : 1;
-      const lever = new THREE.Mesh(box3d(3.6, 0.5, 0.5), brassMat);
-      setPos(lever, leverDir * 1.6, -0.1, 0.6 * flipVal);
-      lever.castShadow = true;
-      knob.add(lever);
+      for (const side of [-1, 1]) {
+        const sideZ = side * (dep / 2 + 0.15);
+        const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.25, 16), brassMat);
+        if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
+        setPos(rosette, 0, 0, sideZ);
+        knob.add(rosette);
 
-      setPos(knob, (li === 0 ? lw - 4.5 : -lw + 4.5), 27, kv);
-      pivot.add(knob);
+        const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.5, 10), brassMat);
+        if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
+        setPos(collar, 0, 0, sideZ + side * 0.25);
+        knob.add(collar);
+
+        const lever = new THREE.Mesh(box3d(3.4, 0.45, 0.45), brassMat);
+        setPos(lever, leverDir * 1.5, 0, sideZ + side * 0.45);
+        lever.castShadow = true;
+        knob.add(lever);
+      }
+      setPos(knob, latchU, 27 - lh / 2, 0);
+      leaf.add(knob);
     } else {
       // Classic 4-Panel Stile-and-Rail Door ('panel')
-      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#f2ece2') : leafMat;
-      const panelTrimMat = HP.graphics3d ? HP.graphics3d.material('wood', '#e5dfd2') : leafMat;
-      const panelFieldMat = HP.graphics3d ? HP.graphics3d.material('wood', '#d9d2c4') : leafMat;
+      const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', '#6a4c33') : leafMat;
       const brassMat = HP.graphics3d ? HP.graphics3d.material('metal', '#c89d46') : knobMat;
 
       leaf = new THREE.Mesh(box3d(lw, lh, dep), woodMat);
@@ -1568,54 +1574,113 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       leaf.castShadow = leaf.receiveShadow = true;
       pivot.add(leaf);
 
-      // 4 architectural recessed panels on front and back
-      const pW = Math.max(2, (lw - 6.5) / 2);
-      const panels = [
-        { y: 13, h: 20 },   // upper panel
-        { y: -11, h: 15 },  // lower panel
-      ];
-      for (const p of panels) {
-        for (const col of [-lw / 4 + 0.3, lw / 4 - 0.3]) {
-          for (const side of [-1, 1]) {
-            const pZ = side * (dep / 2 + 0.08);
-            // Raised moulding border
-            const trim = new THREE.Mesh(box3d(pW, p.h, 0.2), panelTrimMat);
-            setPos(trim, col, p.y, pZ);
-            leaf.add(trim);
-            // Recessed field
-            const field = new THREE.Mesh(box3d(pW - 1.0, p.h - 1.0, 0.15), panelFieldMat);
-            setPos(field, col, p.y, pZ - side * 0.04);
-            leaf.add(field);
-          }
+      // Authentic craftsman stiles & rails framing 4 recessed panels on both faces
+      const stileW = 2.4;
+      const topRailH = 3.2;
+      const botRailH = 5.2; // traditional wide bottom kick rail
+      const midRailH = 3.4; // middle lock rail
+      const mullionW = 1.8; // center vertical mullion
+      const trimDep = 0.22;
+      const innerW = lw - stileW * 2;
+      const midY = 27 - lh / 2; // centered at lock/handle height
+
+      const upperH = (lh / 2 - topRailH) - (midY + midRailH / 2);
+      const upperY = (midY + midRailH / 2) + upperH / 2;
+      const lowerH = (midY - midRailH / 2) - (-lh / 2 + botRailH);
+      const lowerY = (-lh / 2 + botRailH) + lowerH / 2;
+
+      const pW = (innerW - mullionW) / 2;
+
+      for (const side of [-1, 1]) {
+        const sideZ = side * (dep / 2 + trimDep / 2);
+
+        // Left stile (full height)
+        const leftStile = new THREE.Mesh(box3d(stileW, lh, trimDep), woodMat);
+        setPos(leftStile, -lw / 2 + stileW / 2, 0, sideZ);
+        leftStile.castShadow = true;
+        leaf.add(leftStile);
+
+        // Right stile (full height)
+        const rightStile = new THREE.Mesh(box3d(stileW, lh, trimDep), woodMat);
+        setPos(rightStile, lw / 2 - stileW / 2, 0, sideZ);
+        rightStile.castShadow = true;
+        leaf.add(rightStile);
+
+        // Top rail
+        const topRail = new THREE.Mesh(box3d(innerW, topRailH, trimDep), woodMat);
+        setPos(topRail, 0, lh / 2 - topRailH / 2, sideZ);
+        topRail.castShadow = true;
+        leaf.add(topRail);
+
+        // Bottom kick rail
+        const botRail = new THREE.Mesh(box3d(innerW, botRailH, trimDep), woodMat);
+        setPos(botRail, 0, -lh / 2 + botRailH / 2, sideZ);
+        botRail.castShadow = true;
+        leaf.add(botRail);
+
+        // Mid lock rail
+        const midRail = new THREE.Mesh(box3d(innerW, midRailH, trimDep), woodMat);
+        setPos(midRail, 0, midY, sideZ);
+        midRail.castShadow = true;
+        leaf.add(midRail);
+
+        // Upper center mullion
+        const upMullion = new THREE.Mesh(box3d(mullionW, upperH, trimDep), woodMat);
+        setPos(upMullion, 0, upperY, sideZ);
+        upMullion.castShadow = true;
+        leaf.add(upMullion);
+
+        // Lower center mullion
+        const lowMullion = new THREE.Mesh(box3d(mullionW, lowerH, trimDep), woodMat);
+        setPos(lowMullion, 0, lowerY, sideZ);
+        lowMullion.castShadow = true;
+        leaf.add(lowMullion);
+
+        // Raised central fields inside the 4 recessed panels
+        for (const col of [-pW / 2 - mullionW / 2, pW / 2 + mullionW / 2]) {
+          // Upper panel raised field
+          const upField = new THREE.Mesh(box3d(pW - 1.2, upperH - 1.2, 0.12), woodMat);
+          setPos(upField, col, upperY, side * (dep / 2 + 0.06));
+          leaf.add(upField);
+
+          // Lower panel raised field
+          const lowField = new THREE.Mesh(box3d(pW - 1.2, lowerH - 1.2, 0.12), woodMat);
+          setPos(lowField, col, lowerY, side * (dep / 2 + 0.06));
+          leaf.add(lowField);
         }
       }
 
       // 3 Brass hinge barrels on hinge edge
+      const hingeU = li === 0 ? (-lw / 2 + 0.2) : (lw / 2 - 0.2);
       for (const hy of [12, 29, 48]) {
-        const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.8, 8), brassMat);
-        hinge.position.set(0, hy, 0);
-        pivot.add(hinge);
+        const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.8, 10), brassMat);
+        setPos(hinge, hingeU, hy - lh / 2, 0);
+        leaf.add(hinge);
       }
 
-      // Polished brass lever handle & circular rosette
+      // Dual-sided architectural polished brass lever handles & rosettes
       knob = new THREE.Group();
-      const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.3, 12), brassMat);
-      if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
-      knob.add(rosette);
-
-      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.6, 8), brassMat);
-      if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
-      setPos(collar, 0, 0, 0.3 * flipVal);
-      knob.add(collar);
-
+      const latchU = li === 0 ? (lw / 2 - stileW / 2) : (-lw / 2 + stileW / 2);
       const leverDir = li === 0 ? -1 : 1;
-      const lever = new THREE.Mesh(box3d(3.6, 0.5, 0.5), brassMat);
-      setPos(lever, leverDir * 1.6, -0.1, 0.6 * flipVal);
-      lever.castShadow = true;
-      knob.add(lever);
+      for (const side of [-1, 1]) {
+        const sideZ = side * (dep / 2 + trimDep + 0.02);
+        const rosette = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.25, 16), brassMat);
+        if (isH) rosette.rotation.x = Math.PI / 2; else rosette.rotation.z = Math.PI / 2;
+        setPos(rosette, 0, 0, sideZ);
+        knob.add(rosette);
 
-      setPos(knob, (li === 0 ? lw - 4.5 : -lw + 4.5), 27, kv);
-      pivot.add(knob);
+        const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.5, 10), brassMat);
+        if (isH) collar.rotation.x = Math.PI / 2; else collar.rotation.z = Math.PI / 2;
+        setPos(collar, 0, 0, sideZ + side * 0.25);
+        knob.add(collar);
+
+        const lever = new THREE.Mesh(box3d(3.4, 0.45, 0.45), brassMat);
+        setPos(lever, leverDir * 1.5, 0, sideZ + side * 0.45);
+        lever.castShadow = true;
+        knob.add(lever);
+      }
+      setPos(knob, latchU, midY, 0);
+      leaf.add(knob);
     }
   }
 

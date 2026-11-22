@@ -1,8 +1,8 @@
 {
-  "version": "1.3.24",
-  "build": 1795356809120,
-  "updatedAt": "2026-11-22T14:13:29.120Z",
-  "notes": "Fix sliding glass door track alignment and bypass glide motion",
+  "version": "1.3.25",
+  "build": 1795357972563,
+  "updatedAt": "2026-11-22T14:32:52.563Z",
+  "notes": "Fix dual-sided door hardware, authentic craftsman stile-and-rail panels, and architectural casing",
   "files": [
     "version.json",
     "index.html",
@@ -46,15 +46,15 @@
     "sw.js": "dd610c0c4c19",
     "preload.js": "51c8baf4b838",
     "electron-main.js": "df32e78b3421",
-    "src/catalog.js": "1f1e1370cd4b",
+    "src/catalog.js": "bb85f4d4746c",
     "src/cull3d.js": "55178727ab57",
     "src/default-house.js": "e4d70f0b9afa",
-    "src/furniture3d.js": "d7715181838e",
+    "src/furniture3d.js": "ce794d961c9e",
     "src/geom3d.js": "aa87f3205b42",
     "src/graphics3d.js": "be02d48a0529",
     "src/grid.js": "baf6015eec76",
     "src/input.js": "346bffc4ea5a",
-    "src/life3d.js": "dda22a1ef097",
+    "src/life3d.js": "44042a9ca352",
     "src/main.js": "8dff9215e83b",
     "src/presets.js": "91562f797f7d",
     "src/rooms.js": "134ff35a795a",
@@ -69,7 +69,7 @@
     "src/ui.js": "676fe4979613",
     "src/walk.js": "30dc56dd423a",
     "src/walk3d.js": "5e5bec810aaf",
-    "src/world3d.js": "f0ace83db16d",
+    "src/world3d.js": "0c0ca615ddcc",
     "src/play3d-inpage.js": "fb411245c669"
   }
 }
