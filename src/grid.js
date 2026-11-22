@@ -607,7 +607,7 @@ HP.shade = function (col, f) {             // f<1 darker, f>1 lighter
 };
 
 /* ---------- item sub-colliders & open footprint spaces ---------- */
-HP.itemSubBoxes = function (type, bw, bh, H) {
+HP.itemSubBoxes = function (type, bw, bh, H, it) {
   const t = (type || '').toLowerCase();
   const C = HP.CELL;
   const W = bw * C, D = bh * C;
@@ -749,6 +749,19 @@ HP.itemSubBoxes = function (type, bw, bh, H) {
       { x0: -W / 2, x1: 0.15 * C, z0: -D / 2, z1: 0.15 * C, y0: 0, y1: H }
     ];
   }
+  if (/^archway/i.test(t)) {
+    const pw = /^archway1/i.test(t) ? 0.16 : (/^archway3/i.test(t) ? 0.08 : 0.12);
+    const postW = pw * W;
+    const halfD = Math.max(2, ((it && it._wallThickPx) || 8.4) / 2 + 0.45);
+    return [
+      // Left pilaster pillar
+      { x0: -W / 2, x1: -W / 2 + postW, z0: -halfD, z1: halfD, y0: 0, y1: H },
+      // Right pilaster pillar
+      { x0: W / 2 - postW, x1: W / 2, z0: -halfD, z1: halfD, y0: 0, y1: H },
+      // Overhead arch header beam
+      { x0: -W / 2, x1: W / 2, z0: -halfD, z1: halfD, y0: 52, y1: H }
+    ];
+  }
   if (/^garagedoor/i.test(t)) {
     return [
       // Left jamb vertical track post
@@ -771,8 +784,13 @@ HP.itemColliders = function (it, def, f, H) {
   const C = HP.CELL;
   const bw = it.w || def.w, bh = it.h || def.h;
   const rot = (it.rot || 0) % 4;
-  const cx = (f.x + f.w / 2) * C, cz = (f.y + f.h / 2) * C;
-  const subs = HP.itemSubBoxes(it.type, bw, bh, H);
+  let cx = (f.x + f.w / 2) * C, cz = (f.y + f.h / 2) * C;
+  if (/^archway/i.test(it.type)) {
+    if ((rot === 0 || rot === 2) && it._midZ !== undefined) cz = it._midZ;
+    else if ((rot === 1 || rot === 3) && it._midX !== undefined) cx = it._midX;
+  }
+  const subs = HP.itemSubBoxes(it.type, bw, bh, H, it);
+  const bY = (it && it._baseY !== undefined) ? it._baseY : 0;
   return subs.map(b => {
     let x0, x1, z0, z1;
     if (rot === 0) {
@@ -788,7 +806,7 @@ HP.itemColliders = function (it, def, f, H) {
       x0 = cx + b.z0; x1 = cx + b.z1;
       z0 = cz - b.x1; z1 = cz - b.x0;
     }
-    return { x0, x1, z0, z1, y0: b.y0, y1: b.y1 };
+    return { x0, x1, z0, z1, y0: b.y0 + bY, y1: b.y1 + bY };
   });
 };
 

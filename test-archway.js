@@ -159,4 +159,23 @@ for (const wallType of ['interior', 'exterior']) {
   }
 }
 
+// 6. Test archway pillar sub-colliders and walkthrough opening
+for (const id of ['archway', 'archway1', 'archway3']) {
+  const def = HP.CATALOG.find(d => d.id === id);
+  const it = { type: id, x: 10, y: 10, rot: 0, _midZ: 280, _wallThickPx: 8.4 };
+  const f = HP.footprint(it);
+  const colliders = HP.itemColliders(it, def, f, 74);
+  assert.equal(colliders.length, 3, `${id} must have 3 sub-colliders (left post, right post, header)`);
+  const leftPost = colliders[0], rightPost = colliders[1], header = colliders[2];
+  assert(leftPost.y0 === 0 && leftPost.y1 === 74, 'Left pillar must be floor-to-ceiling collider');
+  assert(rightPost.y0 === 0 && rightPost.y1 === 74, 'Right pillar must be floor-to-ceiling collider');
+  assert(header.y0 >= 50 && header.y1 === 74, 'Header must be overhead collider');
+  assert(rightPost.x0 > leftPost.x1, 'Must have open space between left and right pillars');
+  const span = rightPost.x0 - leftPost.x1;
+  assert(span >= 18, `Walkthrough opening must be at least 18px clear: was ${span}`);
+  // In 2D walk mode: center must NOT be blocked
+  const blocked2D = HP.itemBlockedCells(it, def, f, 74);
+  assert.equal(blocked2D.length, 0, `${id} must not block 2D walkthrough cells`);
+}
+
 console.log('✓ PASS test-archway.js: Catalog archways (1x1, 2x1, 3x1), Door styles (archway, arched) & dual-sided wall flush alignment verified!');

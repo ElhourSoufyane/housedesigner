@@ -475,6 +475,8 @@ F.builder = function (group) {
 
         it._wallThickPx = wallThickPx;
         it._neighborWall = neighborWall;
+        it._midX = pos.x;
+        it._midZ = pos.z;
         fp = { x0: pos.x - width / 2, z0: pos.z - depth / 2, x1: pos.x + width / 2, z1: pos.z + depth / 2 };
       }
       small = f.w * f.h < 4;
@@ -9218,6 +9220,30 @@ F.builder = function (group) {
         // Architectural Cased Walkthrough Archway (Matches the connecting wall's material & color: plaster, brick, tile, stone, concrete, etc.)
         const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
         const lvlWalls = (lvl && lvl.walls) || {};
+
+        // If an archway item is placed directly over an existing door opening, world3d builds the unified
+        // architectural arched door frame and authentic leaves — skip duplicate frame to prevent z-fighting & clipping
+        const isHArch = (rot === 0 || rot === 2);
+        let hasDoorUnderneath = false;
+        if (isHArch) {
+          for (let cx = f.x; cx < f.x + f.w; cx++) {
+            if ((lvlWalls[`h,${cx},${f.y}`] && lvlWalls[`h,${cx},${f.y}`].f === 'door') ||
+                (lvlWalls[`h,${cx},${f.y + 1}`] && lvlWalls[`h,${cx},${f.y + 1}`].f === 'door')) {
+              hasDoorUnderneath = true; break;
+            }
+          }
+        } else {
+          for (let cy = f.y; cy < f.y + f.h; cy++) {
+            if ((lvlWalls[`v,${f.x},${cy}`] && lvlWalls[`v,${f.x},${cy}`].f === 'door') ||
+                (lvlWalls[`v,${f.x + 1},${cy}`] && lvlWalls[`v,${f.x + 1},${cy}`].f === 'door')) {
+              hasDoorUnderneath = true; break;
+            }
+          }
+        }
+        if (hasDoorUnderneath) {
+          return;
+        }
+
         let neighborWall = it._neighborWall || null;
 
         if (!neighborWall) {

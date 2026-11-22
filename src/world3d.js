@@ -973,29 +973,32 @@ function makeArchedLeafGeometry(leaves, li, span, dh, sy, dep, isH) {
 
   if (leaves === 2) {
     if (li === 0) {
+      // Leaf 0 (left quadrant): Hinge at u = -lw/2, Meeting edge at u = +lw/2
       shape.moveTo(-lw / 2, -lh / 2);
       shape.lineTo(lw / 2, -lh / 2);
       shape.lineTo(lw / 2, lh / 2);
       for (let i = 0; i <= N; i++) {
         const theta = (Math.PI / 2) * (1 - i / N);
-        const u = R * (1 - Math.cos(theta)) - lw / 2;
+        const u = lw / 2 - R * Math.cos(theta);
         const y = sy + archH * Math.sin(theta) - lh / 2;
         shape.lineTo(u, y);
       }
       shape.lineTo(-lw / 2, -lh / 2);
     } else {
+      // Leaf 1 (right quadrant): Meeting edge at u = -lw/2, Hinge at u = +lw/2
       shape.moveTo(-lw / 2, -lh / 2);
       shape.lineTo(lw / 2, -lh / 2);
       shape.lineTo(lw / 2, sy - lh / 2);
       for (let i = 0; i <= N; i++) {
-        const theta = Math.PI - (Math.PI / 2) * (i / N);
-        const u = -R * (1 + Math.cos(theta)) + lw / 2;
+        const theta = (Math.PI / 2) * (i / N);
+        const u = R * Math.cos(theta) - lw / 2;
         const y = sy + archH * Math.sin(theta) - lh / 2;
         shape.lineTo(u, y);
       }
       shape.lineTo(-lw / 2, -lh / 2);
     }
   } else {
+    // Single door (full semicircle): Hinge at -lw/2, Latch at +lw/2
     shape.moveTo(-lw / 2, -lh / 2);
     shape.lineTo(lw / 2, -lh / 2);
     shape.lineTo(lw / 2, sy - lh / 2);
@@ -1018,57 +1021,125 @@ function makeArchedLeafGeometry(leaves, li, span, dh, sy, dep, isH) {
   return geo;
 }
 
-function makeUpperArchedPanelShape(leaves, li, span, dh, sy, inset) {
+function makeCurvedTopRailShape(leaves, li, span, dh, sy, railW) {
   const R = span / 2;
   const archH = dh - sy;
   const lw = leaves === 2 ? span / 2 : span;
   const lh = dh;
   const N = 24;
-  const yBot = (27 - lh / 2) + 3.4 / 2;
   const shape = new THREE.Shape();
+  const Rin = Math.max(1, R - railW);
 
   if (leaves === 2) {
     if (li === 0) {
-      const uHinge = -lw / 2 + inset;
-      const uMeet = lw / 2 - inset;
-      shape.moveTo(uHinge, yBot);
-      shape.lineTo(uMeet, yBot);
-      shape.lineTo(uMeet, lh / 2 - inset);
+      shape.moveTo(-lw / 2, sy - lh / 2);
+      for (let i = 0; i <= N; i++) {
+        const theta = (Math.PI / 2) * (i / N);
+        const u = lw / 2 - R * Math.cos(theta);
+        const y = sy + archH * Math.sin(theta) - lh / 2;
+        shape.lineTo(u, y);
+      }
+      shape.lineTo(lw / 2, lh / 2 - railW);
       for (let i = 0; i <= N; i++) {
         const theta = (Math.PI / 2) * (1 - i / N);
-        const u = R * (1 - Math.cos(theta)) - lw / 2;
+        const u = lw / 2 - Rin * Math.cos(theta);
+        const y = sy + (Rin * (archH / R)) * Math.sin(theta) - lh / 2;
+        shape.lineTo(u, y);
+      }
+      shape.closePath();
+    } else {
+      shape.moveTo(lw / 2, sy - lh / 2);
+      shape.lineTo(lw / 2 - railW, sy - lh / 2);
+      for (let i = 0; i <= N; i++) {
+        const theta = (Math.PI / 2) * (i / N);
+        const u = Rin * Math.cos(theta) - lw / 2;
+        const y = sy + (Rin * (archH / R)) * Math.sin(theta) - lh / 2;
+        shape.lineTo(u, y);
+      }
+      shape.lineTo(-lw / 2, lh / 2);
+      for (let i = 0; i <= N; i++) {
+        const theta = (Math.PI / 2) * (1 - i / N);
+        const u = R * Math.cos(theta) - lw / 2;
+        const y = sy + archH * Math.sin(theta) - lh / 2;
+        shape.lineTo(u, y);
+      }
+      shape.closePath();
+    }
+  } else {
+    shape.moveTo(-lw / 2, sy - lh / 2);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (i / N);
+      const u = -R * Math.cos(theta);
+      const y = sy + archH * Math.sin(theta) - lh / 2;
+      shape.lineTo(u, y);
+    }
+    shape.lineTo(lw / 2 - railW, sy - lh / 2);
+    for (let i = 0; i <= N; i++) {
+      const theta = Math.PI * (1 - i / N);
+      const u = -Rin * Math.cos(theta);
+      const y = sy + (Rin * (archH / R)) * Math.sin(theta) - lh / 2;
+      shape.lineTo(u, y);
+    }
+    shape.closePath();
+  }
+  return shape;
+}
+
+function makeUpperArchedPanelShape(leaves, li, span, dh, sy, stileW, railW, midRailH) {
+  const R = span / 2;
+  const archH = dh - sy;
+  const lw = leaves === 2 ? span / 2 : span;
+  const lh = dh;
+  const N = 24;
+  const yBot = (27 - lh / 2) + (midRailH || 3.4) / 2;
+  const shape = new THREE.Shape();
+  const rW = railW || 3.4;
+  const sW = stileW || 2.4;
+  const Rpan = Math.max(1, R - rW - 0.5);
+
+  if (leaves === 2) {
+    if (li === 0) {
+      const uHinge = -lw / 2 + sW;
+      const uMeet = lw / 2 - sW;
+      shape.moveTo(uHinge, yBot);
+      shape.lineTo(uMeet, yBot);
+      const topMeetY = sy + (Rpan * (archH / R)) - lh / 2;
+      shape.lineTo(uMeet, Math.max(yBot, topMeetY));
+      for (let i = 0; i <= N; i++) {
+        const theta = (Math.PI / 2) * (1 - i / N);
+        const u = lw / 2 - Rpan * Math.cos(theta);
         const clampedU = Math.max(uHinge, Math.min(uMeet, u));
-        const y = (sy + archH * Math.sin(theta) - lh / 2) - inset;
+        const y = sy + (Rpan * (archH / R)) * Math.sin(theta) - lh / 2;
         shape.lineTo(clampedU, Math.max(yBot, y));
       }
       shape.lineTo(uHinge, yBot);
     } else {
-      const uMeet = -lw / 2 + inset;
-      const uHinge = lw / 2 - inset;
+      const uMeet = -lw / 2 + sW;
+      const uHinge = lw / 2 - sW;
       shape.moveTo(uMeet, yBot);
       shape.lineTo(uHinge, yBot);
-      const topHingeY = (sy - lh / 2) - inset;
+      const topHingeY = sy - lh / 2;
       shape.lineTo(uHinge, Math.max(yBot, topHingeY));
       for (let i = 0; i <= N; i++) {
-        const theta = Math.PI - (Math.PI / 2) * (i / N);
-        const u = -R * (1 + Math.cos(theta)) + lw / 2;
+        const theta = (Math.PI / 2) * (i / N);
+        const u = Rpan * Math.cos(theta) - lw / 2;
         const clampedU = Math.max(uMeet, Math.min(uHinge, u));
-        const y = (sy + archH * Math.sin(theta) - lh / 2) - inset;
+        const y = sy + (Rpan * (archH / R)) * Math.sin(theta) - lh / 2;
         shape.lineTo(clampedU, Math.max(yBot, y));
       }
       shape.lineTo(uMeet, yBot);
     }
   } else {
-    const uLeft = -lw / 2 + inset;
-    const uRight = lw / 2 - inset;
+    const uLeft = -lw / 2 + sW;
+    const uRight = lw / 2 - sW;
     shape.moveTo(uLeft, yBot);
     shape.lineTo(uRight, yBot);
-    shape.lineTo(uRight, Math.max(yBot, (sy - lh / 2) - inset));
+    shape.lineTo(uRight, Math.max(yBot, sy - lh / 2));
     for (let i = 0; i <= N; i++) {
       const theta = Math.PI * (1 - i / N);
-      const u = -R * Math.cos(theta);
+      const u = -Rpan * Math.cos(theta);
       const clampedU = Math.max(uLeft, Math.min(uRight, u));
-      const y = (sy + archH * Math.sin(theta) - lh / 2) - inset;
+      const y = sy + (Rpan * (archH / R)) * Math.sin(theta) - lh / 2;
       shape.lineTo(clampedU, Math.max(yBot, y));
     }
     shape.lineTo(uLeft, yBot);
@@ -1110,9 +1181,9 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
       wallCol = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'tile' || wallStyle === 'concrete' || wallStyle === 'marble') ? '#ffffff' : '#f4efe4';
     }
     const isStoneWall = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'concrete');
-    const trimKind = isStoneWall ? 'stone' : (wallStyle === 'tile' ? 'ceramic' : (wallStyle === 'wood' || doorStyle === 'arched' ? 'wood' : 'plaster'));
-    const trimColor = (wallStyle === 'brick' || wallStyle === 'stone') ? '#ede8df' : (wallStyle === 'concrete' ? '#d1d5db' : (doorStyle === 'arched' ? '#5c4033' : (wallStyle === 'wood' ? '#5a3d28' : '#f4f0e6')));
-    frameMat = HP.graphics3d ? HP.graphics3d.material(trimKind, trimColor) : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
+    const trimKind = isStoneWall ? 'stone' : (wallStyle === 'tile' ? 'ceramic' : (wallStyle === 'wood' ? 'wood' : 'plaster'));
+    const trimColor = (wallStyle === 'brick' || wallStyle === 'stone') ? '#ede8df' : (wallStyle === 'concrete' ? '#d1d5db' : (wallStyle === 'wood' ? '#5a3d28' : '#ede8df'));
+    frameMat = HP.graphics3d ? HP.graphics3d.material(trimKind, trimColor) : new THREE.MeshLambertMaterial({ color: 0xede8df });
     wallMat = HP.graphics3d ? HP.graphics3d.material(wallStyle, wallCol) : frameMat;
   } else if (isModern) {
     frameMat = HP.graphics3d ? HP.graphics3d.material('metal', '#282a2e') : new THREE.MeshLambertMaterial({ color: 0x282a2e });
@@ -1174,16 +1245,17 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     soffitGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
     frameGeos.push(soffitGeo);
 
-    // Solid smooth spandrels filling top corners using the exact wall material & color (CCW)
+    // Solid smooth spandrels filling top corners using the exact wall material & color (pure CCW)
     const leftSpShape = new THREE.Shape();
     leftSpShape.moveTo(-R, sy);
+    leftSpShape.lineTo(-R, dh);
+    leftSpShape.lineTo(0, dh);
     for (let i = 0; i <= N; i++) {
-      const theta = (Math.PI / 2) * (i / N);
+      const theta = (Math.PI / 2) * (1 - i / N);
       const u = -R * Math.cos(theta);
       const y = sy + archH * Math.sin(theta);
       leftSpShape.lineTo(u, y);
     }
-    leftSpShape.lineTo(-R, dh);
     leftSpShape.closePath();
     const lSpGeo = toOrientedExtrudeGeo(leftSpShape, wThick, isH);
     lSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
@@ -1191,14 +1263,13 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
 
     const rightSpShape = new THREE.Shape();
     rightSpShape.moveTo(R, sy);
-    rightSpShape.lineTo(R, dh);
-    rightSpShape.lineTo(0, dh);
     for (let i = 0; i <= N; i++) {
-      const theta = (Math.PI / 2) * (1 - i / N);
+      const theta = (Math.PI / 2) * (i / N);
       const u = R * Math.cos(theta);
       const y = sy + archH * Math.sin(theta);
       rightSpShape.lineTo(u, y);
     }
+    rightSpShape.lineTo(R, dh);
     rightSpShape.closePath();
     const rSpGeo = toOrientedExtrudeGeo(rightSpShape, wThick, isH);
     rSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
@@ -1772,6 +1843,7 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       const setLeafPos = (mesh, u, y, vPos) => mesh.position.set(isH ? u : vPos, y, isH ? vPos : u);
 
       const stileW = 2.4;
+      const railW = 3.4;
       const botRailH = 5.2;
       const midRailH = 3.4;
       const trimDep = 0.22;
@@ -1784,11 +1856,20 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
       const lowH = (yMid - midRailH / 2) - (-baseLh / 2 + botRailH);
       const lowY = (-baseLh / 2 + botRailH + yMid - midRailH / 2) / 2;
 
-      const upPanelShape = makeUpperArchedPanelShape(leaves, li, span, dh, sy, stileW);
-      const upPanelGeo = toOrientedExtrudeGeo(upPanelShape, 0.14, isH);
+      const topRailShape = makeCurvedTopRailShape(leaves, li, span, dh, sy, railW);
+      const topRailGeo = toOrientedExtrudeGeo(topRailShape, trimDep, isH);
+
+      const upPanelShape = makeUpperArchedPanelShape(leaves, li, span, dh, sy, stileW, railW, midRailH);
+      const upPanelGeo = toOrientedExtrudeGeo(upPanelShape, 0.16, isH);
 
       for (const side of [-1, 1]) {
         const zFace = side * (dep / 2 + trimDep / 2);
+
+        // Curved top rail following arch radius
+        const cRail = new THREE.Mesh(topRailGeo, trimMat);
+        setLeafPos(cRail, 0, 0, zFace);
+        cRail.castShadow = true;
+        leaf.add(cRail);
 
         // Meeting stile (height trimmed slightly below apex to follow arch curve)
         const mStile = new THREE.Mesh(box3d(stileW, baseLh - 0.5, trimDep), trimMat);
@@ -1815,13 +1896,13 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
         leaf.add(mRail);
 
         // Lower raised panel field
-        const lowField = new THREE.Mesh(box3d(Math.max(1, innerW - 1.2), Math.max(1, lowH - 1.2), 0.14), panelMat);
-        setLeafPos(lowField, 0, lowY, side * (dep / 2 + 0.07));
+        const lowField = new THREE.Mesh(box3d(Math.max(1, innerW - 1.2), Math.max(1, lowH - 1.2), 0.16), panelMat);
+        setLeafPos(lowField, 0, lowY, side * (dep / 2 + 0.08));
         leaf.add(lowField);
 
         // Upper arched raised panel field
         const upMesh = new THREE.Mesh(upPanelGeo, panelMat);
-        setLeafPos(upMesh, 0, 0, side * (dep / 2 + 0.07));
+        setLeafPos(upMesh, 0, 0, side * (dep / 2 + 0.08));
         leaf.add(upMesh);
       }
 
@@ -2868,6 +2949,27 @@ W3.buildLevel = function () {
       const outsideFlip = minusIsInside ? -1 : 1;
       if (da.swing === 'out') da.flip = outsideFlip;
       else if (da.swing === 'in') da.flip = insideFlip;
+
+      // Check if an archway catalog item is placed over this doorway: adapt panel doors to authentic arched craftsmanship
+      const hasArchwayItem = curLvl && curLvl.furniture && curLvl.furniture.some(it => {
+        if (!/^archway/i.test(it.type)) return false;
+        const f = HP.footprint(it);
+        const fx0 = f.x * C, fx1 = (f.x + f.w) * C, fz0 = f.y * C, fz1 = (f.y + f.h) * C;
+        return da.d === 'h'
+          ? (Math.abs(fz0 - da.z0) < C && fx0 <= da.x0 + 2 && fx1 >= da.x1 - 2)
+          : (Math.abs(fx0 - da.x0) < C && fz0 <= da.z0 + 2 && fz1 >= da.z1 - 2);
+      });
+      if (hasArchwayItem && curLvl && curLvl.walls && curLvl.walls[da.k]) {
+        const curStyle = curLvl.walls[da.k].doorStyle || 'panel';
+        if (curStyle === 'panel') {
+          curLvl.walls[da.k].doorStyle = 'arched';
+          if (da.dbl) {
+            const nk = da.d === 'h' ? 'h,' + (seg.x + 1) + ',' + seg.y : 'v,' + seg.x + ',' + (seg.y + 1);
+            if (curLvl.walls[nk]) curLvl.walls[nk].doorStyle = 'arched';
+          }
+        }
+      }
+
       for (let li = 0; li < leaves; li++) {
         const pivot = new THREE.Group();
         sg.add(pivot);
@@ -3039,7 +3141,7 @@ function buildSingleFurnitureItem(it, i, ctx) {
   fit2.setMatrixAt(i, m4);
   fit2.setColorAt(i, col.set(c));
   if (models) models.add(it, d, f, h, i, baseY);
-  if (h > 10 && !FLAT(it.type) && !d.onTop && !d.walkable && it.type !== 'rangehood') {
+  if (h > 10 && !FLAT(it.type) && !d.onTop && (!d.walkable || /^archway/i.test(it.type)) && it.type !== 'rangehood') {
     const colliders = HP.itemColliders ? HP.itemColliders(it, d, f, h) : [{ x0: f.x * C, x1: (f.x + f.w) * C, z0: f.y * C, z1: (f.y + f.h) * C, y0: 0, y1: h }];
     for (const box of colliders) {
       furnColliders.push(box);
