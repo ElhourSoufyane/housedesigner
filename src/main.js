@@ -1956,9 +1956,13 @@ function drawDoors(g) {
     const t = wallThick(s, regionOf) * C;
     // same body + gap + leaf the static pass used to draw
     g.fillStyle = '#2e3138';
-    if (s.d === 'h') g.fillRect(s.x * C, s.y * C - t / 2, C + 0.6, t);
-    else g.fillRect(s.x * C - t / 2, s.y * C, t, C + 0.6);
+    if (s.d === 'h') g.fillRect(s.x * C, s.y * C - t / 2, (pair ? 2 : 1) * C + 0.6, t);
+    else g.fillRect(s.x * C - t / 2, s.y * C, t, (pair ? 2 : 1) * C + 0.6);
     drawWallCore(g, s, t, lvl.walls[k]);
+    if (pair) {
+      const pKey = s.d === 'h' ? ('h,' + (s.x + 1) + ',' + s.y) : ('v,' + s.x + ',' + (s.y + 1));
+      if (lvl.walls[pKey]) drawWallCore(g, HP.parseWallKey(pKey), t, lvl.walls[pKey]);
+    }
     drawGap(g, s, t, pair);
     (pair ? drawDoubleDoor : drawDoor)(g, s, t, regionOf);
   }
@@ -1967,20 +1971,24 @@ function drawDoors(g) {
 function drawGap(g, s, t, dbl) {
   const C = HP.CELL, n = dbl ? 2 : 1, mats = HP.cur().floors;
   const matOf = (x, y) => HP.cellIn(x, y) ? (mats[x + ',' + y] || 'default') : 'default';
-  for (let i = 0; i < n; i++) {
-    const cx = s.d === 'h' ? s.x + i : s.x, cy = s.d === 'h' ? s.y : s.y + i;
-    g.save();
-    if (s.d === 'h') {
-      g.beginPath(); g.rect(cx * C + 2, s.y * C - t / 2 - 2, C - 4, t + 4); g.clip();
+  const totalLen = n * C;
+  g.save();
+  if (s.d === 'h') {
+    g.beginPath(); g.rect(s.x * C + 2, s.y * C - t / 2 - 2, totalLen - 4, t + 4); g.clip();
+    for (let i = 0; i < n; i++) {
+      const cx = s.x + i, cy = s.y;
       paintFloorCell(g, matOf(cx, cy - 1), cx * C, (cy - 1) * C);   // outer half of threshold
       paintFloorCell(g, matOf(cx, cy), cx * C, cy * C);             // inner half
-    } else {
-      g.beginPath(); g.rect(s.x * C - t / 2 - 2, cy * C + 2, t + 4, C - 4); g.clip();
+    }
+  } else {
+    g.beginPath(); g.rect(s.x * C - t / 2 - 2, s.y * C + 2, t + 4, totalLen - 4); g.clip();
+    for (let i = 0; i < n; i++) {
+      const cx = s.x, cy = s.y + i;
       paintFloorCell(g, matOf(cx - 1, cy), (cx - 1) * C, cy * C);
       paintFloorCell(g, matOf(cx, cy), cx * C, cy * C);
     }
-    g.restore();
   }
+  g.restore();
 }
 
 function insideDir(s, regionOf) {                      // which side is inside? for door swing
@@ -2005,7 +2013,8 @@ function drawDoor(g, s, t, regionOf) {
   const rec = HP.cur().walls[s.d + ',' + s.x + ',' + s.y];
   const closed = rec && rec.c;
   const style = (rec && rec.doorStyle) || 'panel';
-  const isSlide = style === 'slide' || style === 'slideglass';
+  const isSlide = style === 'slide';
+  const isSlideGlass = style === 'slideglass';
   const isGlass = style === 'glass' || style === 'slideglass';
   const isModern = style === 'modern';
   const isArch = style === 'archway';
@@ -2050,6 +2059,60 @@ function drawDoor(g, s, t, regionOf) {
     return;
   }
 
+  if (isSlideGlass) {
+    const isH = s.d === 'h';
+    const jx = s.x * C, jy = s.y * C;
+    g.fillStyle = '#2e3138';
+    if (isH) {
+      g.fillRect(jx - 2, jy - t / 2, 5, t);
+      g.fillRect((s.x + 1) * C - 3, jy - t / 2, 5, t);
+    } else {
+      g.fillRect(jx - t / 2, jy - 2, t, 5);
+      g.fillRect(jx - t / 2, (s.y + 1) * C - 3, t, 5);
+    }
+
+    // Dual runner tracks inside threshold sill
+    const wOpen = C - 4;
+    const pw = Math.round(wOpen * 0.54);
+    const pth = 2.8;
+    g.strokeStyle = '#282b30'; g.lineWidth = 1.0;
+    g.beginPath();
+    if (isH) {
+      g.moveTo(jx + 2, jy - 1.3); g.lineTo((s.x + 1) * C - 2, jy - 1.3);
+      g.moveTo(jx + 2, jy + 1.3); g.lineTo((s.x + 1) * C - 2, jy + 1.3);
+    } else {
+      g.moveTo(jx - 1.3, jy + 2); g.lineTo(jx - 1.3, (s.y + 1) * C - 2);
+      g.moveTo(jx + 1.3, jy + 2); g.lineTo(jx + 1.3, (s.y + 1) * C - 2);
+    }
+    g.stroke();
+
+    const drawGlassLeaf = (x, y, w, h, handleSide) => {
+      g.fillStyle = 'rgba(165, 222, 242, 0.85)';
+      g.strokeStyle = '#282b30'; g.lineWidth = 1.2;
+      g.fillRect(x, y, w, h);
+      g.strokeRect(x, y, w, h);
+      g.fillStyle = '#ffffff';
+      if (isH) {
+        const hx = handleSide === 'right' ? (x + w - 3) : (x + 2);
+        g.fillRect(hx, y + h / 2 - 2.5, 1.2, 5);
+      } else {
+        const hy = handleSide === 'right' ? (y + h - 3) : (y + 2);
+        g.fillRect(x + w / 2 - 2.5, hy, 5, 1.2);
+      }
+    };
+
+    if (isH) {
+      drawGlassLeaf(jx + 2, jy - 1.3 - pth / 2, pw, pth, 'right');
+      const slideX = closed ? ((s.x + 1) * C - 2 - pw) : (jx + 3);
+      drawGlassLeaf(slideX, jy + 1.3 - pth / 2, pw, pth, 'left');
+    } else {
+      drawGlassLeaf(jx - 1.3 - pth / 2, jy + 2, pth, pw, 'right');
+      const slideY = closed ? ((s.y + 1) * C - 2 - pw) : (jy + 3);
+      drawGlassLeaf(jx + 1.3 - pth / 2, slideY, pth, pw, 'left');
+    }
+    return;
+  }
+
   if (isSlide) {
     const isH = s.d === 'h';
     const jx = s.x * C, jy = s.y * C;
@@ -2063,16 +2126,28 @@ function drawDoor(g, s, t, regionOf) {
     }
 
     const trackOffset = dir * (t / 2 + 2.5);
-    g.strokeStyle = '#222222'; g.lineWidth = 2.2;
+    const trStart = (isH ? jx : jy) - 4;
+    const trEnd = (isH ? (s.x + 2) : (s.y + 2)) * C + 4;
+    g.strokeStyle = '#1e2022'; g.lineWidth = 2.4;
     g.beginPath();
     if (isH) {
-      g.moveTo(jx - 4, jy + trackOffset);
-      g.lineTo((s.x + 2) * C + 4, jy + trackOffset);
+      g.moveTo(trStart, jy + trackOffset);
+      g.lineTo(trEnd, jy + trackOffset);
     } else {
-      g.moveTo(jx + trackOffset, jy - 4);
-      g.lineTo(jx + trackOffset, (s.y + 2) * C + 4);
+      g.moveTo(jx + trackOffset, trStart);
+      g.lineTo(jx + trackOffset, trEnd);
     }
     g.stroke();
+
+    // End stop bumpers on the track
+    g.fillStyle = '#1e2022';
+    if (isH) {
+      g.fillRect(trStart - 1, jy + trackOffset - 2.5, 2, 5);
+      g.fillRect(trEnd - 1, jy + trackOffset - 2.5, 2, 5);
+    } else {
+      g.fillRect(jx + trackOffset - 2.5, trStart - 1, 5, 2);
+      g.fillRect(jx + trackOffset - 2.5, trEnd - 1, 5, 2);
+    }
 
     const leafThick = 4.2;
     const leafLen = C - 1;
@@ -2087,34 +2162,19 @@ function drawDoor(g, s, t, regionOf) {
       lw = leafThick; lh = leafLen;
     }
 
-    if (isGlass) {
-      g.fillStyle = 'rgba(165, 222, 242, 0.85)';
-      g.strokeStyle = '#387c96'; g.lineWidth = 1.2;
-    } else {
-      g.fillStyle = isModern ? '#2e2f33' : '#8c6843';
-      g.strokeStyle = '#1e2022'; g.lineWidth = 1.2;
-    }
+    g.fillStyle = isModern ? '#2e2f33' : '#7c5a38';
+    g.strokeStyle = '#1e2022'; g.lineWidth = 1.2;
     g.fillRect(lx, ly, lw, lh);
     g.strokeRect(lx, ly, lw, lh);
 
-    // Slide arrow showing gliding motion
-    g.strokeStyle = isGlass ? '#25657d' : '#ffffff';
-    g.lineWidth = 1.4;
-    const aDir = closed ? 1 : -1;
+    // Vertical pull handle
+    g.fillStyle = '#ffffff';
     if (isH) {
-      const mx = lx + lw / 2, my = ly + lh / 2;
-      g.beginPath();
-      g.moveTo(mx - 4 * aDir, my); g.lineTo(mx + 4 * aDir, my);
-      g.lineTo(mx + 1.5 * aDir, my - 2);
-      g.moveTo(mx + 4 * aDir, my); g.lineTo(mx + 1.5 * aDir, my + 2);
-      g.stroke();
+      const hx = closed ? (lx + lw - 3.5) : (lx + 3);
+      g.fillRect(hx, ly + 0.8, 1.4, lh - 1.6);
     } else {
-      const mx = lx + lw / 2, my = ly + lh / 2;
-      g.beginPath();
-      g.moveTo(mx, my - 4 * aDir); g.lineTo(mx, my + 4 * aDir);
-      g.lineTo(mx - 2, my + 1.5 * aDir);
-      g.moveTo(mx, my + 4 * aDir); g.lineTo(mx + 2, my + 1.5 * aDir);
-      g.stroke();
+      const hy = closed ? (ly + lh - 3.5) : (ly + 3);
+      g.fillRect(lx + 0.8, hy, lw - 1.6, 1.4);
     }
     return;
   }
@@ -2175,7 +2235,8 @@ function drawDoubleDoor(g, s, t, regionOf) {
   const C = HP.CELL, dir = insideDir(s, regionOf);
   const rec = HP.cur().walls[s.d + ',' + s.x + ',' + s.y];
   const style = (rec && rec.doorStyle) || 'panel';
-  const isSlide = style === 'slide' || style === 'slideglass';
+  const isSlide = style === 'slide';
+  const isSlideGlass = style === 'slideglass';
   const isGlass = style === 'glass' || style === 'slideglass';
   const isModern = style === 'modern';
   const isArch = style === 'archway';
@@ -2220,6 +2281,73 @@ function drawDoubleDoor(g, s, t, regionOf) {
   }
   const closed = rec && rec.c;
 
+  if (isSlideGlass) {
+    const isH = s.d === 'h';
+    const xL = s.x * C, xR = (s.x + 2) * C;
+    const yT = s.y * C, yB = (s.y + 2) * C;
+    g.fillStyle = '#2e3138';
+    if (isH) {
+      g.fillRect(xL - 2, yT - t / 2, 5, t);
+      g.fillRect(xR - 3, yT - t / 2, 5, t);
+    } else {
+      g.fillRect(xL - t / 2, yT - 2, t, 5);
+      g.fillRect(xL - t / 2, yB - 3, t, 5);
+    }
+
+    // Threshold sill with dual embedded runner tracks inside the doorway opening
+    const totalW = 2 * C;
+    const wOpen = totalW - 4;
+    const halfW = wOpen / 2;
+    const pw = halfW + 2.5; // slight overlap at the center
+    const pth = 3.0;
+
+    g.strokeStyle = '#282b30'; g.lineWidth = 1.0;
+    g.beginPath();
+    if (isH) {
+      g.moveTo(xL + 2, yT - 1.4); g.lineTo(xR - 2, yT - 1.4);
+      g.moveTo(xL + 2, yT + 1.4); g.lineTo(xR - 2, yT + 1.4);
+    } else {
+      g.moveTo(xL - 1.4, yT + 2); g.lineTo(xL - 1.4, yB - 2);
+      g.moveTo(xL + 1.4, yT + 2); g.lineTo(xL + 1.4, yB - 2);
+    }
+    g.stroke();
+
+    const drawGlassLeaf = (x, y, w, h, handleSide) => {
+      g.fillStyle = 'rgba(165, 222, 242, 0.85)';
+      g.strokeStyle = '#282b30'; g.lineWidth = 1.2;
+      g.fillRect(x, y, w, h);
+      g.strokeRect(x, y, w, h);
+      // Architectural vertical pull handle at leading stile
+      g.fillStyle = '#ffffff';
+      if (isH) {
+        const hx = handleSide === 'right' ? (x + w - 3.5) : (x + 2.5);
+        g.fillRect(hx, y + h / 2 - 3, 1.2, 6);
+      } else {
+        const hy = handleSide === 'right' ? (y + h - 3.5) : (y + 2.5);
+        g.fillRect(x + w / 2 - 3, hy, 6, 1.2);
+      }
+    };
+
+    if (isH) {
+      // Leaf 1 on Track 0 (yT - 1.4)
+      const l1x = closed ? (xL + 2) : (xR - 2 - pw);
+      drawGlassLeaf(l1x, yT - 1.4 - pth / 2, pw, pth, 'right');
+
+      // Leaf 2 on Track 1 (yT + 1.4)
+      const l2x = closed ? (xR - 2 - pw) : (xL + 2);
+      drawGlassLeaf(l2x, yT + 1.4 - pth / 2, pw, pth, 'left');
+    } else {
+      // Leaf 1 on Track 0 (xL - 1.4)
+      const l1y = closed ? (yT + 2) : (yB - 2 - pw);
+      drawGlassLeaf(xL - 1.4 - pth / 2, l1y, pth, pw, 'right');
+
+      // Leaf 2 on Track 1 (xL + 1.4)
+      const l2y = closed ? (yB - 2 - pw) : (yT + 2);
+      drawGlassLeaf(xL + 1.4 - pth / 2, l2y, pth, pw, 'left');
+    }
+    return;
+  }
+
   if (isSlide) {
     const isH = s.d === 'h';
     const xL = s.x * C, xR = (s.x + 2) * C;
@@ -2233,16 +2361,29 @@ function drawDoubleDoor(g, s, t, regionOf) {
       g.fillRect(xL - t / 2, yB - 3, t, 5);
     }
     const trackOffset = dir * (t / 2 + 2.5);
-    g.strokeStyle = '#222222'; g.lineWidth = 2.2;
+    const trStart = (isH ? xL : yT) - C;
+    const trEnd = (isH ? xR : yB) + C;
+
+    g.strokeStyle = '#1e2022'; g.lineWidth = 2.4;
     g.beginPath();
     if (isH) {
-      g.moveTo(xL - C, yT + trackOffset);
-      g.lineTo(xR + C, yT + trackOffset);
+      g.moveTo(trStart, yT + trackOffset);
+      g.lineTo(trEnd, yT + trackOffset);
     } else {
-      g.moveTo(xL + trackOffset, yT - C);
-      g.lineTo(xL + trackOffset, yB + C);
+      g.moveTo(xL + trackOffset, trStart);
+      g.lineTo(xL + trackOffset, trEnd);
     }
     g.stroke();
+
+    // End stop bumpers on the track
+    g.fillStyle = '#1e2022';
+    if (isH) {
+      g.fillRect(trStart - 1, yT + trackOffset - 2.5, 2, 5);
+      g.fillRect(trEnd - 1, yT + trackOffset - 2.5, 2, 5);
+    } else {
+      g.fillRect(xL + trackOffset - 2.5, trStart - 1, 5, 2);
+      g.fillRect(xL + trackOffset - 2.5, trEnd - 1, 5, 2);
+    }
 
     const leafThick = 4.2, leafLen = C - 1;
     let l1x, l1y, l2x, l2y, lw, lh;
@@ -2256,31 +2397,24 @@ function drawDoubleDoor(g, s, t, regionOf) {
       l2x = xL + trackOffset - leafThick / 2; l2y = closed ? yT + C + 1 : yB + 1;
     }
 
-    const drawLeafBox = (x, y) => {
-      if (isGlass) {
-        g.fillStyle = 'rgba(165, 222, 242, 0.85)'; g.strokeStyle = '#387c96'; g.lineWidth = 1.2;
-      } else {
-        g.fillStyle = isModern ? '#2e2f33' : '#8c6843'; g.strokeStyle = '#1e2022'; g.lineWidth = 1.2;
-      }
-      g.fillRect(x, y, lw, lh); g.strokeRect(x, y, lw, lh);
-    };
-    drawLeafBox(l1x, l1y);
-    drawLeafBox(l2x, l2y);
+    const drawBarnLeaf = (x, y, handleSide) => {
+      g.fillStyle = isModern ? '#2e2f33' : '#7c5a38';
+      g.strokeStyle = '#1e2022'; g.lineWidth = 1.2;
+      g.fillRect(x, y, lw, lh);
+      g.strokeRect(x, y, lw, lh);
 
-    // Slide arrows (pointing apart when closed, toward center when open)
-    g.strokeStyle = isGlass ? '#25657d' : '#ffffff'; g.lineWidth = 1.4;
-    const aDir = closed ? -1 : 1;
-    if (isH) {
-      const m1x = l1x + lw / 2, my = l1y + lh / 2;
-      g.beginPath(); g.moveTo(m1x - 4 * aDir, my); g.lineTo(m1x + 4 * aDir, my); g.stroke();
-      const m2x = l2x + lw / 2;
-      g.beginPath(); g.moveTo(m2x + 4 * aDir, my); g.lineTo(m2x - 4 * aDir, my); g.stroke();
-    } else {
-      const mx = l1x + lw / 2, m1y = l1y + lh / 2;
-      g.beginPath(); g.moveTo(mx, m1y - 4 * aDir); g.lineTo(mx, m1y + 4 * aDir); g.stroke();
-      const m2y = l2y + lh / 2;
-      g.beginPath(); g.moveTo(mx, m2y + 4 * aDir); g.lineTo(mx, m2y - 4 * aDir); g.stroke();
-    }
+      // Clean vertical pull handle at meeting edge
+      g.fillStyle = '#ffffff';
+      if (isH) {
+        const hx = handleSide === 'right' ? (x + lw - 3.5) : (x + 2.5);
+        g.fillRect(hx, y + 0.8, 1.4, lh - 1.6);
+      } else {
+        const hy = handleSide === 'right' ? (y + lh - 3.5) : (y + 2.5);
+        g.fillRect(x + 0.8, hy, lw - 1.6, 1.4);
+      }
+    };
+    drawBarnLeaf(l1x, l1y, 'right');
+    drawBarnLeaf(l2x, l2y, 'left');
     return;
   }
 
