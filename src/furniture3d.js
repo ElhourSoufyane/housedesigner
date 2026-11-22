@@ -104,6 +104,149 @@ F.builder = function (group) {
     geom.computeVertexNormals();
     return geom;
   }
+  function createArchTopGeometry(S) {
+    const positions = [], normals = [], uvs = [], indices = [];
+    function addQuad(p0, p1, p2, p3, n) {
+      const b = positions.length / 3;
+      positions.push(...p0, ...p1, ...p2, ...p3);
+      normals.push(...n, ...n, ...n, ...n);
+      uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    const arcPts = [];
+    for (let i = 0; i <= S; i++) {
+      const th = (i / S) * Math.PI;
+      arcPts.push({ x: -0.5 * Math.cos(th), y: -0.5 + Math.sin(th), th });
+    }
+    const mid = S / 2;
+    for (let i = 0; i < mid; i++) {
+      const pA = [-0.5, 0.5, 0.5], pB = [arcPts[i].x, arcPts[i].y, 0.5], pC = [arcPts[i + 1].x, arcPts[i + 1].y, 0.5];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC);
+      normals.push(0, 0, 1, 0, 0, 1, 0, 0, 1);
+      uvs.push(pA[0] + 0.5, pA[1] + 0.5, pB[0] + 0.5, pB[1] + 0.5, pC[0] + 0.5, pC[1] + 0.5);
+      indices.push(b, b + 1, b + 2);
+    }
+    for (let i = mid; i < S; i++) {
+      const pA = [0.5, 0.5, 0.5], pB = [arcPts[i].x, arcPts[i].y, 0.5], pC = [arcPts[i + 1].x, arcPts[i + 1].y, 0.5];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC);
+      normals.push(0, 0, 1, 0, 0, 1, 0, 0, 1);
+      uvs.push(pA[0] + 0.5, pA[1] + 0.5, pB[0] + 0.5, pB[1] + 0.5, pC[0] + 0.5, pC[1] + 0.5);
+      indices.push(b, b + 1, b + 2);
+    }
+    for (let i = 0; i < mid; i++) {
+      const pA = [-0.5, 0.5, -0.5], pB = [arcPts[i].x, arcPts[i].y, -0.5], pC = [arcPts[i + 1].x, arcPts[i + 1].y, -0.5];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC);
+      normals.push(0, 0, -1, 0, 0, -1, 0, 0, -1);
+      uvs.push(pA[0] + 0.5, pA[1] + 0.5, pB[0] + 0.5, pB[1] + 0.5, pC[0] + 0.5, pC[1] + 0.5);
+      indices.push(b, b + 2, b + 1);
+    }
+    for (let i = mid; i < S; i++) {
+      const pA = [0.5, 0.5, -0.5], pB = [arcPts[i].x, arcPts[i].y, -0.5], pC = [arcPts[i + 1].x, arcPts[i + 1].y, -0.5];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC);
+      normals.push(0, 0, -1, 0, 0, -1, 0, 0, -1);
+      uvs.push(pA[0] + 0.5, pA[1] + 0.5, pB[0] + 0.5, pB[1] + 0.5, pC[0] + 0.5, pC[1] + 0.5);
+      indices.push(b, b + 2, b + 1);
+    }
+    addQuad([-0.5, 0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5], [0, 1, 0]);
+    addQuad([-0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [-0.5, -0.5, -0.5], [-1, 0, 0]);
+    addQuad([0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [0.5, -0.5, 0.5], [1, 0, 0]);
+    for (let i = 0; i < S; i++) {
+      const pt0 = arcPts[i], pt1 = arcPts[i + 1];
+      const n0 = [Math.cos(pt0.th), -Math.sin(pt0.th), 0];
+      const n1 = [Math.cos(pt1.th), -Math.sin(pt1.th), 0];
+      const pA = [pt0.x, pt0.y, 0.5], pB = [pt1.x, pt1.y, 0.5], pC = [pt1.x, pt1.y, -0.5], pD = [pt0.x, pt0.y, -0.5];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC, ...pD);
+      normals.push(...n0, ...n1, ...n1, ...n0);
+      const u0 = i / S, u1 = (i + 1) / S;
+      uvs.push(u0, 1, u1, 1, u1, 0, u0, 0);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    geom.setIndex(new THREE.BufferAttribute(new Uint16Array(indices), 1));
+    return geom;
+  }
+  function createArchCasingGeometry(S, radW, depth) {
+    const positions = [], normals = [], uvs = [], indices = [];
+    function addQuad(p0, p1, p2, p3, n) {
+      const b = positions.length / 3;
+      positions.push(...p0, ...p1, ...p2, ...p3);
+      normals.push(...n, ...n, ...n, ...n);
+      uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    const arcIn = [], arcOut = [];
+    for (let i = 0; i <= S; i++) {
+      const th = (i / S) * Math.PI;
+      arcIn.push({ x: -0.5 * Math.cos(th), y: -0.5 + Math.sin(th), th });
+      arcOut.push({ x: -(0.5 + radW) * Math.cos(th), y: -0.5 + (1 + 2 * radW) * Math.sin(th), th });
+    }
+    for (let i = 0; i < S; i++) {
+      const pA = [arcIn[i].x, arcIn[i].y, depth / 2], pB = [arcIn[i + 1].x, arcIn[i + 1].y, depth / 2];
+      const pC = [arcOut[i + 1].x, arcOut[i + 1].y, depth / 2], pD = [arcOut[i].x, arcOut[i].y, depth / 2];
+      addQuad(pA, pB, pC, pD, [0, 0, 1]);
+    }
+    for (let i = 0; i < S; i++) {
+      const pt0 = arcOut[i], pt1 = arcOut[i + 1];
+      const n0 = [-Math.cos(pt0.th), Math.sin(pt0.th), 0], n1 = [-Math.cos(pt1.th), Math.sin(pt1.th), 0];
+      const pA = [pt0.x, pt0.y, depth / 2], pB = [pt1.x, pt1.y, depth / 2], pC = [pt1.x, pt1.y, -depth / 2], pD = [pt0.x, pt0.y, -depth / 2];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC, ...pD);
+      normals.push(...n0, ...n1, ...n1, ...n0);
+      uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    for (let i = 0; i < S; i++) {
+      const pt0 = arcIn[i], pt1 = arcIn[i + 1];
+      const n0 = [Math.cos(pt0.th), -Math.sin(pt0.th), 0], n1 = [Math.cos(pt1.th), -Math.sin(pt1.th), 0];
+      const pA = [pt1.x, pt1.y, depth / 2], pB = [pt0.x, pt0.y, depth / 2], pC = [pt0.x, pt0.y, -depth / 2], pD = [pt1.x, pt1.y, -depth / 2];
+      const b = positions.length / 3;
+      positions.push(...pA, ...pB, ...pC, ...pD);
+      normals.push(...n0, ...n1, ...n1, ...n0);
+      uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    addQuad([arcIn[0].x, arcIn[0].y, -depth / 2], [arcOut[0].x, arcOut[0].y, -depth / 2], [arcOut[0].x, arcOut[0].y, depth / 2], [arcIn[0].x, arcIn[0].y, depth / 2], [0, -1, 0]);
+    addQuad([arcOut[S].x, arcOut[S].y, -depth / 2], [arcIn[S].x, arcIn[S].y, -depth / 2], [arcIn[S].x, arcIn[S].y, depth / 2], [arcOut[S].x, arcOut[S].y, depth / 2], [0, -1, 0]);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    geom.setIndex(new THREE.BufferAttribute(new Uint16Array(indices), 1));
+    return geom;
+  }
+  function createKeystoneGeometry() {
+    const positions = [], normals = [], uvs = [], indices = [];
+    function addQuad(p0, p1, p2, p3, n) {
+      const b = positions.length / 3;
+      positions.push(...p0, ...p1, ...p2, ...p3);
+      normals.push(...n, ...n, ...n, ...n);
+      uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    }
+    const wBot = 0.35, wTop = 0.5;
+    addQuad([-wBot, -0.5, 0.5], [wBot, -0.5, 0.5], [wTop, 0.5, 0.5], [-wTop, 0.5, 0.5], [0, 0, 1]);
+    addQuad([-wTop, 0.5, -0.5], [wTop, 0.5, -0.5], [wBot, -0.5, -0.5], [-wBot, -0.5, -0.5], [0, 0, -1]);
+    addQuad([-wTop, 0.5, -0.5], [-wTop, 0.5, 0.5], [wTop, 0.5, 0.5], [wTop, 0.5, -0.5], [0, 1, 0]);
+    addQuad([-wBot, -0.5, -0.5], [wBot, -0.5, -0.5], [wBot, -0.5, 0.5], [-wBot, -0.5, 0.5], [0, -1, 0]);
+    const nL = [-1, 0.15, 0], lenL = Math.hypot(nL[0], nL[1]); nL[0] /= lenL; nL[1] /= lenL;
+    addQuad([-wTop, 0.5, -0.5], [-wTop, 0.5, 0.5], [-wBot, -0.5, 0.5], [-wBot, -0.5, -0.5], nL);
+    const nR = [1, 0.15, 0], lenR = Math.hypot(nR[0], nR[1]); nR[0] /= lenR; nR[1] /= lenR;
+    addQuad([wBot, -0.5, -0.5], [wBot, -0.5, 0.5], [wTop, 0.5, 0.5], [wTop, 0.5, -0.5], nR);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    geom.setIndex(new THREE.BufferAttribute(new Uint16Array(indices), 1));
+    return geom;
+  }
   const geometries = {
     box: new THREE.BoxGeometry(1, 1, 1),
     cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, segments),
@@ -114,6 +257,9 @@ F.builder = function (group) {
     roof: new THREE.ConeGeometry(0.71, 1, 4).rotateY(Math.PI / 4),
     gable: createGableGeometry(),
     shadow: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+    archTop: createArchTopGeometry(G.current.detail ? 36 : 24),
+    archCasing: createArchCasingGeometry(G.current.detail ? 36 : 24, 0.08, 1.0),
+    keystone: createKeystoneGeometry(),
   };
   const root = new THREE.Matrix4(), local = new THREE.Matrix4(), result = new THREE.Matrix4();
   const q = new THREE.Quaternion(), axis = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3();
@@ -9329,55 +9475,57 @@ F.builder = function (group) {
         const wallThickPx = it._wallThickPx || 8.4;
         const depthPx = depth || (HP.CELL || 28);
         const wallThick = wallThickPx / depthPx;
-        const casingTPx = 0.28;
+        const casingTPx = 0.32;
+        const casingThick = casingTPx / depthPx;
         const trimThick = (wallThickPx + casingTPx * 2) / depthPx;
         const pw = /archway1/.test(t) ? 0.16 : (/archway3/.test(t) ? 0.08 : 0.12);
         const R = 0.5 - pw;
-        const cy = 0.62;
-        const y_crown = 0.94;
-        const rise = y_crown - cy;
+        const cy = /archway1/.test(t) ? 0.62 : 0.58;
+        const y_top = 0.915;
+        const rise = y_top - cy;
 
-        // 1. Side pilasters & plinths
+        // 1. Classical Side Pilaster Columns & 3-Tier Impost Capitals
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
-          box(matKind, sx, cy / 2, 0, pw, cy, wallThick, wallCol, false, wallMat);
-          box(trimKind, sx, 0.018, 0, pw + 0.015, 0.036, trimThick + 0.01, trimCol, false, wallMat);
-          box(trimKind, sx, cy - 0.015, 0, pw + 0.015, 0.03, trimThick + 0.015, trimCol, false, wallMat);
-          box(matKind, sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol, false, wallMat);
+          // Plinth Base Block
+          box(trimKind, sx, 0.025, 0, pw + 0.020, 0.05, trimThick + 0.012, trimCol, false, wallMat);
+          // Base Torus / Fillet molding
+          box(trimKind, sx, 0.056, 0, pw + 0.012, 0.014, trimThick + 0.006, trimCol, false, wallMat);
+          // Pilaster Shaft
+          const shaftH = (cy - 0.045) - 0.063;
+          const shaftY = 0.063 + shaftH / 2;
+          box(matKind, sx, shaftY, 0, pw, shaftH, wallThick, wallCol, false, wallMat);
+          // Front & back vertical casing trim along pilaster
+          box(trimKind, sx, shaftY, wallThick / 2 + casingThick / 2, pw * 0.82, shaftH, casingThick, trimCol, false, wallMat);
+          box(trimKind, sx, shaftY, -(wallThick / 2 + casingThick / 2), pw * 0.82, shaftH, casingThick, trimCol, false, wallMat);
+          // Classical 3-Tier Impost Capital Molding at springing line
+          box(trimKind, sx, cy - 0.038, 0, pw + 0.014, 0.014, trimThick + 0.010, trimCol, false, wallMat);
+          box(trimKind, sx, cy - 0.020, 0, pw + 0.024, 0.022, trimThick + 0.018, trimCol, false, wallMat);
+          box(trimKind, sx, cy - 0.005, 0, pw + 0.032, 0.012, trimThick + 0.026, trimCol, false, wallMat);
+          // Wall fill directly above pilasters on left & right
+          box(matKind, sx, cy + rise / 2, 0, pw, rise, wallThick, wallCol, false, wallMat);
         }
 
-        // 2. Top header beam & ceiling crown moulding
-        box(matKind, 0, (y_crown + 1.0) / 2, 0, 1.0, 1.0 - y_crown, wallThick, wallCol, false, wallMat);
-        box(trimKind, 0, 0.985, 0, 1.0, 0.03, trimThick, trimCol, false, wallMat);
+        // 2. Seamless Radial Arch Vault & Spandrels
+        part('archTop', matKind, 0, cy + rise / 2, 0, 2 * R, rise, wallThick, wallCol, false, wallMat);
 
-        // 3. Spandrel fill slices
-        const N = 16;
-        const stepW = (2 * R) / N;
-        for (let i = 0; i < N; i++) {
-          const cx = -R + (i + 0.5) * stepW;
-          const normX = cx / R;
-          const curveY = cy + Math.sqrt(Math.max(0, 1 - normX * normX)) * rise;
-          if (curveY < y_crown) {
-            const hSlice = y_crown - curveY;
-            box(matKind, cx, curveY + hSlice / 2, 0, stepW * 1.02, hSlice, wallThick, wallCol, false, wallMat);
-          }
-        }
+        // 3. Arched Archivolt Casings (Front & Back)
+        part('archCasing', trimKind, 0, cy + rise / 2, wallThick / 2 + casingThick / 2, 2 * R, rise, casingThick, trimCol, false, wallMat);
+        part('archCasing', trimKind, 0, cy + rise / 2, -(wallThick / 2 + casingThick / 2), 2 * R, rise, casingThick, trimCol, false, wallMat);
 
-        // 4. Arch casing trim & intrados soffit
-        const M = 16;
-        const casingOffsetZ = (wallThickPx / 2 + casingTPx / 2) / depthPx;
-        const casingThickness = casingTPx / depthPx;
-        for (let i = 0; i < M; i++) {
-          const a0 = (i / M) * Math.PI, a1 = ((i + 1) / M) * Math.PI;
-          const x0 = -Math.cos(a0) * R, y0 = cy + Math.sin(a0) * rise;
-          const x1 = -Math.cos(a1) * R, y1 = cy + Math.sin(a1) * rise;
-          boxSlope(trimKind, x0, y0, casingOffsetZ, x1, y1, casingOffsetZ, 0.025, casingThickness, trimCol, false, wallMat);
-          boxSlope(trimKind, x0, y0, -casingOffsetZ, x1, y1, -casingOffsetZ, 0.025, casingThickness, trimCol, false, wallMat);
-          boxSlope(matKind, x0, y0, 0, x1, y1, 0, 0.02, wallThick, darkTrim, false, wallMat);
-        }
+        // 4. Classical Wedge-Shaped Keystone (Voussoir at Apex)
+        const kH = 0.055;
+        const kY = y_top + kH * 0.32;
+        const kW = pw * 0.88;
+        part('keystone', trimKind, 0, kY, 0, kW, kH, trimThick + 0.018, trimCol, false, wallMat);
+        part('keystone', trimKind, 0, kY, 0, kW * 0.72, kH * 0.82, trimThick + 0.032, darkTrim, false, wallMat);
 
-        // 5. Keystone at apex
-        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.9, 0.065, trimThick + 0.02, trimCol, false, wallMat);
-        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.7, 0.055, trimThick + 0.035, darkTrim, false, wallMat);
+        // 5. Header Frieze Beam & Ceiling Crown Molding
+        const beamH = 1.0 - y_top;
+        box(matKind, 0, (y_top + 1.0) / 2, 0, 1.0, beamH, wallThick, wallCol, false, wallMat);
+        // Continuous horizontal frieze fillet
+        box(trimKind, 0, 0.962, 0, 1.0, 0.012, trimThick + 0.006, trimCol, false, wallMat);
+        // Continuous crowning cornice molding
+        box(trimKind, 0, 0.985, 0, 1.0, 0.030, trimThick + 0.018, trimCol, false, wallMat);
       } else if (/sunsail/.test(t)) {
         // Architectural Triangular/Quad Tensioned Fabric Sun Sail Shade
         const fabricCol = color || '#f8fafc';
