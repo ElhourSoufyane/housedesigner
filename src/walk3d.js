@@ -712,12 +712,92 @@ function resolveBox(b, nx, nz) {
 }
 
 /* ---------- door + gadget interaction ---------- */
+function isLineOfSightClear(ox, oy, oz, tx, ty, tz) {
+  const dx = tx - ox, dy = ty - oy, dz = tz - oz;
+  const dist = Math.hypot(dx, dy, dz);
+  if (dist < 1.0) return true;
+  const invDist = 1 / dist;
+  const rx = dx * invDist, ry = dy * invDist, rz = dz * invDist;
+  const boxes = HP.world3d?.staticColliders || [];
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
+    // Solid wall geometry only (skip low sills/thresholds)
+    if (b.y1 - b.y0 < 15) continue;
+    let tmin = 0, tmax = dist;
+    // X slab
+    if (Math.abs(rx) < 1e-6) {
+      if (ox < b.x0 || ox > b.x1) continue;
+    } else {
+      let t1 = (b.x0 - ox) / rx, t2 = (b.x1 - ox) / rx;
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) continue;
+    }
+    // Y slab
+    if (Math.abs(ry) < 1e-6) {
+      if (oy < b.y0 || oy > b.y1) continue;
+    } else {
+      let t1 = (b.y0 - oy) / ry, t2 = (b.y1 - oy) / ry;
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) continue;
+    }
+    // Z slab
+    if (Math.abs(rz) < 1e-6) {
+      if (oz < b.z0 || oz > b.z1) continue;
+    } else {
+      let t1 = (b.z0 - oz) / rz, t2 = (b.z1 - oz) / rz;
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) continue;
+    }
+    if (tmin < dist - 1.2 && tmax > 1.2) {
+      return false; // Obstructed by solid wall
+    }
+  }
+  return true;
+}
+
 function nearestThing() {
-  let best = null, bd = 70;
-  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
   if (sitting) {
     return { kind: 'seat', isSitting: true, label: 'Stand up' };
   }
+  let best = null, bestScore = 0;
+  const eyeX = px;
+  const eyeY = (HP.world3d ? HP.world3d.EYE : 40) + feetY;
+  const eyeZ = pz;
+  const cosPitch = Math.cos(pitch);
+  const fx = -Math.sin(yaw) * cosPitch;
+  const fy = Math.sin(pitch);
+  const fz = -Math.cos(yaw) * cosPitch;
+
+  const touch = isTouch();
+  const minDot = touch ? 0.30 : 0.38;
+  const considerCandidate = (tx, ty, tz, maxDist, constructData) => {
+    const vx = tx - eyeX, vy = ty - eyeY, vz = tz - eyeZ;
+    const dist = Math.hypot(vx, vy, vz);
+    if (dist > maxDist || dist < 0.5) return;
+    const dot = (vx * fx + vy * fy + vz * fz) / dist;
+    if (dot < minDot) return; // Behind or too far to the side
+    if (!isLineOfSightClear(eyeX, eyeY, eyeZ, tx, ty, tz)) return; // Solid wall blocks sight
+    // Crosshair angular alignment dominates (4th power on desktop, quadratic on mobile for touch ease), distance is secondary
+    const score = touch ? (Math.pow(dot, 2) / (dist + 4)) : (Math.pow(dot, 4) / (dist + 6));
+    if (score > bestScore) {
+      bestScore = score;
+      best = constructData();
+    }
+  };
+
+  // 1. Switchable gadgets (lamps, TV, fireplace, clocks)
+  for (const g2 of (HP.life3d ? HP.life3d.interactables : [])) {
+    const gy = g2.y !== undefined ? g2.y : (groundAt(g2.x, g2.z) + 16);
+    considerCandidate(g2.x, gy, g2.z, 60, () => g2);
+  }
+
+  // 2. Seats (chairs, sofas, beds)
   for (const it of (HP.cur().furniture || [])) {
     const sk = HP.seatKind ? HP.seatKind(it.type) : null;
     if (!sk) continue;
@@ -725,83 +805,65 @@ function nearestThing() {
     if (!def) continue;
     const spots = HP.itemSeatSpots ? HP.itemSeatSpots(it, def) : [];
     for (const sp of spots) {
-      const dx = sp.x - px, dz = sp.z - pz;
-      const dist = Math.hypot(dx, dz);
-      if (dist > 48 || dist < 1) continue;
-      const dot = (dx * fx + dz * fz) / dist;
-      if (dot > 0.25 && dist < bd) {
-        bd = dist;
-        best = {
-          kind: 'seat', it, def, sk, spot: sp,
-          label: (sk === 'lie' ? 'Lie down' : 'Sit') + ' — ' + (def.name || it.type)
-        };
-      }
+      const sy = groundAt(sp.x, sp.z) + 12;
+      considerCandidate(sp.x, sy, sp.z, 50, () => ({
+        kind: 'seat', it, def, sk, spot: sp,
+        label: (sk === 'lie' ? 'Lie down' : 'Sit') + ' — ' + (def.name || it.type)
+      }));
     }
   }
-  if (HP.world3d.climbs) {
+
+  // 3. Doors & Windows (each leaf evaluated at its own 3D center)
+  for (const d of (HP.world3d?.doorPivots || [])) {
+    if (d.doorStyle === 'archway' || (!d.leaf && !d.window)) continue;
+    if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY > d.ly1 + 15 || feetY + 55 < d.ly0)) continue;
+    let leafX = d.pivot.position.x;
+    let leafY = d.pivot.position.y + (d.halfY || 28);
+    let leafZ = d.pivot.position.z;
+    if (d.window) {
+      const rootPos = d.pivot.parent?.position;
+      const sashPos = d.sash ? d.sash.position : { x: 0, y: 0, z: 0 };
+      leafX = (rootPos ? rootPos.x : d.a.cx) + d.pivot.position.x + sashPos.x;
+      leafY = (d.ly0 !== undefined && d.ly1 !== undefined) ? (d.ly0 + d.ly1) / 2 : (d.pivot.position.y + (rootPos ? rootPos.y : 0));
+      leafZ = (rootPos ? rootPos.z : d.a.cz) + d.pivot.position.z + sashPos.z;
+    }
+    considerCandidate(leafX, leafY, leafZ, 65, () => d);
+  }
+
+  // 4. Climbs (ladders, stairs, treehouse)
+  if (HP.world3d?.climbs) {
     for (const c of HP.world3d.climbs) {
       const atTop = feetY >= (c.y1 - 10);
       const targetSpot = atTop ? c.deckSpot : c.groundSpot;
-      const dx = targetSpot.x - px, dz = targetSpot.z - pz;
-      const dist = Math.hypot(dx, dz);
-      if (dist < 42 && dist < bd) {
-        bd = dist;
-        best = {
-          kind: 'climb',
-          climb: c,
-          atTop,
-          label: atTop ? (c.labelDown || 'Climb down Treehouse') : (c.labelUp || 'Climb up to Treehouse Deck')
-        };
-      }
+      const cy = atTop ? c.y1 : (c.y0 || 0);
+      considerCandidate(targetSpot.x, cy + 18, targetSpot.z, 44, () => ({
+        kind: 'climb', climb: c, atTop,
+        label: atTop ? (c.labelDown || 'Climb down Treehouse') : (c.labelUp || 'Climb up to Treehouse Deck')
+      }));
     }
   }
-  if (HP.world3d && HP.world3d.garageDoors) {
+
+  // 5. Garage doors
+  if (HP.world3d?.garageDoors) {
     for (const gd of HP.world3d.garageDoors) {
-      const dx = gd.cx - px, dz = gd.cz - pz;
-      const dist = Math.hypot(dx, dz);
-      if (dist > 75 || dist < 1) continue;
-      const dot = (dx * fx + dz * fz) / dist;
-      if (dot > 0.30 && dist < bd) {
-        bd = dist;
-        best = {
-          kind: 'garagedoor',
-          door: gd,
-          label: (gd.target === 1 || gd.open > 0.5) ? 'Close Garage Door' : 'Open Garage Door'
-        };
-      }
+      considerCandidate(gd.cx, (gd.y0 || 0) + 25, gd.cz, 75, () => ({
+        kind: 'garagedoor', door: gd,
+        label: (gd.target === 1 || gd.open > 0.5) ? 'Close Garage Door' : 'Open Garage Door'
+      }));
     }
   }
-  for (const d of HP.world3d.doorPivots) {
-    if (d.doorStyle === 'archway' || !d.leaf) continue;
-    const a = d.a;
-    if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY > d.ly1 + 15 || feetY + 55 < d.ly0)) continue;
-    const dx = a.cx - px, dz = a.cz - pz;
-    const dist = Math.hypot(dx, dz);
-    if (dist > bd || dist < 1) continue;
-    const dot = (dx * fx + dz * fz) / dist;        // must face it
-    if (dot > 0.55 && dist < bd) { bd = dist; best = d; }
-  }
-  /* switchable gadgets (lamps, TV, fireplace) compete on distance   */
-  for (const g2 of (HP.life3d ? HP.life3d.interactables : [])) {
-    const dx = g2.x - px, dz = g2.z - pz;
-    const dist = Math.hypot(dx, dz);
-    if (dist > bd || dist < 1) continue;
-    const dot = (dx * fx + dz * fz) / dist;
-    if (dot > 0.55 && dist < bd) { bd = dist; best = g2; }
-  }
-  /* showroom inspection labels */
+
+  // 6. Showroom inspection items
   if (HP.showroomItems) {
     for (const it of HP.showroomItems) {
       const d = HP.itemDef(it.type);
       const cx = (it.x + (it.w || (d && d.w) || 1) / 2) * HP.CELL;
       const cz = (it.y + (it.h || (d && d.h) || 1) / 2) * HP.CELL;
-      const dx = cx - px, dz = cz - pz;
-      const dist = Math.hypot(dx, dz);
-      if (dist > 85 || dist < 1) continue;
-      const dot = (dx * fx + dz * fz) / dist;
-      if (dot > 0.5 && dist < bd) { bd = dist; best = { item: it, def: d, isShowroom: true }; }
+      const cy = groundAt(cx, cz) + 14;
+      considerCandidate(cx, cy, cz, 85, () => ({ item: it, def: d, isShowroom: true }));
     }
   }
+
   return best;
 }
 function interact() {
@@ -842,14 +904,25 @@ function interact() {
     return;
   }
   if (d.doorStyle === 'archway' || !d.leaf) return;
-  /* latch the whole door (both leaves of a double) — a latched door
-     stays open until E again; unlatching lets the spring shut it    */
+  const isSlider = d.doorStyle === 'slideglass' || d.slide;
   const open = !(d.latched || d.holdT > 0.2 || d.open > 0.5);
-  for (const o of HP.world3d.doorPivots) if (o.a === d.a) { o.latched = open; if (!open) o.holdT = 0; }
+  if (isSlider) {
+    // Sliding door: latch/unlatch only the targeted leaf so left and right operate independently
+    d.latched = open;
+    if (!open) d.holdT = 0;
+  } else {
+    // Swinging door: latch both leaves of a double door
+    for (const o of HP.world3d.doorPivots) if (o.a === d.a) { o.latched = open; if (!open) o.holdT = 0; }
+  }
   if (HP.sync3d && HP.world3d && HP.world3d.doorPivots) {
     const indices = [];
-    for (let i = 0; i < HP.world3d.doorPivots.length; i++) {
-      if (HP.world3d.doorPivots[i].a === d.a) indices.push(i);
+    if (isSlider) {
+      const idx = HP.world3d.doorPivots.indexOf(d);
+      if (idx >= 0) indices.push(idx);
+    } else {
+      for (let i = 0; i < HP.world3d.doorPivots.length; i++) {
+        if (HP.world3d.doorPivots[i].a === d.a) indices.push(i);
+      }
     }
     if (HP.sync3d.broadcastDoorToggle) {
       HP.sync3d.broadcastDoorToggle(indices, open);

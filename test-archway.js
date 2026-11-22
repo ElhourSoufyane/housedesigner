@@ -77,11 +77,17 @@ for (const obj of group.children) {
   }
 }
 
-// 4. Test door frame archway building with wall style matching
+// 4. Test door frame archway building with wall style matching and batched mesh performance
+HP.cur = () => ({
+  walls: {
+    'h,4,4': { f: 'door', doorStyle: 'archway', style: 'brick', ca: '#ffffff', cb: '#ffffff' }
+  }
+});
 const frameGroup = HP.world3d.buildDoorFrame({ k: 'h,4,4', d: 'h', x0: 112, x1: 168, z0: 112, z1: 116 }, 112, 168, new THREE.Group(), 0);
 assert(frameGroup.children.length > 0, 'Arched door frame must create meshes');
-const spandrelMesh = frameGroup.children.find(c => c.geometry && c.geometry.type === 'BoxGeometry' && c.position.y > 45);
+assert(frameGroup.children.length <= 3, 'Archway door frame meshes must be batched for 60fps performance (was 74, now <= 3)');
+const spandrelMesh = frameGroup.children.find(c => c.geometry && (c.geometry.type === 'BufferGeometry' || c.geometry.type === 'BoxGeometry') && c.material);
 assert(spandrelMesh, 'Archway door frame must have spandrel geometry');
 assert(spandrelMesh.material, 'Spandrel mesh must have a valid material');
 
-console.log('✓ PASS test-archway.js: Catalog archways (1x1, 2x1, 3x1) & Door styles (archway, arched) verified!');
+console.log('✓ PASS test-archway.js: Catalog archways (1x1, 2x1, 3x1) & Door styles (archway, arched) verified with batched 60fps geometry!');

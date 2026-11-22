@@ -874,6 +874,65 @@ function buildOverheadTrack(a, span, leaves, s0, s1, flipVal, parentGroup, overr
   return group;
 }
 
+function mergeGeometries(geos) {
+  if (!geos || !geos.length) return null;
+  if (geos.length === 1) return geos[0];
+  let totalVerts = 0, totalIdx = 0;
+  for (const g of geos) {
+    if (!g || !g.attributes || !g.attributes.position) continue;
+    totalVerts += g.attributes.position.count;
+    totalIdx += g.index ? g.index.count : 0;
+  }
+  if (!totalVerts) return null;
+
+  const pos = new Float32Array(totalVerts * 3);
+  const nor = new Float32Array(totalVerts * 3);
+  const uv = new Float32Array(totalVerts * 2);
+  const idx = totalVerts > 65535 ? new Uint32Array(totalIdx) : new Uint16Array(totalIdx);
+
+  let vOff = 0, iOff = 0;
+  for (const g of geos) {
+    if (!g || !g.attributes || !g.attributes.position) continue;
+    const pArr = g.attributes.position.array;
+    const nArr = g.attributes.normal.array;
+    const uArr = g.attributes.uv ? g.attributes.uv.array : null;
+    const pCount = g.attributes.position.count;
+
+    for (let i = 0; i < pCount; i++) {
+      const i3 = i * 3, vi3 = (vOff + i) * 3;
+      pos[vi3] = pArr[i3];
+      pos[vi3 + 1] = pArr[i3 + 1];
+      pos[vi3 + 2] = pArr[i3 + 2];
+      nor[vi3] = nArr[i3];
+      nor[vi3 + 1] = nArr[i3 + 1];
+      nor[vi3 + 2] = nArr[i3 + 2];
+      if (uArr) {
+        const i2 = i * 2, vi2 = (vOff + i) * 2;
+        uv[vi2] = uArr[i2];
+        uv[vi2 + 1] = uArr[i2 + 1];
+      }
+    }
+    if (g.index) {
+      const iArr = g.index.array;
+      for (let i = 0; i < iArr.length; i++) {
+        idx[iOff + i] = iArr[i] + vOff;
+      }
+      iOff += iArr.length;
+    }
+    vOff += pCount;
+    g.dispose();
+  }
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (totalIdx > 0) merged.setIndex(new THREE.BufferAttribute(idx, 1));
+  merged.computeBoundingBox();
+  merged.computeBoundingSphere();
+  return merged;
+}
+
 function buildDoorFrame(a, s0, s1, parentGroup) {
   const isH = a.d === 'h';
   const span = s1 - s0;
@@ -933,19 +992,18 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     const R = span / 2;
     const sy = Math.max(30, dh - R);
     const archH = dh - sy;
+    const frameGeos = [];
+    const spandrelGeos = [];
 
     // Left jamb up to springline
-    const sideGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
-    const leftMesh = new THREE.Mesh(sideGeo, wallMat || frameMat);
-    leftMesh.position.set(isH ? s0 + jt / 2 : wMid, sy / 2, isH ? wMid : s0 + jt / 2);
-    leftMesh.castShadow = leftMesh.receiveShadow = true;
-    group.add(leftMesh);
+    const leftGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
+    leftGeo.translate(isH ? s0 + jt / 2 : wMid, sy / 2, isH ? wMid : s0 + jt / 2);
+    spandrelGeos.push(leftGeo);
 
     // Right jamb up to springline
-    const rightMesh = new THREE.Mesh(sideGeo, wallMat || frameMat);
-    rightMesh.position.set(isH ? s1 - jt / 2 : wMid, sy / 2, isH ? wMid : s1 - jt / 2);
-    rightMesh.castShadow = rightMesh.receiveShadow = true;
-    group.add(rightMesh);
+    const rightGeo = new THREE.BoxGeometry(isH ? jt : jd, sy, isH ? jd : jt);
+    rightGeo.translate(isH ? s1 - jt / 2 : wMid, sy / 2, isH ? wMid : s1 - jt / 2);
+    spandrelGeos.push(rightGeo);
 
     // Curved arch soffit
     const arcSegments = 16;
@@ -956,12 +1014,11 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
       const du = u1 - u0, dy = y1 - y0;
       const segLen = Math.hypot(du, dy);
       const segGeo = new THREE.BoxGeometry(isH ? segLen : jd, jt, isH ? jd : segLen);
-      const segMesh = new THREE.Mesh(segGeo, frameMat);
-      segMesh.position.set(isH ? (u0 + u1) / 2 : wMid, (y0 + y1) / 2, isH ? wMid : (u0 + u1) / 2);
-      if (isH) segMesh.rotation.z = Math.atan2(dy, du);
-      else segMesh.rotation.x = -Math.atan2(dy, du);
-      segMesh.castShadow = segMesh.receiveShadow = true;
-      group.add(segMesh);
+      const rot = Math.atan2(dy, du);
+      if (isH) segGeo.rotateZ(rot);
+      else segGeo.rotateX(-rot);
+      segGeo.translate(isH ? (u0 + u1) / 2 : wMid, (y0 + y1) / 2, isH ? wMid : (u0 + u1) / 2);
+      frameGeos.push(segGeo);
     }
 
     // Solid spandrels filling top corners using the exact wall material & color
@@ -973,38 +1030,32 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
       const curveY = sy + Math.sqrt(Math.max(0, 1 - normU * normU)) * archH;
       if (curveY < dh) {
         const sh = dh - curveY;
-        const spandrelGeo = new THREE.BoxGeometry(isH ? stepU * 1.02 : wThick, sh, isH ? wThick : stepU * 1.02);
-        const spMesh = new THREE.Mesh(spandrelGeo, wallMat || frameMat);
-        spMesh.position.set(isH ? u : wMid, curveY + sh / 2, isH ? wMid : u);
-        spMesh.castShadow = spMesh.receiveShadow = true;
-        group.add(spMesh);
+        const spGeo = new THREE.BoxGeometry(isH ? stepU * 1.02 : wThick, sh, isH ? wThick : stepU * 1.02);
+        spGeo.translate(isH ? u : wMid, curveY + sh / 2, isH ? wMid : u);
+        spandrelGeos.push(spGeo);
       }
     }
 
     // Casing trim bands on both wall faces
     const casingW = 1.4, casingT = 0.55;
-    const casingGeoV = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
-    const keystoneGeo = new THREE.BoxGeometry(isH ? casingW * 1.8 : casingT * 1.5, casingW * 2.2, isH ? casingT * 1.5 : casingW * 1.8);
-    const impostGeo = new THREE.BoxGeometry(isH ? casingW * 1.4 : casingT * 1.3, casingW * 0.8, isH ? casingT * 1.3 : casingW * 1.4);
+    const keystoneW = casingW * 1.8, keystoneH = casingW * 2.2, keystoneD = casingT * 1.5;
+    const impostW = casingW * 1.4, impostH = casingW * 0.8, impostD = casingT * 1.3;
 
     for (const f of [-1, 1]) {
       const facePos = wMid + f * (wThick / 2 + casingT / 2);
 
-      const cl = new THREE.Mesh(casingGeoV, frameMat);
-      cl.position.set(isH ? s0 - casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s0 - casingW / 2);
-      cl.castShadow = true;
-      group.add(cl);
+      const cl = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
+      cl.translate(isH ? s0 - casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s0 - casingW / 2);
+      frameGeos.push(cl);
 
-      const cr = new THREE.Mesh(casingGeoV, frameMat);
-      cr.position.set(isH ? s1 + casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s1 + casingW / 2);
-      cr.castShadow = true;
-      group.add(cr);
+      const cr = new THREE.BoxGeometry(isH ? casingW : casingT, sy + casingW, isH ? casingT : casingW);
+      cr.translate(isH ? s1 + casingW / 2 : facePos, (sy + casingW) / 2, isH ? facePos : s1 + casingW / 2);
+      frameGeos.push(cr);
 
       for (const iu of [s0 - casingW / 2, s1 + casingW / 2]) {
-        const imp = new THREE.Mesh(impostGeo, frameMat);
-        imp.position.set(isH ? iu : facePos, sy, isH ? facePos : iu);
-        imp.castShadow = true;
-        group.add(imp);
+        const imp = new THREE.BoxGeometry(isH ? impostW : impostD, impostH, isH ? impostD : impostW);
+        imp.translate(isH ? iu : facePos, sy, isH ? facePos : iu);
+        frameGeos.push(imp);
       }
 
       for (let i = 0; i < arcSegments; i++) {
@@ -1014,18 +1065,30 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
         const du = u1 - u0, dy = y1 - y0;
         const segLen = Math.hypot(du, dy);
         const segGeo = new THREE.BoxGeometry(isH ? segLen : casingT, casingW, isH ? casingT : segLen);
-        const segMesh = new THREE.Mesh(segGeo, frameMat);
-        segMesh.position.set(isH ? (u0 + u1) / 2 : facePos, (y0 + y1) / 2, isH ? facePos : (u0 + u1) / 2);
-        if (isH) segMesh.rotation.z = Math.atan2(dy, du);
-        else segMesh.rotation.x = -Math.atan2(dy, du);
-        segMesh.castShadow = true;
-        group.add(segMesh);
+        const rot = Math.atan2(dy, du);
+        if (isH) segGeo.rotateZ(rot);
+        else segGeo.rotateX(-rot);
+        segGeo.translate(isH ? (u0 + u1) / 2 : facePos, (y0 + y1) / 2, isH ? facePos : (u0 + u1) / 2);
+        frameGeos.push(segGeo);
       }
 
-      const ks = new THREE.Mesh(keystoneGeo, frameMat);
-      ks.position.set(isH ? midU : facePos, dh + casingW / 2, isH ? facePos : midU);
-      ks.castShadow = true;
-      group.add(ks);
+      const ks = new THREE.BoxGeometry(isH ? keystoneW : keystoneD, keystoneH, isH ? keystoneD : keystoneW);
+      ks.translate(isH ? midU : facePos, dh + casingW / 2, isH ? facePos : midU);
+      frameGeos.push(ks);
+    }
+
+    const mergedSpandrel = mergeGeometries(spandrelGeos);
+    if (mergedSpandrel) {
+      const spandrelMesh = new THREE.Mesh(mergedSpandrel, wallMat || frameMat);
+      spandrelMesh.castShadow = spandrelMesh.receiveShadow = true;
+      group.add(spandrelMesh);
+    }
+
+    const mergedFrame = mergeGeometries(frameGeos);
+    if (mergedFrame) {
+      const frameMesh = new THREE.Mesh(mergedFrame, frameMat);
+      frameMesh.castShadow = frameMesh.receiveShadow = true;
+      group.add(frameMesh);
     }
 
     if (doorStyle === 'arched') {
@@ -1357,8 +1420,8 @@ function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat
     let du = 0;
     if (isSlideGlass) {
       if (leaves === 2) {
-        // Bypass patio slider: active leaf 0 glides along Track 0 inside the frame to stack behind leaf 1
-        du = li === 0 ? (span / 2 - 0.8) : 0;
+        // Double patio slider: each panel slides independently along its own track (left glides right, right glides left)
+        du = li === 0 ? (span / 2 - 0.8) : -(span / 2 - 0.8);
       } else {
         du = -lw * 0.95;
       }
@@ -3547,6 +3610,7 @@ W3.updateApertures = function () {
   const lvl = HP.cur();
   if (!lvl || !lvl.walls) return;
   const env = geomEnv();
+  const C = HP.CELL, V = HP.cull3d;
 
   // 1. Update doors
   for (const dp of (W3.doorPivots || [])) {

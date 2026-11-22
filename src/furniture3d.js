@@ -321,6 +321,139 @@ F.builder = function (group) {
           fp = { x0: pos.x - width / 2, z0: pos.z - depth / 2, x1: pos.x + width / 2, z1: pos.z + depth / 2 };
         }
       }
+      if (/^archway/i.test(it.type)) {
+        const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+        const lvlWalls = (lvl && lvl.walls) || {};
+        const env = getGeomEnv();
+        const C = (env && env.C) || (HP && HP.CELL) || 28;
+        const isHoriz = (rot === 0 || rot === 2);
+        let neighborWall = null;
+        let wallThickPx = 0.30 * C;
+
+        if (isHoriz) {
+          let bestLineY = null;
+          let bestWall = null;
+          let bestKey = null;
+
+          const wN0 = lvlWalls['h,' + (f.x - 1) + ',' + f.y], wN1 = lvlWalls['h,' + (f.x + f.w) + ',' + f.y];
+          const wS0 = lvlWalls['h,' + (f.x - 1) + ',' + (f.y + 1)], wS1 = lvlWalls['h,' + (f.x + f.w) + ',' + (f.y + 1)];
+
+          if (wN0 || wN1) {
+            bestLineY = f.y;
+            bestWall = wN0 || wN1;
+            bestKey = wN0 ? ('h,' + (f.x - 1) + ',' + f.y) : ('h,' + (f.x + f.w) + ',' + f.y);
+          } else if (wS0 || wS1) {
+            bestLineY = f.y + 1;
+            bestWall = wS0 || wS1;
+            bestKey = wS0 ? ('h,' + (f.x - 1) + ',' + (f.y + 1)) : ('h,' + (f.x + f.w) + ',' + (f.y + 1));
+          } else {
+            let nHits0 = 0, nHits1 = 0, firstW0 = null, firstW1 = null, k0 = null, k1 = null;
+            for (const wk in lvlWalls) {
+              const wObj = lvlWalls[wk];
+              if (!wObj) continue;
+              const parts = wk.split(',');
+              if (parts[0] === 'h') {
+                const wy = parseFloat(parts[2]);
+                if (Math.abs(wy - f.y) < 0.01) { nHits0++; if (!firstW0) { firstW0 = wObj; k0 = wk; } }
+                if (Math.abs(wy - (f.y + 1)) < 0.01) { nHits1++; if (!firstW1) { firstW1 = wObj; k1 = wk; } }
+              }
+            }
+            if (nHits0 > 0 && nHits0 >= nHits1) {
+              bestLineY = f.y;
+              bestWall = firstW0;
+              bestKey = k0;
+            } else if (nHits1 > 0) {
+              bestLineY = f.y + 1;
+              bestWall = firstW1;
+              bestKey = k1;
+            } else {
+              const vTL = lvlWalls['v,' + f.x + ',' + (f.y - 1)], vBL = lvlWalls['v,' + f.x + ',' + (f.y + 1)];
+              const vTR = lvlWalls['v,' + (f.x + f.w) + ',' + (f.y - 1)], vBR = lvlWalls['v,' + (f.x + f.w) + ',' + (f.y + 1)];
+              if (vTL || vTR) {
+                bestLineY = f.y;
+                bestWall = vTL || vTR;
+                bestKey = vTL ? ('v,' + f.x + ',' + (f.y - 1)) : ('v,' + (f.x + f.w) + ',' + (f.y - 1));
+              } else if (vBL || vBR) {
+                bestLineY = f.y + 1;
+                bestWall = vBL || vBR;
+                bestKey = vBL ? ('v,' + f.x + ',' + (f.y + 1)) : ('v,' + (f.x + f.w) + ',' + (f.y + 1));
+              }
+            }
+          }
+
+          if (bestLineY !== null) {
+            const s = bestKey ? HP.parseWallKey(bestKey) : { d: 'h', x: f.x - 1, y: bestLineY, k: 'h,' + (f.x - 1) + ',' + bestLineY };
+            const z = (HP.geom3d && HP.geom3d.segZone) ? HP.geom3d.segZone(s, env) : null;
+            const wallMidZ = bestLineY * C + (z ? (z.w0 + z.w1) / 2 : 0);
+            if (z) wallThickPx = Math.max(2, Math.abs(z.w1 - z.w0));
+            pos.z = wallMidZ;
+            neighborWall = bestWall;
+          }
+        } else {
+          let bestLineX = null;
+          let bestWall = null;
+          let bestKey = null;
+
+          const wW0 = lvlWalls['v,' + f.x + ',' + (f.y - 1)], wW1 = lvlWalls['v,' + f.x + ',' + (f.y + f.h)];
+          const wE0 = lvlWalls['v,' + (f.x + 1) + ',' + (f.y - 1)], wE1 = lvlWalls['v,' + (f.x + 1) + ',' + (f.y + f.h)];
+
+          if (wW0 || wW1) {
+            bestLineX = f.x;
+            bestWall = wW0 || wW1;
+            bestKey = wW0 ? ('v,' + f.x + ',' + (f.y - 1)) : ('v,' + f.x + ',' + (f.y + f.h));
+          } else if (wE0 || wE1) {
+            bestLineX = f.x + 1;
+            bestWall = wE0 || wE1;
+            bestKey = wE0 ? ('v,' + (f.x + 1) + ',' + (f.y - 1)) : ('v,' + (f.x + 1) + ',' + (f.y + f.h));
+          } else {
+            let nHits0 = 0, nHits1 = 0, firstW0 = null, firstW1 = null, k0 = null, k1 = null;
+            for (const wk in lvlWalls) {
+              const wObj = lvlWalls[wk];
+              if (!wObj) continue;
+              const parts = wk.split(',');
+              if (parts[0] === 'v') {
+                const wx = parseFloat(parts[1]);
+                if (Math.abs(wx - f.x) < 0.01) { nHits0++; if (!firstW0) { firstW0 = wObj; k0 = wk; } }
+                if (Math.abs(wx - (f.x + 1)) < 0.01) { nHits1++; if (!firstW1) { firstW1 = wObj; k1 = wk; } }
+              }
+            }
+            if (nHits0 > 0 && nHits0 >= nHits1) {
+              bestLineX = f.x;
+              bestWall = firstW0;
+              bestKey = k0;
+            } else if (nHits1 > 0) {
+              bestLineX = f.x + 1;
+              bestWall = firstW1;
+              bestKey = k1;
+            } else {
+              const hTL = lvlWalls['h,' + (f.x - 1) + ',' + f.y], hTR = lvlWalls['h,' + (f.x + 1) + ',' + f.y];
+              const hBL = lvlWalls['h,' + (f.x - 1) + ',' + (f.y + f.h)], hBR = lvlWalls['h,' + (f.x + 1) + ',' + (f.y + f.h)];
+              if (hTL || hBL) {
+                bestLineX = f.x;
+                bestWall = hTL || hBL;
+                bestKey = hTL ? ('h,' + (f.x - 1) + ',' + f.y) : ('h,' + (f.x - 1) + ',' + (f.y + f.h));
+              } else if (hTR || hBR) {
+                bestLineX = f.x + 1;
+                bestWall = hTR || hBR;
+                bestKey = hTR ? ('h,' + (f.x + 1) + ',' + f.y) : ('h,' + (f.x + 1) + ',' + (f.y + f.h));
+              }
+            }
+          }
+
+          if (bestLineX !== null) {
+            const s = bestKey ? HP.parseWallKey(bestKey) : { d: 'v', x: bestLineX, y: f.y - 1, k: 'v,' + bestLineX + ',' + (f.y - 1) };
+            const z = (HP.geom3d && HP.geom3d.segZone) ? HP.geom3d.segZone(s, env) : null;
+            const wallMidX = bestLineX * C + (z ? (z.w0 + z.w1) / 2 : 0);
+            if (z) wallThickPx = Math.max(2, Math.abs(z.w1 - z.w0));
+            pos.x = wallMidX;
+            neighborWall = bestWall;
+          }
+        }
+
+        it._wallThickPx = wallThickPx;
+        it._neighborWall = neighborWall;
+        fp = { x0: pos.x - width / 2, z0: pos.z - depth / 2, x1: pos.x + width / 2, z1: pos.z + depth / 2 };
+      }
       small = f.w * f.h < 4;
       root.compose(pos, q, new THREE.Vector3(1, 1, 1));
       const t = it.type.toLowerCase();
@@ -9062,15 +9195,16 @@ F.builder = function (group) {
         // Architectural Cased Walkthrough Archway (Matches the connecting wall's material & color: plaster, brick, tile, stone, concrete, etc.)
         const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
         const lvlWalls = (lvl && lvl.walls) || {};
+        let neighborWall = it._neighborWall || null;
 
-        // Find touching or nearby wall to match its style and color
-        let neighborWall = null;
-        const isHoriz = (rot === 0 || rot === 2);
-        const checkKeys = isHoriz
-          ? [`h,${f.x - 1},${f.y}`, `h,${f.x + f.w},${f.y}`, `v,${f.x},${f.y}`, `v,${f.x},${f.y - 1}`, `v,${f.x + f.w},${f.y}`, `v,${f.x + f.w},${f.y - 1}`]
-          : [`v,${f.x},${f.y - 1}`, `v,${f.x},${f.y + f.h}`, `h,${f.x},${f.y}`, `h,${f.x - 1},${f.y}`, `h,${f.x},${f.y + f.h}`, `h,${f.x - 1},${f.y + f.h}`];
-        for (const k of checkKeys) {
-          if (lvlWalls[k]) { neighborWall = lvlWalls[k]; break; }
+        if (!neighborWall) {
+          const isHoriz = (rot === 0 || rot === 2);
+          const checkKeys = isHoriz
+            ? [`h,${f.x - 1},${f.y}`, `h,${f.x + f.w},${f.y}`, `h,${f.x - 1},${f.y + 1}`, `h,${f.x + f.w},${f.y + 1}`, `v,${f.x},${f.y}`, `v,${f.x},${f.y - 1}`, `v,${f.x + f.w},${f.y}`, `v,${f.x + f.w},${f.y - 1}`]
+            : [`v,${f.x},${f.y - 1}`, `v,${f.x},${f.y + f.h}`, `v,${f.x + 1},${f.y - 1}`, `v,${f.x + 1},${f.y + f.h}`, `h,${f.x},${f.y}`, `h,${f.x - 1},${f.y}`, `h,${f.x},${f.y + f.h}`, `h,${f.x - 1},${f.y + f.h}`];
+          for (const k of checkKeys) {
+            if (lvlWalls[k]) { neighborWall = lvlWalls[k]; break; }
+          }
         }
         if (!neighborWall) {
           for (let cx = f.x - 1; cx <= f.x + f.w; cx++) {
@@ -9108,12 +9242,10 @@ F.builder = function (group) {
           // Auto: match touching wall
           const st = (neighborWall && neighborWall.style) || HP.wallStyle || 'plaster';
           matKind = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'wood' || st === 'shiplap' || st === 'marble') ? st : 'plaster';
+          const isExt = neighborWall && neighborWall.ext;
+          const sDefC = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' || matKind === 'marble' || matKind === 'wood' || matKind === 'shiplap') ? '#ffffff' : (isExt ? '#e9e2d2' : '#f4efe4');
           const nCol = neighborWall && (neighborWall.ca || neighborWall.cb);
-          if (nCol) {
-            wallCol = nCol;
-          } else {
-            wallCol = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' || matKind === 'marble') ? '#ffffff' : (matKind === 'wood' ? '#6a4c33' : '#f4efe4');
-          }
+          wallCol = nCol || sDefC;
           if (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') {
             wallCol = it.colors[0];
           }
@@ -9130,15 +9262,26 @@ F.builder = function (group) {
         } else if (vIdx === 6) {
           matKind = 'concrete'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         } else if (vIdx === 7) {
-          matKind = 'wood'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#6a4c33';
+          matKind = 'wood'; wallCol = (it.colors && it.colors[0] && it.colors[0] !== '#ffffff') ? it.colors[0] : '#ffffff';
         }
 
-        const trimKind = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'concrete' || matKind === 'marble') ? 'stone' : (matKind === 'tile' ? 'ceramic' : (matKind === 'wood' ? 'wood' : 'plaster'));
-        const trimCol = (matKind === 'brick' || matKind === 'stone') ? '#ede8df' : (matKind === 'wood' ? HP.shade(wallCol, 0.8) : (matKind === 'concrete' ? '#d1d5db' : HP.shade(wallCol, 0.94)));
-        const darkTrim = (matKind === 'brick' || matKind === 'stone') ? '#cfc8b8' : HP.shade(trimCol, 0.78);
+        let wallMat = null;
+        if (HP.world3d && HP.world3d.getWallMat) {
+          wallMat = HP.world3d.getWallMat(matKind);
+        } else if (HP.graphics3d) {
+          wallMat = HP.graphics3d.worldUV(HP.graphics3d.material(matKind).clone(), (HP.CELL || 28) * 2);
+          HP.graphics3d.track(wallMat);
+        }
 
-        const wallThick = 0.32;
-        const trimThick = wallThick + 0.05;
+        const trimKind = matKind;
+        const trimCol = wallCol;
+        const darkTrim = wallCol;
+
+        const wallThickPx = it._wallThickPx || 8.4;
+        const depthPx = depth || (HP.CELL || 28);
+        const wallThick = wallThickPx / depthPx;
+        const casingTPx = 0.45;
+        const trimThick = (wallThickPx + casingTPx * 2) / depthPx;
         const pw = /archway1/.test(t) ? 0.16 : (/archway3/.test(t) ? 0.08 : 0.12);
         const R = 0.5 - pw;
         const cy = 0.62;
@@ -9147,15 +9290,15 @@ F.builder = function (group) {
 
         // 1. Side pilasters & plinths
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
-          box(matKind, sx, cy / 2, 0, pw, cy, wallThick, wallCol);
-          box(trimKind, sx, 0.03, 0, pw + 0.02, 0.06, trimThick, trimCol);
-          box(trimKind, sx, cy - 0.015, 0, pw + 0.02, 0.03, trimThick, trimCol);
-          box(matKind, sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol);
+          box(matKind, sx, cy / 2, 0, pw, cy, wallThick, wallCol, false, wallMat);
+          box(trimKind, sx, 0.018, 0, pw + 0.015, 0.036, trimThick + 0.015, trimCol, false, wallMat);
+          box(trimKind, sx, cy - 0.015, 0, pw + 0.015, 0.03, trimThick + 0.02, trimCol, false, wallMat);
+          box(matKind, sx, (cy + 1.0) / 2, 0, pw, 1.0 - cy, wallThick, wallCol, false, wallMat);
         }
 
         // 2. Top header beam & ceiling crown moulding
-        box(matKind, 0, (y_crown + 1.0) / 2, 0, 1.0, 1.0 - y_crown, wallThick, wallCol);
-        box(trimKind, 0, 0.985, 0, 1.0, 0.03, trimThick, trimCol);
+        box(matKind, 0, (y_crown + 1.0) / 2, 0, 1.0, 1.0 - y_crown, wallThick, wallCol, false, wallMat);
+        box(trimKind, 0, 0.985, 0, 1.0, 0.03, trimThick, trimCol, false, wallMat);
 
         // 3. Spandrel fill slices
         const N = 16;
@@ -9166,24 +9309,26 @@ F.builder = function (group) {
           const curveY = cy + Math.sqrt(Math.max(0, 1 - normX * normX)) * rise;
           if (curveY < y_crown) {
             const hSlice = y_crown - curveY;
-            box(matKind, cx, curveY + hSlice / 2, 0, stepW * 1.02, hSlice, wallThick, wallCol);
+            box(matKind, cx, curveY + hSlice / 2, 0, stepW * 1.02, hSlice, wallThick, wallCol, false, wallMat);
           }
         }
 
         // 4. Arch casing trim & intrados soffit
         const M = 16;
+        const casingOffsetZ = (wallThickPx / 2 + casingTPx / 2) / depthPx;
+        const casingThickness = casingTPx / depthPx;
         for (let i = 0; i < M; i++) {
           const a0 = (i / M) * Math.PI, a1 = ((i + 1) / M) * Math.PI;
           const x0 = -Math.cos(a0) * R, y0 = cy + Math.sin(a0) * rise;
           const x1 = -Math.cos(a1) * R, y1 = cy + Math.sin(a1) * rise;
-          boxSlope(trimKind, x0, y0, wallThick / 2 + 0.015, x1, y1, wallThick / 2 + 0.015, 0.025, 0.03, trimCol);
-          boxSlope(trimKind, x0, y0, -(wallThick / 2 + 0.015), x1, y1, -(wallThick / 2 + 0.015), 0.025, 0.03, trimCol);
-          boxSlope(matKind, x0, y0, 0, x1, y1, 0, 0.02, wallThick, darkTrim);
+          boxSlope(trimKind, x0, y0, casingOffsetZ, x1, y1, casingOffsetZ, 0.025, casingThickness, trimCol, false, wallMat);
+          boxSlope(trimKind, x0, y0, -casingOffsetZ, x1, y1, -casingOffsetZ, 0.025, casingThickness, trimCol, false, wallMat);
+          boxSlope(matKind, x0, y0, 0, x1, y1, 0, 0.02, wallThick, darkTrim, false, wallMat);
         }
 
         // 5. Keystone at apex
-        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.9, 0.065, trimThick + 0.03, trimCol);
-        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.7, 0.055, trimThick + 0.04, darkTrim);
+        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.9, 0.065, trimThick + 0.02, trimCol, false, wallMat);
+        box(trimKind, 0, y_crown + 0.01, 0, pw * 0.7, 0.055, trimThick + 0.035, darkTrim, false, wallMat);
       } else if (/sunsail/.test(t)) {
         // Architectural Triangular/Quad Tensioned Fabric Sun Sail Shade
         const fabricCol = color || '#f8fafc';

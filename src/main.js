@@ -2012,8 +2012,9 @@ function drawDoor(g, s, t, regionOf) {
 
   if (isArch) {
     const isH = s.d === 'h';
-    const xL = s.x * C, xR = (s.x + 2) * C;
-    const yT = s.y * C, yB = (s.y + 2) * C;
+    const xL = s.x * C, xR = (s.x + 1) * C;
+    const yT = s.y * C, yB = (s.y + 1) * C;
+    const midX = (xL + xR) / 2, midY = (yT + yB) / 2;
     g.fillStyle = '#2e3138';
     if (isH) {
       g.fillRect(xL - 2, yT - t / 2, 5, t);
@@ -2022,14 +2023,14 @@ function drawDoor(g, s, t, regionOf) {
       g.lineWidth = 1.8;
       if (g.setLineDash) g.setLineDash([3, 2]);
       g.beginPath();
-      g.arc((xL + xR) / 2, yT, C - 2, 0, Math.PI);
+      g.arc(midX, yT, C / 2 - 2, 0, Math.PI);
       g.stroke();
       if (g.setLineDash) g.setLineDash([]);
       g.fillStyle = 'rgba(74, 62, 53, 0.75)';
       g.font = 'bold 8px sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText('GRAND ARCH', (xL + xR) / 2, yT + dir * 7);
+      g.fillText('ARCHWAY', midX, yT + dir * 7);
     } else {
       g.fillRect(xL - t / 2, yT - 2, t, 5);
       g.fillRect(xL - t / 2, yB - 3, t, 5);
@@ -2037,14 +2038,14 @@ function drawDoor(g, s, t, regionOf) {
       g.lineWidth = 1.8;
       if (g.setLineDash) g.setLineDash([3, 2]);
       g.beginPath();
-      g.arc(xL, (yT + yB) / 2, C - 2, -Math.PI / 2, Math.PI / 2);
+      g.arc(xL, midY, C / 2 - 2, -Math.PI / 2, Math.PI / 2);
       g.stroke();
       if (g.setLineDash) g.setLineDash([]);
       g.fillStyle = 'rgba(74, 62, 53, 0.75)';
       g.font = 'bold 8px sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText('GRAND ARCH', xL + dir * 7, (yT + yB) / 2);
+      g.fillText('ARCHWAY', xL + dir * 7, midY);
     }
     return;
   }
