@@ -1,5 +1,5 @@
 /* sw.js — House Designer Service Worker for Complete Offline & Standalone App Support */
-const CACHE_NAME = 'housedesigner-v1.3.28';
+const CACHE_NAME = 'housedesigner-v1.3.29';
 
 // In local development (localhost / 127.0.0.1), NEVER cache assets so updates are immediate
 const isLocalhost = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';

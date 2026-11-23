@@ -1,8 +1,8 @@
 {
-  "version": "1.3.28",
-  "build": 1795393394560,
-  "updatedAt": "2026-11-23T00:23:14.560Z",
-  "notes": "Make archways authentic Roman semicircles springing from impost capitals with complete 3D solid casing and updated cache busting",
+  "version": "1.3.29",
+  "build": 1795395476067,
+  "updatedAt": "2026-11-23T00:57:56.067Z",
+  "notes": "Match door frames to door styles, add 3D architrave casing trim, and refine archway proportions and curve",
   "files": [
     "version.json",
     "index.html",
@@ -39,20 +39,20 @@
     "src/play3d-inpage.js"
   ],
   "hashes": {
-    "index.html": "f04bddaff557",
-    "play3d.html": "23c75885662b",
+    "index.html": "7d419e3cdb27",
+    "play3d.html": "efe6ecb9baa1",
     "style.css": "1b37ab4b2eb7",
     "manifest.json": "6b5cec7e7507",
-    "sw.js": "98c54392958c",
+    "sw.js": "f6d276b7a8b5",
     "preload.js": "51c8baf4b838",
     "electron-main.js": "df32e78b3421",
     "src/catalog.js": "bb85f4d4746c",
     "src/cull3d.js": "55178727ab57",
     "src/default-house.js": "e4d70f0b9afa",
-    "src/furniture3d.js": "4e1e2524b801",
+    "src/furniture3d.js": "22e389021627",
     "src/geom3d.js": "aa87f3205b42",
     "src/graphics3d.js": "be02d48a0529",
-    "src/grid.js": "aa64c9851cb6",
+    "src/grid.js": "70cae5327d6f",
     "src/input.js": "346bffc4ea5a",
     "src/life3d.js": "44042a9ca352",
     "src/main.js": "8fc1e28bb3c3",
@@ -69,7 +69,7 @@
     "src/ui.js": "35daa4864f19",
     "src/walk.js": "30dc56dd423a",
     "src/walk3d.js": "19132600b58e",
-    "src/world3d.js": "801d58f75e31",
+    "src/world3d.js": "b10a2859849f",
     "src/play3d-inpage.js": "fb411245c669"
   }
 }

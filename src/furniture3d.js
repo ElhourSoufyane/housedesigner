@@ -9494,22 +9494,22 @@ F.builder = function (group) {
         const trimThick = (wallThickPx + casingTPx * 2) / depthPx;
         const isArch1 = /archway1/.test(t);
         const isArch3 = /archway3/.test(t);
-        const pw = isArch1 ? 0.12 : (isArch3 ? 0.08 : 0.10);
+        const pw = isArch1 ? 0.10 : (isArch3 ? 0.08 : 0.10);
         const R = 0.5 - pw;
         const R_px = R * (width || (f.w * (HP.CELL || 28)));
         const h_total = height || 74;
-        const rise_px = R_px; // Pure authentic semicircle: vertical rise in px equals horizontal radius in px
-        const rise = rise_px / h_total;
+        const cy_px = 43.5;
         let y_top_px;
         if (isArch1) {
-          y_top_px = 59;
+          y_top_px = 65;
         } else if (isArch3) {
-          y_top_px = 68;
+          y_top_px = 67.5;
         } else {
-          y_top_px = 62;
+          y_top_px = 66;
         }
         const y_top = y_top_px / h_total;
-        const cy = y_top - rise;
+        const cy = cy_px / h_total;
+        const rise = y_top - cy;
 
         // 1. Classical Side Pilaster Columns & 3-Tier Impost Capitals
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {

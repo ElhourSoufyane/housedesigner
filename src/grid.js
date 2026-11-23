@@ -750,7 +750,7 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
     ];
   }
   if (/^archway/i.test(t)) {
-    const pw = /^archway1/i.test(t) ? 0.12 : (/^archway3/i.test(t) ? 0.08 : 0.10);
+    const pw = /^archway1/i.test(t) ? 0.10 : (/^archway3/i.test(t) ? 0.08 : 0.10);
     const postW = pw * W;
     const halfD = Math.max(2, ((it && it._wallThickPx) || 8.4) / 2 + 0.45);
     return [
