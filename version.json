@@ -1,7 +1,7 @@
 {
   "version": "1.3.32",
-  "build": 1795457582913,
-  "updatedAt": "2026-11-23T18:13:02.913Z",
+  "build": 1795458984820,
+  "updatedAt": "2026-11-23T18:36:24.820Z",
   "notes": "Modern slim shoe cabinet with prominent brushed brass handles, distinct compartment reveals, and interactive E tilt-out doors revealing shoe racks in 3D",
   "files": [
     "version.json",
@@ -54,7 +54,7 @@
     "src/graphics3d.js": "be02d48a0529",
     "src/grid.js": "13eedac8d6f8",
     "src/input.js": "346bffc4ea5a",
-    "src/life3d.js": "e2cced95d833",
+    "src/life3d.js": "a403651c35e7",
     "src/main.js": "8fc1e28bb3c3",
     "src/presets.js": "91562f797f7d",
     "src/rooms.js": "d17fd2fb1e17",

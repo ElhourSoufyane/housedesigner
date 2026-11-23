@@ -296,8 +296,8 @@ function addShoeCabinet(cx, cz, rot, w, dep, h, color, it, baseY) {
   group.add(g);
 
   const cabCol = color || '#8a6844';
-  const woodMat = std(cabCol, { roughness: 0.65 });
-  const flutedMat = std(HP.shade(cabCol, 0.88), { roughness: 0.7 });
+  const woodMat = HP.graphics3d ? HP.graphics3d.material('wood', cabCol) : std(cabCol, { roughness: 0.65 });
+  const flutedMat = HP.graphics3d ? HP.graphics3d.material('wood', HP.shade(cabCol, 0.88)) : std(HP.shade(cabCol, 0.88), { roughness: 0.7 });
   const brassMat = std('#c9a44e', { roughness: 0.22, metalness: 0.9 });
   const darkMat = std('#181b1e', { roughness: 0.9 });
 
@@ -380,7 +380,7 @@ function addShoeCabinet(cx, cz, rot, w, dep, h, color, it, baseY) {
 
   const isOpen = !!(it && it.open);
   if (isOpen) {
-    for (const p of pivots) p.rotation.x = 0.65;
+    for (const p of pivots) p.rotation.x = 1.16;
   }
 
   const sc = {
@@ -799,7 +799,7 @@ L.tick = function (dt, t, s, cam) {
     const target = sc.open ? 1 : 0;
     if (Math.abs(target - sc.curOpen) > 0.001) {
       sc.curOpen += (target - sc.curOpen) * Math.min(1, dt * 8);
-      const tilt = sc.curOpen * 0.65;
+      const tilt = sc.curOpen * 1.16;
       for (const p of sc.pivots) {
         p.rotation.x = tilt;
       }
