@@ -3255,11 +3255,6 @@ W3.buildLevel = function () {
       const s = HP.sky3d ? HP.sky3d.sample(TIME.hour) : { night: 0 };
       scene.environment = (s && s.night > 0.5) ? envNight : envDay;
     }
-    if (typeof renderer.compile === 'function') {
-      const tCompStart = performance.now();
-      try { renderer.compile(scene, camera); } catch (_) {}
-      if (W3._lastBuildTimings) W3._lastBuildTimings.compileMs = +(performance.now() - tCompStart).toFixed(1);
-    }
     if (typeof renderer.render === 'function') {
       const tRendStart = performance.now();
       try { renderer.render(scene, camera); } catch (_) {}
@@ -4321,8 +4316,10 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
   }
   const floorH = baseY + (baseY === 0 ? 0.02 : 0.05);
   const curLvlIdx = Math.max(0, Math.round(baseY / 74));
+  const activeLvlIdx = (HP.state && HP.state.level !== undefined) ? HP.state.level : 0;
+  const isCurActive = curLvlIdx === activeLvlIdx;
   for (const [id, list] of floorGroups) {
-    const material = HP.graphics3d ? HP.graphics3d.floorMaterial(id) :
+    const material = HP.graphics3d ? HP.graphics3d.floorMaterial(id, { activeLevel: isCurActive }) :
       new THREE.MeshLambertMaterial({ color: floorColor(id) });
     V.instanced(targetGroup, floorQuad(), material, list.map(c => cellPart(c, floorH)), { receive: true, lvlIdx: curLvlIdx, isFloor: true });
   }
