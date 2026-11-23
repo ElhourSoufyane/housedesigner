@@ -248,31 +248,88 @@
       if (HP.graphics3d && HP.graphics3d.touch) wrap.classList.add('touch-controls');
     }
 
-    let spawn = targetSpawn;
-    if (!spawn) {
-      spawn = { x: HP.GRID_W * HP.CELL / 2, y: HP.GRID_H * HP.CELL / 2, yaw: Math.PI };
-      const { regions } = HP.computeRegions();
-      if (regions && regions.length) {
-        const big = regions.reduce((a, b) => a.cells.length > b.cells.length ? a : b);
-        spawn = { x: big.lx, y: big.ly };
-      }
-      if (HP.state && HP.state.level > 0) {
-        const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
-        spawn.feetY = HP.state.level * WALL_H;
-      }
+    const overlay = document.getElementById('overlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+      const p = overlay.querySelector('p');
+      if (p) p.textContent = 'Preparing 3D walkthrough...';
     }
 
-    HP.init3D(spawn);
-    if (HP.world3d && HP.world3d.camera) {
-      const eyeH = (HP.world3d && HP.world3d.EYE) || 40;
-      HP.world3d.camera.position.set(spawn.x, eyeH + (spawn.feetY || 0), spawn.y !== undefined ? spawn.y : spawn.z);
-      HP.world3d.camera.rotation.set(spawn.pitch || 0, spawn.yaw || 0, 0, 'YXZ');
-    }
-    if (HP.world3d && HP.world3d.fit) HP.world3d.fit();
-    HP.invalidateRegions();
-    if (HP.world3d) HP.world3d.buildLevel();
+    if (HP.preloadFloorTextures) HP.preloadFloorTextures();
 
-    if (HP.walk3d) HP.walk3d.resume(spawn);
+    const tStart = performance.now();
+    const timings = {};
+
+    const runBuild = () => {
+      const t0 = performance.now();
+      timings.yieldDelayMs = +(t0 - tStart).toFixed(1);
+
+      let spawn = targetSpawn;
+      if (!spawn) {
+        spawn = { x: HP.GRID_W * HP.CELL / 2, y: HP.GRID_H * HP.CELL / 2, yaw: Math.PI };
+        const { regions } = HP.computeRegions();
+        if (regions && regions.length) {
+          const big = regions.reduce((a, b) => a.cells.length > b.cells.length ? a : b);
+          spawn = { x: big.lx, y: big.ly };
+        }
+        if (HP.state && HP.state.level > 0) {
+          const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+          spawn.feetY = HP.state.level * WALL_H;
+        }
+      }
+      const tSpawn = performance.now();
+      timings.computeSpawnMs = +(tSpawn - t0).toFixed(1);
+
+      HP.init3D(spawn);
+      const tInit = performance.now();
+      timings.init3DMs = +(tInit - tSpawn).toFixed(1);
+
+      if (HP.world3d && HP.world3d.camera) {
+        const eyeH = (HP.world3d && HP.world3d.EYE) || 40;
+        HP.world3d.camera.position.set(spawn.x, eyeH + (spawn.feetY || 0), spawn.y !== undefined ? spawn.y : spawn.z);
+        HP.world3d.camera.rotation.set(spawn.pitch || 0, spawn.yaw || 0, 0, 'YXZ');
+      }
+      if (HP.world3d && HP.world3d.fit) HP.world3d.fit();
+      HP.invalidateRegions();
+
+      const tPreBuild = performance.now();
+      if (HP.world3d) HP.world3d.buildLevel();
+      const tPostBuild = performance.now();
+      timings.buildLevelMs = +(tPostBuild - tPreBuild).toFixed(1);
+
+      if (HP.walk3d) HP.walk3d.resume(spawn);
+      const tResume = performance.now();
+      timings.resumeMs = +(tResume - tPostBuild).toFixed(1);
+      timings.totalMs = +(tResume - tStart).toFixed(1);
+
+      let perfEl = document.getElementById('perf-breakdown');
+      if (!perfEl) {
+        perfEl = document.createElement('div');
+        perfEl.id = 'perf-breakdown';
+        perfEl.style.position = 'fixed';
+        perfEl.style.bottom = '10px';
+        perfEl.style.left = '10px';
+        perfEl.style.background = 'rgba(0,0,0,0.85)';
+        perfEl.style.color = '#fff';
+        perfEl.style.zIndex = '99999';
+        perfEl.style.fontSize = '12px';
+        perfEl.style.padding = '6px';
+        document.body.appendChild(perfEl);
+      }
+      if (HP.world3d && HP.world3d._lastBuildTimings) {
+        timings.buildDetails = HP.world3d._lastBuildTimings;
+      }
+      perfEl.textContent = JSON.stringify(timings);
+      console.log('[PERF_BREAKDOWN]', timings);
+    };
+
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => {
+        setTimeout(runBuild, 16);
+      });
+    } else {
+      runBuild();
+    }
   };
 
   HP.exit3D = function () {

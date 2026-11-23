@@ -1169,9 +1169,12 @@ G.setFloorStyle = function (val) {
   if (uiSel && uiSel.value !== floorStyle) uiSel.value = floorStyle;
 };
 
-function makePhotoBump(image, kind) {
+const _photoBumpCache = new Map();
+function makePhotoBump(image, kind, cacheKey) {
   if (typeof document === 'undefined') return null;
-  const size = Math.min(image.width || 512, 512);
+  const key = cacheKey || (image.src || (image._origImage && image._origImage.src) || kind);
+  if (_photoBumpCache.has(key)) return _photoBumpCache.get(key);
+  const size = Math.min(image.width || 256, 256);
   const c = canvas(size);
   if (!c) return null;
   const ctx = c.getContext('2d');
@@ -1203,13 +1206,16 @@ function makePhotoBump(image, kind) {
   ctx.putImageData(imgData, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = G.current.anisotropy;
+  tex.anisotropy = G.current ? G.current.anisotropy : 1;
+  _photoBumpCache.set(key, tex);
   return tex;
 }
 
 G.setMapAndBump = function (m, t, bTex, bScale, roughness) {
   for (const x of [m, liteOf.get(m)]) {
     if (!x) continue;
+    const prevMap = x.map;
+    const prevBump = x.bumpMap;
     x.map = t;
     x.color.set(0xffffff);
     if (bTex && floorStyle === '3d') {
@@ -1221,11 +1227,16 @@ G.setMapAndBump = function (m, t, bTex, bScale, roughness) {
     if (typeof roughness === 'number' && x.isMeshStandardMaterial) {
       x.roughness = roughness;
     }
-    x.needsUpdate = true;
+    // In Three.js, swapping an existing Texture for another CanvasTexture only updates the texture uniform.
+    // Setting needsUpdate = true forces WebGL to recompile the shader pipeline on that frame, causing severe frame drops.
+    // Only recompile if map or bumpMap presence actually changed between null and non-null.
+    if ((!prevMap && t) || (prevBump === null) !== (x.bumpMap === null)) {
+      x.needsUpdate = true;
+    }
   }
 };
 
-G.floorMaterial = function (id) {
+G.floorMaterial = function (id, opts) {
   const def = HP.FLOOR_MATS.find(m => m.id === id);
   const family = def ? def.fam || def.grp || id : id;
   const kind = /wood|walnut|parquet|deck|bamboo|laminate|herring|whitewash/.test(family) ? 'wood' :
@@ -1242,6 +1253,9 @@ G.floorMaterial = function (id) {
   const m = G.material(kind, (def && def.col) || '#c9a877').clone();
   m.side = THREE.FrontSide;
   m.userData.shared3d = true;
+  if (floorStyle === 'photo') {
+    m.bumpMap = null;
+  }
 
   const floorScales = HP.FLOOR_SCALES || {
     marble: 168, flagstone: 160, grassE: 150, gravel: 140, dirt: 140, sand: 140,
@@ -1267,19 +1281,20 @@ G.floorMaterial = function (id) {
   const isPhotoGrass = id === 'grassE';
   const isProceduralGrass = /^grass([A-DF])?$/.test(id) && !isPhotoGrass;
   if (typeof Image !== 'undefined' && photoCount < 512 && !isProceduralGrass) {
-    photoCount++;
-    const image = new Image();
-    const applyLoaded = (img) => {
-      const c = canvas(G.current.texture);
-      if (!c) return;
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      const t = new THREE.CanvasTexture(c);
-      t._origImage = img;
-      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
-      t.anisotropy = G.current.anisotropy;
-      textures.set(key, t);
+    const applyLoaded = (img, imgKey) => {
+      let t = textures.get(key);
+      if (!t || t._origImage !== img) {
+        const c = canvas(G.current.texture);
+        if (!c) return;
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        t = new THREE.CanvasTexture(c);
+        t._origImage = img;
+        t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding;
+        t.anisotropy = G.current.anisotropy;
+        textures.set(key, t);
+      }
 
-      const bTex = floorStyle === '3d' ? makePhotoBump(img, kind) : null;
+      const bTex = floorStyle === '3d' ? makePhotoBump(img, kind, imgKey || key) : null;
       const bScale = (/gravel|pebble/.test(kind) ? 0.18 :
         /stone|flagstone|slate|travertine|granite/.test(kind) ? 0.12 :
         /tile|terracotta|mosaic|checker/.test(kind) ? 0.08 :
@@ -1290,25 +1305,65 @@ G.floorMaterial = function (id) {
       G.setMapAndBump(m, t, bTex, bScale, pbrRoughness);
     };
 
-    image.onload = () => {
-      applyLoaded(image);
-      image.onload = image.onerror = null;
-    };
-    image.onerror = () => {
-      if (family && family !== id) {
-        const famImg = new Image();
-        famImg.onload = () => {
-          applyLoaded(famImg);
-          famImg.onload = famImg.onerror = null;
+    const cachedImg = HP._texImg && (HP._texImg[id] || (family && HP._texImg[family]));
+    if (cachedImg && (cachedImg.width || cachedImg.naturalWidth)) {
+      applyLoaded(cachedImg, id);
+    } else if (!opts || opts.activeLevel !== false) {
+      photoCount++;
+      const image = new Image();
+      image.onload = () => {
+        if (HP._texImg) HP._texImg[id] = image;
+        applyLoaded(image, id);
+        image.onload = image.onerror = null;
+      };
+      image.onerror = () => {
+        if (family && family !== id) {
+          const famImg = new Image();
+          famImg.onload = () => {
+            if (HP._texImg) HP._texImg[family] = famImg;
+            applyLoaded(famImg, family);
+            famImg.onload = famImg.onerror = null;
+          };
+          famImg.onerror = () => { famImg.onload = famImg.onerror = null; };
+          famImg.src = 'textures/' + family + '.jpg';
+        }
+        image.onload = image.onerror = null;
+      };
+      image.src = 'textures/' + (id === 'grassE' ? 'grassE' : id) + '.jpg';
+    } else {
+      // For unvisited background levels (e.g. upstairs 145-material showroom), load lazily on idle
+      const scheduleLazy = (typeof requestIdleCallback !== 'undefined') ? requestIdleCallback : (fn => setTimeout(fn, 1500));
+      scheduleLazy(() => {
+        if (photoCount >= 512) return;
+        photoCount++;
+        const image = new Image();
+        image.onload = () => {
+          if (HP._texImg) HP._texImg[id] = image;
+          applyLoaded(image, id);
+          image.onload = image.onerror = null;
         };
-        famImg.onerror = () => { famImg.onload = famImg.onerror = null; };
-        famImg.src = 'textures/' + family + '.jpg';
-      }
-      image.onload = image.onerror = null;
-    };
-    image.src = 'textures/' + (id === 'grassE' ? 'grassE' : id) + '.jpg';
+        image.src = 'textures/' + (id === 'grassE' ? 'grassE' : id) + '.jpg';
+      });
+    }
   }
   return m;
+};
+
+HP.preloadFloorTextures = function () {
+  if (typeof Image === 'undefined') return;
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur ? HP.cur() : null];
+  for (const lvl of allLevels) {
+    if (!lvl || !lvl.floors) continue;
+    for (const id of Object.values(lvl.floors)) {
+      if (!id || /^grass([A-DF])?$/.test(id)) continue;
+      if (HP._texImg && HP._texImg[id]) continue;
+      const im = new Image();
+      im.onload = () => {
+        if (HP._texImg) HP._texImg[id] = im;
+      };
+      im.src = 'textures/' + id + '.jpg';
+    }
+  }
 };
 G.ceilingMaterial = function (style, color) {
   const s = (style || 'plaster').toLowerCase();

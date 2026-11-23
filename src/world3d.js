@@ -390,9 +390,9 @@ const H3D = [
   [/modchaise/i, 26],
   [/modtable/i, 14],
   [/flagpole/i, 60],
-  [/treehouse/i, 134],
+  [/treehouse/i, 290],
   [/palmtree/i, 56],
-  [/^tree$/i, 56],
+  [/^tree$/i, 92],
   [/lamppost/i, 52],
   [/pergola/i, 50],
   [/greenhouse/i, 96],
@@ -2569,6 +2569,14 @@ W3.buildLevel = function () {
     latched: d.latched,
     vel: d.vel
   }));
+  const bStart = performance.now();
+  W3._lastBuildTimings = {};
+  let tMark = bStart;
+  const mark = (lbl) => {
+    const now = performance.now();
+    W3._lastBuildTimings[lbl] = +(now - tMark).toFixed(1);
+    tMark = now;
+  };
   /* wipe previous level group */
   if (W3.levelGroup) { scene.remove(W3.levelGroup); disposeGroup(W3.levelGroup); }
   const g = W3.levelGroup = new THREE.Group();
@@ -2874,8 +2882,10 @@ W3.buildLevel = function () {
   /* ---- build architectural structures for each level ---- */
   allLevels.forEach((curLvl, lIdx) => {
     const bY = lIdx * WALL_H;
+    mark('preLevel_' + lIdx);
     const env = geomEnv(curLvl);
     const geo = HP.geom3d.build(curLvl.walls || {}, env);
+    mark('geomBuild_' + lIdx);
     if (lIdx === (HP.state && HP.state.level || 0)) {
       W3.geom = geo;
     }
@@ -2960,6 +2970,7 @@ W3.buildLevel = function () {
       addWallPart('plaster', boxPart(b, defC));
     }
 
+    mark('splitWallBoxes_' + lIdx);
     for (const st in wallPartsByMat) {
       const parts = wallPartsByMat[st];
       if (!parts || !parts.length) continue;
@@ -2976,6 +2987,7 @@ W3.buildLevel = function () {
         V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true, lvlIdx: lIdx });
       }
     }
+    mark('instancedWalls_' + lIdx);
 
     if (HP.graphics3d) {
       const rails = [];
@@ -2989,8 +3001,10 @@ W3.buildLevel = function () {
       V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
         V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true, lvlIdx: lIdx });
     }
+    mark('skirtingRails_' + lIdx);
 
     buildFences3D(curLvl.fences, curLvl.walls, sg, C, V, bY, lIdx);
+    mark('fences_' + lIdx);
 
     if (geo.windows.length) {
       for (const opening of geo.windows) {
@@ -3097,6 +3111,8 @@ W3.buildLevel = function () {
                         ly0: bY, ly1: bY + gh });
     }
 
+    mark('windows_' + lIdx);
+
     // Group connected sliding barn door apertures into unified runs so adjacent doors share one clean, continuous track
     const slideRuns = [];
     for (const a of geo.doors) {
@@ -3117,12 +3133,14 @@ W3.buildLevel = function () {
       }
     }
 
+    const cornerBoxes = geo.boxes.filter(c => c.tag === 'corner' && c.y0 <= bY + 30);
+    const archwayItems = (curLvl && curLvl.furniture) ? curLvl.furniture.filter(it => /^archway/i.test(it.type)) : [];
+
     for (const a of geo.doors) {
       const da = { ...a, y0: a.y0 + bY, y1: a.y1 + bY };
       let s0 = da.d === 'h' ? da.x0 : da.z0, s1 = da.d === 'h' ? da.x1 : da.z1;
       let post0 = false, post1 = false;
-      for (const c of geo.boxes) {
-        if (c.tag !== 'corner' || c.y0 > bY + 30) continue;
+      for (const c of cornerBoxes) {
         const ox = Math.min(c.x1, da.x1) - Math.max(c.x0, da.x0);
         const oz = Math.min(c.z1, da.z1) - Math.max(c.z0, da.z0);
         const depthOverlap = da.d === 'h' ? oz > 0 : ox > 0;
@@ -3144,8 +3162,7 @@ W3.buildLevel = function () {
       else if (da.swing === 'in') da.flip = insideFlip;
 
       // Check if an archway catalog item is placed over this doorway: adapt panel doors to authentic arched craftsmanship
-      const hasArchwayItem = curLvl && curLvl.furniture && curLvl.furniture.some(it => {
-        if (!/^archway/i.test(it.type)) return false;
+      const hasArchwayItem = archwayItems.length > 0 && archwayItems.some(it => {
         const f = HP.footprint(it);
         const fx0 = f.x * C, fx1 = (f.x + f.w) * C, fz0 = f.y * C, fz1 = (f.y + f.h) * C;
         return da.d === 'h'
@@ -3189,8 +3206,12 @@ W3.buildLevel = function () {
       }
     }
 
+    mark('doors_' + lIdx);
+
     W3._buildFloorMeshes(flg, curLvl, bY, stairFloorOpenings[lIdx]);
+    mark('floors_' + lIdx);
     W3._buildCeilingMeshes(sg, curLvl, lIdx, bY, stairCeilingOpenings[lIdx], env);
+    mark('ceilings_' + lIdx);
 
     allStaticColliders.push(...geo.boxes.filter(b => b.y0 < bY + 50 && b.y1 > bY + 2));
   });
@@ -3205,11 +3226,14 @@ W3.buildLevel = function () {
     }
   }
   V.setWalls(allLevels, doorPivots);
+  mark('cullSetWalls');
 
   W3.staticColliders = allStaticColliders;
   W3.staticLamps = [];
 
+  const tFurnStart = performance.now();
   const res = W3._buildFurnitureSync(fg);
+  if (W3._lastBuildTimings) W3._lastBuildTimings.furnitureMs = +(performance.now() - tFurnStart).toFixed(1);
   W3.colliders = (W3.staticColliders || []).concat(res.furnColliders);
   W3.lamps = (W3.staticLamps || []).concat(res.furnLamps);
   W3.movers = res.movers;
@@ -3232,11 +3256,16 @@ W3.buildLevel = function () {
       scene.environment = (s && s.night > 0.5) ? envNight : envDay;
     }
     if (typeof renderer.compile === 'function') {
+      const tCompStart = performance.now();
       try { renderer.compile(scene, camera); } catch (_) {}
+      if (W3._lastBuildTimings) W3._lastBuildTimings.compileMs = +(performance.now() - tCompStart).toFixed(1);
     }
     if (typeof renderer.render === 'function') {
+      const tRendStart = performance.now();
       try { renderer.render(scene, camera); } catch (_) {}
+      if (W3._lastBuildTimings) W3._lastBuildTimings.initialRenderMs = +(performance.now() - tRendStart).toFixed(1);
     }
+    if (W3._lastBuildTimings) W3._lastBuildTimings.totalBuildMs = +(performance.now() - bStart).toFixed(1);
   }
 };
 

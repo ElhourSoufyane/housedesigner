@@ -3010,6 +3010,11 @@ function boot() {
   HP.initUI();
   HP.initInput();
   HP.initWalk();
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(() => { if (HP.preloadFloorTextures) HP.preloadFloorTextures(); });
+  } else {
+    setTimeout(() => { if (HP.preloadFloorTextures) HP.preloadFloorTextures(); }, 500);
+  }
   HP.status('Welcome! Pick furniture on the left, or tap New for another house.', false);
   requestAnimationFrame(frame);
 }

@@ -1272,12 +1272,22 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
     pushBox.onchange = () => { HP.pushFurniture = pushBox.checked; };
   }
 
-  /* spawn: pole-of-inaccessibility of the largest room, else lot centre */
+  /* spawn: URL param override, else pole-of-inaccessibility of largest room, else lot centre */
   if (!isShowroom) {
-    const { regions } = HP.computeRegions();
-    if (regions.length) {
-      const big = regions.reduce((a, b) => a.cells.length > b.cells.length ? a : b);
-      spawn = { x: big.lx, y: big.ly };
+    const uP = new URLSearchParams(location.search);
+    if (uP.has('x') && uP.has('z')) {
+      spawn = {
+        x: parseFloat(uP.get('x')),
+        y: parseFloat(uP.get('z')),
+        yaw: uP.has('yaw') ? parseFloat(uP.get('yaw')) : Math.PI,
+        pitch: uP.has('pitch') ? parseFloat(uP.get('pitch')) : 0
+      };
+    } else {
+      const { regions } = HP.computeRegions();
+      if (regions.length) {
+        const big = regions.reduce((a, b) => a.cells.length > b.cells.length ? a : b);
+        spawn = { x: big.lx, y: big.ly };
+      }
     }
   }
 

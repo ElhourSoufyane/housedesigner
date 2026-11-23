@@ -4048,15 +4048,41 @@ F.builder = function (group) {
         cyl('metal', 0, 0.88, 0, 0.28, 0.035, 0.28, HP.shade(color || '#334155', 1.20)); // upper tiered tier
         round('metal', 0, 0.92, 0, 0.06, 0.06, 0.06, '#c9a44e');               // solid brass weather-sealed finial
       } else if (/^tree$/i.test(t)) {
-        // Majestic Natural Shade Tree (2x2 footprint, organically tapered trunk, root flares, tiered full leafy canopy)
-        // 1. Natural tapered tree trunk with root buttresses
-        cyl('wood', 0, 0.36, 0, 0.28, 0.72, 0.28, '#78350f');                  // main trunk
-        box('wood', -0.16, 0.08, -0.16, 0.16, 0.16, 0.16, '#78350f');          // root flare
-        box('wood', 0.16, 0.08, 0.16, 0.16, 0.16, 0.16, '#78350f');
+        // Majestic Natural Shade Tree (2x2 footprint, height 92px, organically tapered trunk, root flares, spreading boughs, multi-tiered leafy crown)
+        const trunkCol = '#5a3825';
+        const barkDark = '#3d2416';
+        const leafMain = color || '#15803d';
+        const leafLight = HP.shade(color || '#15803d', 1.15);
+        const leafDark = HP.shade(color || '#15803d', 0.80);
+        const leafSun = '#86efac';
+
+        // 1. Natural tapered tree trunk with root buttresses & boughs
+        cyl('wood', 0, 0.32, 0, 0.22, 0.64, 0.22, trunkCol);
+        cyl('wood', 0, 0.60, 0, 0.16, 0.40, 0.16, barkDark);
+        // Flaring root buttresses
+        boxSlope('wood', 0, 0.16, 0.08, 0, 0.02, 0.24, 0.08, 0.08, barkDark);
+        boxSlope('wood', 0, 0.16, -0.08, 0, 0.02, -0.24, 0.08, 0.08, barkDark);
+        boxSlope('wood', 0.08, 0.16, 0, 0.24, 0.02, 0, 0.08, 0.08, barkDark);
+        boxSlope('wood', -0.08, 0.16, 0, -0.24, 0.02, 0, 0.08, 0.08, barkDark);
+        // Spreading scaffold boughs
+        boxSlope('wood', 0, 0.54, 0, 0.16, 0.72, 0.14, 0.06, 0.06, trunkCol);
+        boxSlope('wood', 0, 0.54, 0, -0.16, 0.74, -0.12, 0.06, 0.06, trunkCol);
+        boxSlope('wood', 0, 0.58, 0, -0.14, 0.76, 0.14, 0.05, 0.05, trunkCol);
+        boxSlope('wood', 0, 0.58, 0, 0.14, 0.74, -0.14, 0.05, 0.05, trunkCol);
+
         // 2. Multi-tiered volumetric leafy foliage canopy
-        round('foliage', 0, 0.68, 0, 0.94, 0.46, 0.94, color || '#15803d');
-        round('foliage', -0.12, 0.84, -0.10, 0.76, 0.40, 0.76, HP.shade(color || '#15803d', 1.12));
-        round('foliage', 0.10, 0.88, 0.12, 0.72, 0.38, 0.72, HP.shade(color || '#15803d', 1.20));
+        // Lower spreading tier
+        round('foliage', 0.14, 0.66, 0.12, 0.62, 0.34, 0.62, leafDark);
+        round('foliage', -0.14, 0.68, -0.12, 0.60, 0.34, 0.60, leafDark);
+        round('foliage', -0.12, 0.70, 0.14, 0.58, 0.34, 0.58, leafMain);
+        round('foliage', 0.12, 0.70, -0.14, 0.58, 0.34, 0.58, leafMain);
+        // Mid tier body
+        round('foliage', 0, 0.76, 0, 0.78, 0.38, 0.78, leafMain);
+        round('foliage', 0.10, 0.82, 0.08, 0.66, 0.34, 0.66, leafLight);
+        round('foliage', -0.10, 0.84, -0.08, 0.64, 0.34, 0.64, leafLight);
+        // High sunlit crest
+        round('foliage', 0, 0.92, 0, 0.52, 0.28, 0.52, leafLight);
+        round('foliage', 0.04, 0.97, -0.02, 0.36, 0.22, 0.36, leafSun);
 
       } else if (/^hedge$/i.test(t)) {
         // Formal Manicured Evergreen Boxwood Hedge (2x1 footprint, height 24px, dense layered foliage volumes, rounded beveled crown, woody base stems & mulch bed)
@@ -4899,6 +4925,8 @@ F.builder = function (group) {
           round(k, px / width, py / height, pz / depth, diamPx / width, diamPx / height, diamPx / depth, c);
         const pSlope = (k, x0, y0, z0, x1, y1, z1, ty, tz, c, det, mat) =>
           boxSlope(k, x0 / width, y0 / height, z0 / depth, x1 / width, y1 / height, z1 / depth, ty / height, tz / depth, c, det, mat);
+        const pCylSlope = (k, x0, y0, z0, x1, y1, z1, diamPx, c, det, mat) =>
+          partSlope('cylinderX', k, x0 / width, y0 / height, z0 / depth, x1 / width, y1 / height, z1 / depth, diamPx / height, diamPx / depth, c, det, mat);
         const pRot = (k, px, py, pz, pw, ph, pd, ry, c, det, mat) =>
           boxRot(k, px / width, py / height, pz / depth, pw / width, ph / height, pd / depth, ry, c, det, mat);
         const pGable = (k, px, py, pz, pw, ph, pd, c) =>
@@ -4916,32 +4944,33 @@ F.builder = function (group) {
         const deckY = 54.0;      // deck surface height at y = 54px
 
         // 1. Central Ancient Oak Trunk, Buttress Roots & Scaffold Boughs
-        // Massive trunk base with organic buttress root flares flowing naturally into the earth
-        pCyl('wood', 2, 10, -6, 42, 20, barkCol);
-        pSlope('wood', 2, 16, 2, 2, 4.5, 34, 8, 8, barkDark);    // South root flare
-        pSlope('wood', 2, 16, -14, 2, 4.5, -44, 8, 8, barkDark); // North root flare
-        pSlope('wood', 12, 16, -6, 38, 4.5, -6, 8, 8, barkDark); // East root flare
-        pSlope('wood', -8, 16, -6, -36, 4.5, -6, 8, 8, barkDark);// West root flare
-        pSlope('wood', 10, 12, 2, 26, 3.5, 24, 6, 6, barkDark);    // Southeast root brace
-        pSlope('wood', -6, 12, -14, -24, 3.5, -32, 6, 6, barkDark); // Northwest root brace
-        // Mid & upper trunk rising to underside of deck
-        pCyl('wood', 3, 28, -6, 36, 22, '#533720');
-        pCyl('wood', 4, 46, -6, 32, 18, '#5a3b22');
-        // Organic moss patches & shelf polypore fungi on bark
-        pSphere('foliage', -11, 6, 8, 12, '#365314');
-        pSphere('foliage', 20, 7, -14, 14, '#3f6212');
-        pBox('wood', 21, 26, -6, 8, 2.5, 9, '#d97706');
-        pBox('wood', -12, 34, -4, 9, 2.5, 7, '#b45309');
-        // Woodland mossy boulders & stepping stones on grass
-        pSphere('stone', 20, 7, 18, 14, '#78716c');
-        pSphere('stone', -20, 6, -18, 12, '#64748b');
+        // Massive gnarled trunk base with organic buttress root flares flowing naturally into the earth
+        pCyl('wood', 2, 11, -6, 44, 22, barkCol);
+        pCylSlope('wood', 2, 16, 4, 2, 2, 38, 10, barkDark);       // South root flare
+        pCylSlope('wood', 2, 16, -16, 2, 2, -46, 10, barkDark);    // North root flare
+        pCylSlope('wood', 12, 16, -6, 40, 2, -6, 10, barkDark);    // East root flare
+        pCylSlope('wood', -8, 16, -6, -38, 2, -6, 10, barkDark);   // West root flare
+        pCylSlope('wood', 10, 12, 4, 30, 2, 26, 7.5, barkDark);    // Southeast root brace
+        pCylSlope('wood', -6, 12, 4, -26, 2, 26, 7.5, barkDark);   // Southwest root brace
+        pCylSlope('wood', -6, 12, -16, -26, 2, -34, 7.5, barkDark); // Northwest root brace
+        pCylSlope('wood', 10, 12, -16, 30, 2, -34, 7.5, barkDark);  // Northeast root brace
+        // Mid trunk rising to underside of deck
+        pCyl('wood', 3, 32, -6, 38, 24, '#533720');
+        pCyl('wood', 4, 48, -6, 34, 18, barkDark);
+        // Organic moss patches & woodland shelf fungi on bark crevices
+        pSphere('foliage', -10, 3, 10, 8, '#2d4a12');
+        pSphere('foliage', 16, 3, 12, 9, '#365314');
+        pSphere('foliage', 8, 3, -18, 9, '#2d4a12');
+        pBox('wood', 20, 24, -6, 7, 2, 8, '#b45309');
+        pBox('wood', -10, 32, -4, 8, 2, 6, '#d97706');
+        // Stepping logs on lawn
         pCyl('wood', hw * 0.45, 1.2, hd + 22, 10, 2.2, '#9a5826');
         pCyl('wood', hw * 0.55, 1.2, hd + 32, 10, 2.2, '#9a5826');
-        // Massive scaffold boughs cradling deck platform from underneath (safely under joists at y=47)
-        pSlope('wood', 3, 28, -6, -hw * 0.70, 47, -hd * 0.70, 11, 11, barkCol);
-        pSlope('wood', 3, 28, -6,  hw * 0.70, 47, -hd * 0.70, 11, 11, barkCol);
-        pSlope('wood', 3, 28, -6, -hw * 0.70, 47,  hd * 0.70, 11, 11, barkCol);
-        pSlope('wood', 3, 28, -6,  hw * 0.70, 47,  hd * 0.70, 11, 11, barkCol);
+        // Heavy diagonal round timber boughs cradling deck platform from underneath (safely under joists at y=48)
+        pCylSlope('wood', 3, 30, -6, -hw * 0.68, 48, -hd * 0.68, 8, barkCol);
+        pCylSlope('wood', 3, 30, -6,  hw * 0.68, 48, -hd * 0.68, 8, barkCol);
+        pCylSlope('wood', 3, 30, -6, -hw * 0.68, 48,  hd * 0.68, 8, barkCol);
+        pCylSlope('wood', 3, 30, -6,  hw * 0.68, 48,  hd * 0.68, 8, barkCol);
 
         // 2. Corner Stilts with Stone Piers & 45-degree Knee Braces
         for (const sx of [-hw + 4, hw - 4]) {
@@ -4953,16 +4982,62 @@ F.builder = function (group) {
           }
         }
 
-        // 3. Trunk Continuing Above Deck to Canopy (nestled at inner corner, not blocking cabin front)
-        pCyl('wood', 4, 72, -6, 26, 52, '#533720');
-        // Major spreading architectural limbs branching into canopy
-        pSlope('wood', 4, 96, -6, -28, 128, -26, 12, 12, barkCol); // west limb over cabin ridge
-        pSlope('wood', 4, 94, -6,  48, 118,   8, 11, 11, barkCol); // east limb over observation deck
-        pSlope('wood', 4, 94, -6,  40, 122, -44, 10, 10, barkCol); // northeast limb
-        pSlope('wood', 4, 98, -6,   0, 140, -10, 13, 13, barkCol); // central summit trunk
-        pSlope('wood', 4, 92, -6,  36, 116,  38, 10, 10, barkCol); // southeast deck limb
-        pSlope('wood', 4, 94, -6, -42, 120,  22,  9,  9, barkCol); // southwest framing limb
-        pSlope('wood', 4, 96, -6,  -6, 130, -52, 10, 10, barkCol); // north rear limb
+        // 3. Mighty Oak Trunk Ascending Above Deck into Sky (Grand Towering Tree)
+        // Trunk rises tall and strong alongside cabin, emerging high above roof ridge y=122
+        pCyl('wood', 4, 80, -6, 28, 52, '#533720');           // lower deck-level trunk (y=54..106)
+        pCyl('wood', 3.5, 120, -7, 25, 38, barkCol);          // emerging above roof eave/ridge (y=101..139)
+        pCyl('wood', 3, 156, -8, 22, 38, barkDark);          // mid-canopy soaring trunk (y=137..175)
+        pCyl('wood', 2, 194, -9, 18, 42, barkCol);           // high crown trunk (y=173..215)
+        pCyl('wood', 1, 232, -9, 14, 39, barkDark);          // upper apex trunk (y=213..252)
+        pCyl('wood', 0, 262, -9, 10, 26, barkCol);           // crowning summit spire (y=249..275)
+
+        // Tier 1 Spreading Cylindrical Boughs (y ≈ 138 to 178, arching high above cabin roof and deck)
+        // East bough arching gracefully over observation deck
+        pCylSlope('wood', 4, 138, -6, 22, 150, 0, 10, barkCol);
+        pCylSlope('wood', 22, 150, 0, 38, 162, 8, 8.5, barkCol);
+        pCylSlope('wood', 38, 162, 8, 58, 174, 24, 6.5, barkDark);
+        pCylSlope('wood', 38, 162, 8, 54, 176, -14, 6.5, barkDark);
+        pCylSlope('wood', 58, 174, 24, 72, 184, 34, 4.5, barkCol);
+        pCylSlope('wood', 54, 176, -14, 68, 186, -26, 4.5, barkCol);
+        // West bough sweeping high over cabin roof ridge (y=168 >> y=122 ridge)
+        pCylSlope('wood', 3.5, 144, -7, -14, 158, -12, 10, barkCol);
+        pCylSlope('wood', -14, 158, -12, -32, 168, -18, 8.5, barkCol);
+        pCylSlope('wood', -32, 168, -18, -54, 178, 8, 6.5, barkDark);
+        pCylSlope('wood', -32, 168, -18, -52, 176, -34, 6.5, barkDark);
+        pCylSlope('wood', -54, 178, 8, -70, 186, 20, 4.5, barkCol);
+        pCylSlope('wood', -52, 176, -34, -68, 184, -44, 4.5, barkCol);
+        // North rear forest bough reaching deep back
+        pCylSlope('wood', 3.5, 142, -7, 2, 158, -32, 9.5, barkDark);
+        pCylSlope('wood', 2, 158, -32, 0, 168, -48, 8, barkDark);
+        pCylSlope('wood', 0, 168, -48, -22, 178, -64, 6, barkCol);
+        pCylSlope('wood', 0, 168, -48, 22, 176, -62, 6, barkCol);
+        // South bough framing front porch from high above (y=168 >> y=104 awning)
+        pCylSlope('wood', 3.5, 148, -7, 6, 164, 16, 9, barkCol);
+        pCylSlope('wood', 6, 164, 16, 8, 174, 30, 7.5, barkCol);
+        pCylSlope('wood', 8, 174, 30, 26, 184, 42, 5.5, barkDark);
+        pCylSlope('wood', 8, 174, 30, -12, 185, 38, 5.5, barkDark);
+
+        // Tier 2 High Canopy Boughs (y ≈ 195 to 240, fanning into broad upper crown)
+        pCylSlope('wood', 2, 196, -9, 32, 218, 6, 7, barkCol);
+        pCylSlope('wood', 32, 218, 6, 48, 230, 16, 4.5, barkDark);
+        pCylSlope('wood', 2, 198, -9, -28, 220, -16, 7, barkCol);
+        pCylSlope('wood', -28, 220, -16, -44, 232, -22, 4.5, barkDark);
+        pCylSlope('wood', 2, 196, -9, 4, 222, -38, 7, barkDark);
+        pCylSlope('wood', 4, 222, -38, 8, 236, -52, 4.5, barkCol);
+        pCylSlope('wood', 2, 198, -9, 2, 220, 24, 7, barkCol);
+        pCylSlope('wood', 2, 220, 24, 4, 234, 36, 4.5, barkDark);
+        pCylSlope('wood', 2, 202, -9, 22, 224, -26, 5.5, barkCol);
+        pCylSlope('wood', 2, 202, -9, -20, 226, -26, 5.5, barkCol);
+        pCylSlope('wood', 2, 202, -9, 22, 222, 20, 5.5, barkCol);
+        pCylSlope('wood', 2, 202, -9, -20, 224, 18, 5.5, barkCol);
+
+        // Tier 3 Apex Summit Limbs (y ≈ 242 to 284)
+        pCylSlope('wood', 1, 244, -9, -4, 268, -6, 5.5, barkCol);
+        pCylSlope('wood', 1, 244, -9, 10, 264, -4, 5, barkDark);
+        pCylSlope('wood', 1, 244, -9, -12, 262, -12, 5, barkDark);
+        pCylSlope('wood', 1, 246, -9, 0, 266, -20, 4.5, barkCol);
+        pCylSlope('wood', 1, 246, -9, 2, 264, 8, 4.5, barkCol);
+        pCylSlope('wood', -4, 268, -6, -2, 282, -7, 3.5, barkCol);
 
         // 4. Elevated Timber Deck Platform at y = 54px
         // Rim joist perimeter
@@ -5181,51 +5256,108 @@ F.builder = function (group) {
         pBox('wood', cx, eaveY + 3, cz - cabD * 0.22, cabW - 4, 2, 3, '#45210b');
         pBox('wood', cx, eaveY + 3, cz + cabD * 0.22, cabW - 4, 2, 3, '#45210b');
 
-        // 11. Multi-Tiered Volumetric Lush Oak Canopy (Grand Expansive Balanced Crown)
-        // High crown central summit & apex (sy - R >= 117px, clearing roof ridge at 114px)
-        pSphere('foliage', 0, 146, -10, 60, '#16a34a');
-        pSphere('foliage', -14, 148, -18, 50, '#22c55e');
-        pSphere('foliage', 22, 144, 2, 50, '#4ade80');
-        pSphere('foliage', -2, 156, -8, 36, '#86efac'); // towering bright sunny peak crest
+        // 11. Multi-Tiered Volumetric Lush Oak Canopy (Grand Towering Cathedral Crown, y = 135 to 305px)
+        const deepGreen = '#14532d';   // deep shadow under-canopy
+        const shadowGreen = '#166534'; // rich shaded foliage body
+        const richOak = '#15803d';     // classic natural oak leaf
+        const brightGreen = '#16a34a'; // mid sunny foliage
+        const leafVibrant = '#22c55e'; // vibrant sunlit leaf clusters
+        const sunGreen = '#4ade80';    // golden sunlit canopy highlights
+        const crestGold = '#86efac';   // brilliant sunny crown crests
+        const spireLight = '#bef264';  // highest radiant apex tips
 
-        // Rear North flank (sy - R >= 116px or strictly east of cabin, creating deep forest backdrop)
-        pSphere('foliage', 14, 134, -68, 50, '#15803d');
-        pSphere('foliage', -32, 138, -66, 46, '#14532d');
-        pSphere('foliage', 46, 130, -64, 46, '#166534');
-        pSphere('foliage', 2, 126, -82, 38, '#14532d');
+        // A. Towering Apex Summit & Sunlit Crown (y = 265 to 305px, towering high above the cabin)
+        pSphere('foliage', -2, 292, -7, 24, spireLight);  // Radiant highest summit crest reaching y=304px!
+        pSphere('foliage', 6, 287, -4, 26, crestGold);
+        pSphere('foliage', -9, 285, -10, 26, crestGold);
+        pSphere('foliage', 0, 280, 5, 28, sunGreen);
+        pSphere('foliage', 2, 282, -20, 28, leafVibrant);
+        pSphere('foliage', -12, 276, 3, 26, sunGreen);
+        pSphere('foliage', 10, 277, -14, 26, crestGold);
+        pSphere('foliage', -2, 272, -8, 36, brightGreen); // core apex volume
+        pSphere('foliage', 8, 270, 0, 32, leafVibrant);
+        pSphere('foliage', -10, 270, -14, 32, richOak);
 
-        // Cabin Crown (resting cleanly over gabled roof ridge y >= 138, sy - R >= 120px > 114px ridge)
-        pSphere('foliage', -27, 141, -26, 42, '#15803d'); // crown over cabin ridge
-        pSphere('foliage', -36, 138, -6, 36, '#22c55e');  // crown over front gable
+        // B. Upper Grand Canopy Dome (y = 220 to 268px)
+        // Central crown body
+        pSphere('foliage', 0, 252, -8, 38, richOak);
+        pSphere('foliage', 16, 252, 0, 34, brightGreen);
+        pSphere('foliage', -16, 253, -12, 34, leafVibrant);
+        pSphere('foliage', 3, 256, -26, 34, shadowGreen);
+        pSphere('foliage', 5, 251, 18, 34, sunGreen);
+        // East upper dome lobes
+        pSphere('foliage', 32, 244, 6, 36, leafVibrant);
+        pSphere('foliage', 46, 238, -8, 34, brightGreen);
+        pSphere('foliage', 42, 240, 22, 34, sunGreen);
+        pSphere('foliage', 38, 250, 12, 22, crestGold);
+        pSphere('foliage', 50, 244, -2, 22, spireLight);
+        // West upper dome lobes
+        pSphere('foliage', -30, 246, -14, 36, richOak);
+        pSphere('foliage', -44, 239, 10, 34, leafVibrant);
+        pSphere('foliage', -42, 240, -28, 34, shadowGreen);
+        pSphere('foliage', -36, 252, -6, 22, crestGold);
+        pSphere('foliage', -48, 246, 6, 22, spireLight);
+        // North rear upper dome
+        pSphere('foliage', 10, 247, -42, 36, deepGreen);
+        pSphere('foliage', -14, 245, -40, 34, shadowGreen);
+        pSphere('foliage', 0, 249, -54, 32, deepGreen);
+        pSphere('foliage', 5, 256, -38, 22, crestGold);
+        // South front upper dome
+        pSphere('foliage', 14, 245, 30, 34, sunGreen);
+        pSphere('foliage', -12, 243, 28, 34, leafVibrant);
+        pSphere('foliage', 3, 249, 38, 30, sunGreen);
+        pSphere('foliage', 12, 255, 34, 22, crestGold);
+        pSphere('foliage', -8, 253, 32, 20, spireLight);
 
-        // West Flank Drapes (strictly outside west exterior wall x <= -55px, zero room penetration)
-        pSphere('foliage', -84, 118, -18, 46, '#14532d'); // deep west exterior drape
-        pSphere('foliage', -80, 112, 14, 40, '#15803d');   // southwest exterior drape
-        pSphere('foliage', -78, 116, -46, 38, '#166534'); // northwest exterior drape
-        pSphere('foliage', -90, 106, -10, 32, '#14532d');  // far west lower leafy spray
+        // C. Mid-Tier Canopy & Spreading Bough Clouds (y = 165 to 225px)
+        // Observation Deck Canopy (East)
+        pSphere('foliage', 38, 206, 10, 38, richOak);
+        pSphere('foliage', 56, 198, 22, 34, leafVibrant);
+        pSphere('foliage', 52, 202, -16, 34, brightGreen);
+        pSphere('foliage', 68, 190, 4, 32, sunGreen);
+        pSphere('foliage', 56, 180, 34, 30, richOak);
+        pSphere('foliage', 62, 206, 14, 22, crestGold);
+        pSphere('foliage', 48, 208, -10, 20, sunGreen);
+        // Over-Cabin Vaulted Canopy (West, safely y=175..218 >> y=122 ridge)
+        pSphere('foliage', -30, 209, -14, 38, richOak);
+        pSphere('foliage', -48, 200, -6, 34, brightGreen);
+        pSphere('foliage', -44, 202, 18, 34, leafVibrant);
+        pSphere('foliage', -46, 198, -30, 34, deepGreen);
+        pSphere('foliage', -62, 188, 8, 30, richOak);
+        pSphere('foliage', -60, 186, -20, 30, shadowGreen);
+        pSphere('foliage', -38, 217, -2, 22, crestGold);
+        pSphere('foliage', -54, 208, 14, 20, sunGreen);
+        // Rear Forest Canopy (North)
+        pSphere('foliage', 0, 202, -48, 38, deepGreen);
+        pSphere('foliage', 22, 194, -54, 34, shadowGreen);
+        pSphere('foliage', -22, 196, -52, 34, deepGreen);
+        pSphere('foliage', 0, 184, -66, 32, deepGreen);
+        pSphere('foliage', 12, 208, -50, 20, brightGreen);
+        // Front Overhanging Canopy (South)
+        pSphere('foliage', 10, 203, 28, 36, leafVibrant);
+        pSphere('foliage', -12, 205, 26, 34, brightGreen);
+        pSphere('foliage', 26, 194, 38, 32, sunGreen);
+        pSphere('foliage', -22, 196, 36, 32, leafVibrant);
+        pSphere('foliage', 6, 212, 34, 22, crestGold);
 
-        // East Observation Deck Crown (vaulted high over deck, overhangs east perimeter)
-        pSphere('foliage', 52, 130, -8, 54, '#14532d');
-        pSphere('foliage', 76, 120, 6, 46, '#16a34a');
-        pSphere('foliage', 56, 124, 36, 48, '#15803d');
-        pSphere('foliage', 58, 128, -44, 48, '#166534');
-        pSphere('foliage', 86, 111, -12, 36, '#15803d');   // far east overhang
-        pSphere('foliage', 54, 116, 58, 38, '#166534');   // southeast outer overhang
-
-        // High front arching crown (framing front porch and cabin from above y >= 136)
-        pSphere('foliage', 18, 136, 28, 38, '#22c55e');
-        pSphere('foliage', -18, 140, 24, 36, '#16a34a');
-        pSphere('foliage', -60, 118, 42, 34, '#15803d');
-
-        // Sun-kissed golden-green leaf highlights across the grand crown
-        pSphere('foliage', 8, 152, -4, 28, '#86efac');
-        pSphere('foliage', -24, 148, -20, 26, '#4ade80');
-        pSphere('foliage', 38, 138, 14, 28, '#4ade80');
-        pSphere('foliage', 52, 134, -28, 26, '#86efac');
-        pSphere('foliage', -48, 142, -36, 24, '#4ade80');
-        pSphere('foliage', 32, 134, 44, 24, '#86efac');
-        pSphere('foliage', -68, 124, 6, 22, '#86efac');
-        pSphere('foliage', 70, 128, 18, 22, '#4ade80');
+        // D. Lower Draping Clusters & Weeping Tendrils (y = 135 to 175px, perimeter framing)
+        // East deck outer drapes
+        pSphere('foliage', 72, 164, 18, 28, richOak);
+        pSphere('foliage', 66, 156, 38, 24, shadowGreen);
+        pSphere('foliage', 68, 166, -16, 24, richOak);
+        pSphere('foliage', 76, 146, 12, 20, shadowGreen);
+        // West cabin exterior drapes (strictly outside cabin exterior walls x <= -65)
+        pSphere('foliage', -70, 162, 4, 28, deepGreen);
+        pSphere('foliage', -66, 154, 24, 24, richOak);
+        pSphere('foliage', -68, 158, -26, 24, shadowGreen);
+        pSphere('foliage', -74, 144, -2, 20, deepGreen);
+        // North rear exterior drapes
+        pSphere('foliage', 16, 162, -62, 28, deepGreen);
+        pSphere('foliage', -16, 160, -60, 28, deepGreen);
+        // Front porch framing arch (vaulted at y=168..174, well above eave y=104)
+        pSphere('foliage', 22, 168, 38, 24, leafVibrant);
+        pSphere('foliage', -18, 170, 36, 24, brightGreen);
+        pSphere('foliage', 2, 174, 40, 20, sunGreen);
 
         // Festoon Fairy String Lanterns draped across deck & porch
         const fairyBulbs = [
@@ -5243,11 +5375,11 @@ F.builder = function (group) {
           pSphere('glow', fx, fy, fz, 2.2, fc);
         }
 
-        // Wooden birdhouse on upper branch
-        pBox('wood', hw * 0.40, 100, -hd * 0.35, 7, 8, 7, '#a16207');
-        pGable('wood', hw * 0.40, 105.5, -hd * 0.35, 9, 3.5, 8.5, '#451a03');
-        pCylZ('dark', hw * 0.40, 100, -hd * 0.35 + 3.8, 2.5, 0.8, '#1e293b');
-        pCylZ('wood', hw * 0.40, 98, -hd * 0.35 + 4.5, 1, 2.5, '#fed7aa');
+        // Wooden birdhouse perched securely on East bough fork
+        pBox('wood', 36, 162, 8, 7, 8, 7, '#a16207');
+        pGable('wood', 36, 167.5, 8, 9, 3.5, 8.5, '#451a03');
+        pCylZ('dark', 36, 162, 8 + 3.8, 2.5, 0.8, '#1e293b');
+        pCylZ('wood', 36, 160, 8 + 4.5, 1, 2.5, '#fed7aa');
         // Little songbird perched on deck railing
         pSphere('foliage', hw - 1, 67.5, hd * 0.30, 3.2, '#38bdf8');
         pBox('wood', hw - 1, 67.5, hd * 0.30 + 2, 1, 0.8, 1.5, '#f59e0b');
