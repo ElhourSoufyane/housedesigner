@@ -1694,15 +1694,65 @@ HP.CATALOG = [
   { id: 'shoecab', name: 'Shoe Cabinet', cat: 'Living', w: 2, h: 1, colors: ['#8a6844', '#454a52', '#d6c9b2'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
-      p.wood(g, 4, 4, W - 8, H - 8, c);
-      g.strokeStyle = HP.shade(c, 0.65); g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(6, H / 2); g.lineTo(W - 6, H / 2); g.stroke();
-      // shoes peeking (little toe-box pairs)
-      g.fillStyle = HP.shade(c, 0.4);
-      for (let i = 0; i < 4; i++) {
-        g.fillRect(W * 0.12 + i * W * 0.22, H * 0.62, 7, 5);
-        g.fillRect(W * 0.12 + i * W * 0.22 + 8, H * 0.62, 7, 5);
-      }
+      const cabH = Math.round(H * 0.52);
+      const cabY = Math.round((H - cabH) / 2);
+      const cabX = 4;
+      const cabW = W - 8;
+
+      // 1. Soft drop shadow under the slim cabinet
+      p.shadow(g, cabX, cabY, cabW, cabH, 3);
+
+      // 2. Corner metal stilt feet peeking out
+      g.fillStyle = '#1e2124';
+      [[cabX + 2, cabY + 1], [cabX + cabW - 5, cabY + 1],
+       [cabX + 2, cabY + cabH - 3], [cabX + cabW - 5, cabY + cabH - 3]].forEach(([fx, fy]) => {
+        g.fillRect(fx, fy, 3, 2);
+      });
+
+      // 3. Main cabinet body & beveled top finish
+      p.box(g, cabX, cabY, cabW, cabH, 3, p.lg(g, cabX, cabY, cabW, cabH, HP.shade(c, 1.14), HP.shade(c, 0.86)));
+      g.strokeStyle = HP.shade(c, 0.68); g.lineWidth = 1.2;
+      p.RR(g, cabX, cabY, cabW, cabH, 3); g.stroke();
+
+      // 4. Center division between the two drop-down columns
+      g.strokeStyle = HP.shade(c, 0.62); g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(W / 2, cabY + 2);
+      g.lineTo(W / 2, cabY + cabH - 2);
+      g.stroke();
+
+      // 5. Front drop-down compartment reveal edge
+      g.fillStyle = HP.shade(c, 0.72);
+      p.box(g, cabX + 1, cabY + cabH - 4, cabW - 2, 3, 1, HP.shade(c, 0.76));
+
+      // 6. Brushed satin brass edge pulls on the drop-down compartments
+      const pullW = Math.max(10, Math.round(W * 0.12));
+      const leftPullX = Math.round(W * 0.25 - pullW / 2);
+      const rightPullX = Math.round(W * 0.75 - pullW / 2);
+      p.box(g, leftPullX, cabY + cabH - 3, pullW, 2, 1, '#c9a44e');
+      p.box(g, rightPullX, cabY + cabH - 3, pullW, 2, 1, '#c9a44e');
+      g.fillStyle = '#fef08a';
+      g.fillRect(leftPullX + 2, cabY + cabH - 3, pullW - 4, 1);
+      g.fillRect(rightPullX + 2, cabY + cabH - 3, pullW - 4, 1);
+
+      // 7. Entryway surface styling: ceramic catchall key tray + succulent pot
+      // Minimalist oval/rectangular ceramic key dish
+      const trayW = Math.round(W * 0.16), trayH = Math.round(cabH * 0.54);
+      const trayX = cabX + 6, trayY = cabY + Math.round((cabH - trayH) / 2);
+      p.box(g, trayX, trayY, trayW, trayH, 2, '#f8fafc');
+      g.strokeStyle = '#cbd5e1'; g.lineWidth = 0.8;
+      p.RR(g, trayX, trayY, trayW, trayH, 2); g.stroke();
+      // Brass key inside tray
+      g.fillStyle = '#c9a44e';
+      g.fillRect(trayX + 3, trayY + Math.round(trayH / 2) - 1, Math.max(4, trayW - 6), 2);
+
+      // Ceramic plant pot with miniature green succulent on opposite side
+      const potX = cabX + cabW - 10, potY = cabY + Math.round(cabH / 2);
+      const potR = Math.max(3, Math.round(cabH * 0.22));
+      g.fillStyle = '#e2e8f0';
+      g.beginPath(); g.arc(potX, potY, potR, 0, 7); g.fill();
+      g.fillStyle = '#4d7c0f';
+      g.beginPath(); g.arc(potX, potY, potR * 0.65, 0, 7); g.fill();
     } },
   { id: 'floormirror', name: 'Mirror', cat: 'Living', w: 1, h: 1, hangs: true, colors: ['#a89885', '#3a3f47', '#c9b896'],
     draw(g, W, H, v) {

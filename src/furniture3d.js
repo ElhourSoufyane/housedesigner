@@ -6388,15 +6388,47 @@ F.builder = function (group) {
         box('metal', 0.22, 0.72, 0.435, 0.08, 0.015, 0.015, '#c9a44e', true);
 
       } else if (/^shoecab$/i.test(t)) {
-        // Modern 2-Tier Tipping Bucket Shoe Storage Cabinet with Brass Bar Pulls (2x1 footprint)
-        box('dark', 0, 0.04, 0, 0.94, 0.08, 0.84, '#15171a');                 // plinth
-        box('ceramic', 0, 0.52, 0, 0.94, 0.88, 0.84, color || '#ffffff');     // white satin body
-        box('wood', 0, 0.97, 0, 0.96, 0.04, 0.86, '#d4a373');                  // natural oak top
-        // 2 Tipping shoe compartment drawers
-        for (const dy of [0.32, 0.72]) {
-          box('ceramic', 0, dy, 0.425, 0.88, 0.34, 0.02, '#f8fafc');
-          box('metal', 0, dy + 0.12, 0.445, 0.24, 0.015, 0.015, '#c9a44e', true); // brass pull
+        // Modern Slim Fluted Entryway Shoe Storage Cabinet with Brass Stilt Legs & Catchall Tray (2x1 footprint)
+        // Authentic slim depth (~0.52 cell depth = 26cm)
+        const cabCol = color || '#8a6844';
+
+        // 1. Sleek tapered metal stilt legs (elevated off the floor by y=0 to 0.16)
+        for (const [lx, lz] of [[-0.42, 0.20], [0.42, 0.20], [-0.42, -0.20], [0.42, -0.20]]) {
+          cyl('metal', lx, 0.08, lz, 0.025, 0.16, 0.025, '#c9a44e', true);    // brushed brass stilt leg
+          cyl('dark', lx, 0.015, lz, 0.03, 0.03, 0.03, '#1e2124');             // black foot glide
         }
+        // Under-cabinet support stretcher frame
+        box('dark', 0, 0.155, 0, 0.86, 0.02, 0.44, '#181b1e');
+
+        // 2. Main cabinet body (y = 0.16 to 0.92, height = 0.76)
+        box('wood', 0, 0.54, 0, 0.92, 0.75, 0.48, cabCol);                    // carcass
+        box('dark', 0, 0.54, 0.235, 0.89, 0.72, 0.02, '#181b1e');              // recessed shadow reveal around doors
+        box('wood', 0, 0.54, -0.235, 0.89, 0.72, 0.015, HP.shade(cabCol, 0.85)); // finished back panel
+
+        // 3. Two columns of 2-tier fluted tilt-out shoe storage compartments
+        for (const dx of [-0.23, 0.23]) {
+          for (const dy of [0.36, 0.72]) {
+            // Drop-down drawer face
+            box('wood', dx, dy, 0.248, 0.42, 0.33, 0.018, HP.shade(cabCol, 1.05));
+            // Architectural vertical fluted ribs across each drawer front
+            for (let s = -0.16; s <= 0.16; s += 0.08) {
+              box('wood', dx + s, dy, 0.258, 0.02, 0.31, 0.008, HP.shade(cabCol, 0.92));
+            }
+            // Satin brushed brass edge pull handle at top of each drawer
+            box('metal', dx, dy + 0.15, 0.264, 0.16, 0.015, 0.012, '#c9a44e', true);
+          }
+        }
+
+        // 4. Beveled top console surface (natural wood slab with slight perimeter overhang)
+        box('wood', 0, 0.925, 0, 0.94, 0.035, 0.52, HP.shade(cabCol, 1.15));
+
+        // 5. Entryway console styling: minimalist ceramic key catchall dish + succulent pot
+        // Ceramic catchall tray
+        box('ceramic', -0.24, 0.95, 0, 0.24, 0.018, 0.24, '#f8fafc');
+        box('metal', -0.24, 0.963, 0, 0.08, 0.008, 0.03, '#c9a44e', true);   // brass house key
+        // Ceramic pot with miniature green succulent
+        cyl('ceramic', 0.26, 0.965, 0, 0.09, 0.05, 0.09, '#f1f5f9');
+        round('fabric', 0.26, 1.005, 0, 0.08, 0.055, 0.08, '#4d7c0f');        // succulent foliage
 
       } else if (/^barcart$/i.test(t)) {
         // 2-Tier Art Deco Rolling Brass Bar Cart with Glass Shelves & Liquor Decanters (1x1)

@@ -749,6 +749,13 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
       { x0: -W / 2, x1: 0.15 * C, z0: -D / 2, z1: 0.15 * C, y0: 0, y1: H }
     ];
   }
+  if (/^shoecab$/i.test(t)) {
+    // Slim modern entryway shoe cabinet: depth is ~0.52 of cell (~26cm instead of 50cm), width inset slightly
+    const halfD = 0.26 * C;
+    return [
+      { x0: -W / 2 + 0.06 * C, x1: W / 2 - 0.06 * C, z0: -halfD, z1: halfD, y0: 0, y1: H }
+    ];
+  }
   if (/^archway/i.test(t)) {
     const pw = /^archway1/i.test(t) ? 0.10 : (/^archway3/i.test(t) ? 0.08 : 0.10);
     const postW = pw * W;
