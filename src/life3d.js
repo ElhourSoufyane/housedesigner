@@ -16,6 +16,7 @@ const screens = [];          // {mat, on, mesh}
 const lampBulbs = [];        // {mesh, src, on}
 const birds = [];
 const flies = [];            // butterflies
+const shoeCabinets = [];
 let fireflies = null, fireflySeed = null;
 let dog = null;              // the pet
 
@@ -288,6 +289,122 @@ function addLampBulb(cx, cy, cz, it, cfg) {
   L.interactables.push({ x: cx, z: cz, kind: 'lamp', ref: lp });
 }
 
+function addShoeCabinet(cx, cz, rot, w, dep, h, color, it, baseY) {
+  const g = new THREE.Group();
+  g.position.set(cx, baseY || 0, cz);
+  g.rotation.y = -rot * Math.PI / 2;
+  group.add(g);
+
+  const cabCol = color || '#8a6844';
+  const woodMat = std(cabCol, { roughness: 0.65 });
+  const flutedMat = std(HP.shade(cabCol, 0.88), { roughness: 0.7 });
+  const brassMat = std('#c9a44e', { roughness: 0.22, metalness: 0.9 });
+  const darkMat = std('#181b1e', { roughness: 0.9 });
+
+  const slimDep = Math.max(6, dep * 0.48);
+  const frontZ = slimDep / 2;
+
+  // 2 columns x 2 tiers of tilt-out compartments
+  const colW = (w * 0.90 - 1.6) / 2;
+  const tierH = (h * 0.72 - 1.8) / 2;
+
+  const pivots = [];
+  const shoeStyles = [
+    { shoe: '#f8fafc', sole: '#cbd5e1' }, // white sneaker
+    { shoe: '#1e2124', sole: '#475569' }, // black dress shoe
+    { shoe: '#78350f', sole: '#451a03' }, // brown oxford
+    { shoe: '#1e3a8a', sole: '#f8fafc' }, // navy casual
+  ];
+
+  let shoeIdx = 0;
+  for (const dx of [-colW / 2 - 0.8, colW / 2 + 0.8]) {
+    for (const dy0 of [h * 0.165 + 0.6, h * 0.165 + tierH + 1.4]) {
+      const p = new THREE.Group();
+      p.position.set(dx, dy0, frontZ);
+      g.add(p);
+      pivots.push(p);
+
+      // 1. Raised door panel with perimeter margin (leaves crisp dark reveals)
+      const doorPanel = box(colW - 0.6, tierH - 0.6, 1.0, woodMat);
+      doorPanel.position.set(0, tierH / 2, 0.5);
+      p.add(doorPanel);
+
+      // 2. Framed vertical fluting in center of door
+      const flutedW = colW - 3.2;
+      const flutedH = tierH - 3.0;
+      const nRibs = 4;
+      for (let i = 0; i < nRibs; i++) {
+        const rx = -flutedW / 2 + (i + 0.5) * (flutedW / nRibs);
+        const rib = box(flutedW / nRibs * 0.55, flutedH, 0.4, flutedMat);
+        rib.position.set(rx, tierH / 2, 1.1);
+        p.add(rib);
+      }
+
+      // 3. PROMINENT BOLD BRUSHED BRASS HORIZONTAL BAR HANDLE
+      const handleW = Math.max(7.5, colW * 0.48);
+      for (const px of [-handleW / 2 + 0.8, handleW / 2 - 0.8]) {
+        const post = box(0.8, 0.8, 1.4, brassMat);
+        post.position.set(px, tierH - 1.8, 1.6);
+        p.add(post);
+      }
+      const bar = box(handleW, 1.2, 1.0, brassMat);
+      bar.position.set(0, tierH - 1.8, 2.4);
+      p.add(bar);
+
+      // 4. Internal shoe rack shelf & shoes inside compartment
+      const shelf = box(colW - 1.6, 0.6, 5.2, darkMat);
+      shelf.position.set(0, 0.6, -2.4);
+      shelf.rotation.x = -0.22;
+      p.add(shelf);
+
+      // Pair of shoes on the shelf
+      const style = shoeStyles[shoeIdx++ % shoeStyles.length];
+      const sMat = std(style.shoe, { roughness: 0.6 });
+      const bMat = std(style.sole, { roughness: 0.8 });
+      for (const sx of [-colW * 0.22, colW * 0.22]) {
+        const sole = box(2.6, 0.5, 4.2, bMat);
+        sole.position.set(sx, 1.0, -2.4);
+        sole.rotation.x = -0.22;
+        p.add(sole);
+        const upper = box(2.4, 1.2, 3.8, sMat);
+        upper.position.set(sx, 1.7, -2.4);
+        upper.rotation.x = -0.22;
+        p.add(upper);
+        const toe = box(2.2, 0.8, 1.8, sMat);
+        toe.position.set(sx, 1.5, -0.9);
+        toe.rotation.x = -0.22;
+        p.add(toe);
+      }
+    }
+  }
+
+  const isOpen = !!(it && it.open);
+  if (isOpen) {
+    for (const p of pivots) p.rotation.x = 0.65;
+  }
+
+  const sc = {
+    g,
+    pivots,
+    open: isOpen,
+    curOpen: isOpen ? 1 : 0,
+    x: cx,
+    z: cz,
+    rot: rot,
+    it
+  };
+  shoeCabinets.push(sc);
+
+  const fwd = new THREE.Vector3(0, 0, frontZ + 4).applyEuler(new THREE.Euler(0, -rot * Math.PI / 2, 0));
+  L.interactables.push({
+    x: cx + fwd.x,
+    z: cz + fwd.z,
+    y: (baseY || 0) + h * 0.5,
+    kind: 'shoecab',
+    ref: sc
+  });
+}
+
 /* ---------- creatures ---------- */
 function addBirds() {
   const m = std('#4a4f57', { roughness: 1 });
@@ -493,7 +610,7 @@ function addFireflies() {
 L.build = function (g, entries) {
   group = g;
   spinners.length = clockHands.length = fish.length = fires.length =
-    screens.length = lampBulbs.length = birds.length = flies.length = 0;
+    screens.length = lampBulbs.length = birds.length = flies.length = shoeCabinets.length = 0;
   fireflies = null; fireflySeed = null;
   L.interactables = [];
   const hi = HP.graphics3d && HP.graphics3d.tier !== 'low';
@@ -600,6 +717,14 @@ L.build = function (g, entries) {
       // 65" 16:9 OLED TV screen on lowline credenza: exact bezel width=32.8, height=18.4, y=25.2
       addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep - 0.65, 25.2);
     }
+    else if (/^shoecab$/i.test(t)) {
+      const def = HP.itemDef ? HP.itemDef(it.type) : null;
+      const unrotW = Math.max(3, (it.w || (def && def.w) || 2) * C() - 3);
+      const unrotDep = Math.max(3, (it.h || (def && def.h) || 1) * C() - 3);
+      const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
+      const col = (it.colors && it.colors[0]) || (def && def.colors && def.colors[0]) || '#8a6844';
+      addShoeCabinet(cx, cz, it.rot || 0, unrotW, unrotDep, e.h || 32, col, it, bY);
+    }
     else if (/lamp|torch|candle|lantern|light/i.test(t)) {
       const def = HP.itemDef ? HP.itemDef(it.type) : null;
       const lt = HP.getLampLightTransform ? HP.getLampLightTransform(it, def, f, C(), lvlWalls, geomEnv) : null;
@@ -670,6 +795,16 @@ L.tick = function (dt, t, s, cam) {
     if (lp.src) lp.src.on = lp.on;
     lp.mesh.visible = lp.on && night > 0.15;
   }
+  for (const sc of shoeCabinets) {
+    const target = sc.open ? 1 : 0;
+    if (Math.abs(target - sc.curOpen) > 0.001) {
+      sc.curOpen += (target - sc.curOpen) * Math.min(1, dt * 8);
+      const tilt = sc.curOpen * 0.65;
+      for (const p of sc.pivots) {
+        p.rotation.x = tilt;
+      }
+    }
+  }
   /* creatures */
   const camX = cam ? cam.x : 0, camZ = cam ? cam.z : 0;
   if (birds.length) {
@@ -714,12 +849,21 @@ L.tick = function (dt, t, s, cam) {
 
 /* ---------- E interaction ---------- */
 L.label = function (g2) {
+  if (g2.kind === 'shoecab') {
+    return (g2.ref.open ? 'close ' : 'open ') + 'shoe cabinet';
+  }
   const on = g2.kind === 'tv' ? g2.ref.on : g2.ref.on;
   const name = g2.kind === 'lamp' ? 'lamp' : g2.kind === 'tv' ? 'TV' : 'fireplace';
   return (on ? 'turn off ' : 'turn on ') + name;
 };
 L.toggle = function (g2) {
   const r = g2.ref;
+  if (g2.kind === 'shoecab') {
+    r.open = !r.open;
+    if (r.it) r.it.open = r.open;
+    if (HP.sound3d && HP.sound3d.door) HP.sound3d.door(r.open);
+    return;
+  }
   r.on = !r.on;
   if (g2.kind === 'fire') {
     if (r.light) r.light.intensity = r.on ? 1 : 0;

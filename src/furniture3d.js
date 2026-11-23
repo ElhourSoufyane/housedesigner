@@ -6400,26 +6400,24 @@ F.builder = function (group) {
         // Under-cabinet support stretcher frame
         box('dark', 0, 0.155, 0, 0.86, 0.02, 0.44, '#181b1e');
 
-        // 2. Main cabinet body (y = 0.16 to 0.92, height = 0.76)
-        box('wood', 0, 0.54, 0, 0.92, 0.75, 0.48, cabCol);                    // carcass
-        box('dark', 0, 0.54, 0.235, 0.89, 0.72, 0.02, '#181b1e');              // recessed shadow reveal around doors
-        box('wood', 0, 0.54, -0.235, 0.89, 0.72, 0.015, HP.shade(cabCol, 0.85)); // finished back panel
+        // 2. Hollow carcass with open front for tilt-out compartments
+        // Left & right gable walls
+        box('wood', -0.44, 0.535, 0, 0.04, 0.73, 0.48, cabCol);
+        box('wood', 0.44, 0.535, 0, 0.04, 0.73, 0.48, cabCol);
+        // Bottom base panel
+        box('wood', 0, 0.175, 0, 0.86, 0.03, 0.48, cabCol);
+        // Top under-rail
+        box('wood', 0, 0.895, 0, 0.86, 0.03, 0.48, cabCol);
+        // Finished back panel
+        box('wood', 0, 0.535, -0.225, 0.86, 0.73, 0.03, HP.shade(cabCol, 0.85));
+        // Center vertical divider
+        box('wood', 0, 0.535, 0, 0.035, 0.73, 0.46, cabCol);
+        // Middle horizontal shelf divider
+        box('wood', 0, 0.53, 0, 0.86, 0.03, 0.44, HP.shade(cabCol, 0.9));
+        // Interior dark cavity backing
+        box('dark', 0, 0.535, -0.205, 0.84, 0.70, 0.02, '#141619');
 
-        // 3. Two columns of 2-tier fluted tilt-out shoe storage compartments
-        for (const dx of [-0.23, 0.23]) {
-          for (const dy of [0.36, 0.72]) {
-            // Drop-down drawer face
-            box('wood', dx, dy, 0.248, 0.42, 0.33, 0.018, HP.shade(cabCol, 1.05));
-            // Architectural vertical fluted ribs across each drawer front
-            for (let s = -0.16; s <= 0.16; s += 0.08) {
-              box('wood', dx + s, dy, 0.258, 0.02, 0.31, 0.008, HP.shade(cabCol, 0.92));
-            }
-            // Satin brushed brass edge pull handle at top of each drawer
-            box('metal', dx, dy + 0.15, 0.264, 0.16, 0.015, 0.012, '#c9a44e', true);
-          }
-        }
-
-        // 4. Beveled top console surface (natural wood slab with slight perimeter overhang)
+        // 3. Beveled top console surface (natural wood slab with slight perimeter overhang)
         box('wood', 0, 0.925, 0, 0.94, 0.035, 0.52, HP.shade(cabCol, 1.15));
 
         // 5. Entryway console styling: minimalist ceramic key catchall dish + succulent pot
