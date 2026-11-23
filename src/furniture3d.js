@@ -104,7 +104,7 @@ F.builder = function (group) {
     geom.computeVertexNormals();
     return geom;
   }
-  function createArchTopGeometry(S, stiltFrac = 0) {
+  function createArchTopGeometry(S) {
     const positions = [], normals = [], uvs = [], indices = [];
     function addQuad(p0, p1, p2, p3, n) {
       const b = positions.length / 3;
@@ -116,7 +116,7 @@ F.builder = function (group) {
     const arcPts = [];
     for (let i = 0; i <= S; i++) {
       const th = (i / S) * Math.PI;
-      const y = -0.5 + stiltFrac + (1 - stiltFrac) * Math.sin(th);
+      const y = -0.5 + Math.sin(th);
       arcPts.push({ x: -0.5 * Math.cos(th), y, th });
     }
     const mid = S / 2;
@@ -167,22 +167,6 @@ F.builder = function (group) {
       uvs.push(u0, 1, u1, 1, u1, 0, u0, 0);
       indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
     }
-    if (stiltFrac > 0.001) {
-      addQuad(
-        [-0.5, -0.5, 0.5],
-        [-0.5, -0.5, -0.5],
-        [-0.5, -0.5 + stiltFrac, -0.5],
-        [-0.5, -0.5 + stiltFrac, 0.5],
-        [1, 0, 0]
-      );
-      addQuad(
-        [0.5, -0.5, -0.5],
-        [0.5, -0.5, 0.5],
-        [0.5, -0.5 + stiltFrac, 0.5],
-        [0.5, -0.5 + stiltFrac, -0.5],
-        [-1, 0, 0]
-      );
-    }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
     geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
@@ -190,7 +174,7 @@ F.builder = function (group) {
     geom.setIndex(new THREE.BufferAttribute(new Uint16Array(indices), 1));
     return geom;
   }
-  function createArchCasingGeometry(S, radW, depth, stiltFrac = 0) {
+  function createArchCasingGeometry(S, radW, depth) {
     const positions = [], normals = [], uvs = [], indices = [];
     function addQuad(p0, p1, p2, p3, n) {
       const b = positions.length / 3;
@@ -202,16 +186,24 @@ F.builder = function (group) {
     const arcIn = [], arcOut = [];
     for (let i = 0; i <= S; i++) {
       const th = (i / S) * Math.PI;
-      const yIn = -0.5 + stiltFrac + (1 - stiltFrac) * Math.sin(th);
-      const yOut = -0.5 + stiltFrac + (1 - stiltFrac + 2 * radW) * Math.sin(th);
+      const yIn = -0.5 + Math.sin(th);
+      const yOut = -0.5 + (1 + 2 * radW) * Math.sin(th);
       arcIn.push({ x: -0.5 * Math.cos(th), y: yIn, th });
       arcOut.push({ x: -(0.5 + radW) * Math.cos(th), y: yOut, th });
     }
+    // Front face (z = depth / 2)
     for (let i = 0; i < S; i++) {
       const pA = [arcIn[i].x, arcIn[i].y, depth / 2], pB = [arcIn[i + 1].x, arcIn[i + 1].y, depth / 2];
       const pC = [arcOut[i + 1].x, arcOut[i + 1].y, depth / 2], pD = [arcOut[i].x, arcOut[i].y, depth / 2];
       addQuad(pA, pB, pC, pD, [0, 0, 1]);
     }
+    // Back face (z = -depth / 2)
+    for (let i = 0; i < S; i++) {
+      const pA = [arcIn[i + 1].x, arcIn[i + 1].y, -depth / 2], pB = [arcIn[i].x, arcIn[i].y, -depth / 2];
+      const pC = [arcOut[i].x, arcOut[i].y, -depth / 2], pD = [arcOut[i + 1].x, arcOut[i + 1].y, -depth / 2];
+      addQuad(pA, pB, pC, pD, [0, 0, -1]);
+    }
+    // Outer arch rim
     for (let i = 0; i < S; i++) {
       const pt0 = arcOut[i], pt1 = arcOut[i + 1];
       const n0 = [-Math.cos(pt0.th), Math.sin(pt0.th), 0], n1 = [-Math.cos(pt1.th), Math.sin(pt1.th), 0];
@@ -222,6 +214,7 @@ F.builder = function (group) {
       uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
       indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
     }
+    // Inner arch soffit
     for (let i = 0; i < S; i++) {
       const pt0 = arcIn[i], pt1 = arcIn[i + 1];
       const n0 = [Math.cos(pt0.th), -Math.sin(pt0.th), 0], n1 = [Math.cos(pt1.th), -Math.sin(pt1.th), 0];
@@ -232,86 +225,10 @@ F.builder = function (group) {
       uvs.push(0, 1, 1, 1, 1, 0, 0, 0);
       indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
     }
-    if (stiltFrac > 0.001) {
-      // Front faces (z = depth / 2)
-      addQuad(
-        [-0.5 - radW, -0.5, depth / 2],
-        [-0.5, -0.5, depth / 2],
-        [-0.5, -0.5 + stiltFrac, depth / 2],
-        [-0.5 - radW, -0.5 + stiltFrac, depth / 2],
-        [0, 0, 1]
-      );
-      addQuad(
-        [0.5, -0.5, depth / 2],
-        [0.5 + radW, -0.5, depth / 2],
-        [0.5 + radW, -0.5 + stiltFrac, depth / 2],
-        [0.5, -0.5 + stiltFrac, depth / 2],
-        [0, 0, 1]
-      );
-      // Back faces (z = -depth / 2)
-      addQuad(
-        [-0.5, -0.5, -depth / 2],
-        [-0.5 - radW, -0.5, -depth / 2],
-        [-0.5 - radW, -0.5 + stiltFrac, -depth / 2],
-        [-0.5, -0.5 + stiltFrac, -depth / 2],
-        [0, 0, -1]
-      );
-      addQuad(
-        [0.5 + radW, -0.5, -depth / 2],
-        [0.5, -0.5, -depth / 2],
-        [0.5, -0.5 + stiltFrac, -depth / 2],
-        [0.5 + radW, -0.5 + stiltFrac, -depth / 2],
-        [0, 0, -1]
-      );
-      // Outer side faces
-      addQuad(
-        [-0.5 - radW, -0.5, depth / 2],
-        [-0.5 - radW, -0.5 + stiltFrac, depth / 2],
-        [-0.5 - radW, -0.5 + stiltFrac, -depth / 2],
-        [-0.5 - radW, -0.5, -depth / 2],
-        [-1, 0, 0]
-      );
-      addQuad(
-        [0.5 + radW, -0.5, -depth / 2],
-        [0.5 + radW, -0.5 + stiltFrac, -depth / 2],
-        [0.5 + radW, -0.5 + stiltFrac, depth / 2],
-        [0.5 + radW, -0.5, depth / 2],
-        [1, 0, 0]
-      );
-      // Inner jamb faces
-      addQuad(
-        [-0.5, -0.5, -depth / 2],
-        [-0.5, -0.5 + stiltFrac, -depth / 2],
-        [-0.5, -0.5 + stiltFrac, depth / 2],
-        [-0.5, -0.5, depth / 2],
-        [1, 0, 0]
-      );
-      addQuad(
-        [0.5, -0.5, depth / 2],
-        [0.5, -0.5 + stiltFrac, depth / 2],
-        [0.5, -0.5 + stiltFrac, -depth / 2],
-        [0.5, -0.5, -depth / 2],
-        [-1, 0, 0]
-      );
-      // Bottom ends
-      addQuad(
-        [-0.5 - radW, -0.5, depth / 2],
-        [-0.5 - radW, -0.5, -depth / 2],
-        [-0.5, -0.5, -depth / 2],
-        [-0.5, -0.5, depth / 2],
-        [0, -1, 0]
-      );
-      addQuad(
-        [0.5, -0.5, depth / 2],
-        [0.5, -0.5, -depth / 2],
-        [0.5 + radW, -0.5, -depth / 2],
-        [0.5 + radW, -0.5, depth / 2],
-        [0, -1, 0]
-      );
-    } else {
-      addQuad([arcIn[0].x, arcIn[0].y, -depth / 2], [arcOut[0].x, arcOut[0].y, -depth / 2], [arcOut[0].x, arcOut[0].y, depth / 2], [arcIn[0].x, arcIn[0].y, depth / 2], [0, -1, 0]);
-      addQuad([arcOut[S].x, arcOut[S].y, -depth / 2], [arcIn[S].x, arcIn[S].y, -depth / 2], [arcIn[S].x, arcIn[S].y, depth / 2], [arcOut[S].x, arcOut[S].y, depth / 2], [0, -1, 0]);
-    }
+    // Bottom ends (resting on impost capitals)
+    addQuad([arcIn[0].x, arcIn[0].y, -depth / 2], [arcOut[0].x, arcOut[0].y, -depth / 2], [arcOut[0].x, arcOut[0].y, depth / 2], [arcIn[0].x, arcIn[0].y, depth / 2], [0, -1, 0]);
+    addQuad([arcOut[S].x, arcOut[S].y, -depth / 2], [arcIn[S].x, arcIn[S].y, -depth / 2], [arcIn[S].x, arcIn[S].y, depth / 2], [arcOut[S].x, arcOut[S].y, depth / 2], [0, -1, 0]);
+
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
     geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
@@ -354,10 +271,8 @@ F.builder = function (group) {
     roof: new THREE.ConeGeometry(0.71, 1, 4).rotateY(Math.PI / 4),
     gable: createGableGeometry(),
     shadow: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
-    archTop: createArchTopGeometry(G.current.detail ? 36 : 24, 0),
-    archTopStilt: createArchTopGeometry(G.current.detail ? 36 : 24, 0.41),
-    archCasing: createArchCasingGeometry(G.current.detail ? 36 : 24, 0.08, 1.0, 0),
-    archCasingStilt: createArchCasingGeometry(G.current.detail ? 36 : 24, 0.08, 1.0, 0.41),
+    archTop: createArchTopGeometry(G.current.detail ? 36 : 24),
+    archCasing: createArchCasingGeometry(G.current.detail ? 36 : 24, 0.08, 1.0),
     keystone: createKeystoneGeometry(),
   };
   const root = new THREE.Matrix4(), local = new THREE.Matrix4(), result = new THREE.Matrix4();
@@ -9579,32 +9494,22 @@ F.builder = function (group) {
         const trimThick = (wallThickPx + casingTPx * 2) / depthPx;
         const isArch1 = /archway1/.test(t);
         const isArch3 = /archway3/.test(t);
-        const pw = isArch1 ? 0.14 : (isArch3 ? 0.08 : 0.10);
+        const pw = isArch1 ? 0.12 : (isArch3 ? 0.08 : 0.10);
         const R = 0.5 - pw;
         const R_px = R * (width || (f.w * (HP.CELL || 28)));
         const h_total = height || 74;
-        let cy, rise, y_top, shapeTop, shapeCasing;
+        const rise_px = R_px; // Pure authentic semicircle: vertical rise in px equals horizontal radius in px
+        const rise = rise_px / h_total;
+        let y_top_px;
         if (isArch1) {
-          cy = 0.58;
-          y_top = 60 / h_total;
-          rise = y_top - cy;
-          shapeTop = 'archTopStilt';
-          shapeCasing = 'archCasingStilt';
+          y_top_px = 59;
         } else if (isArch3) {
-          y_top = 65 / h_total;
-          const rise_px = 30;
-          rise = rise_px / h_total;
-          cy = y_top - rise;
-          shapeTop = 'archTop';
-          shapeCasing = 'archCasing';
+          y_top_px = 68;
         } else {
-          y_top = 62 / h_total;
-          const rise_px = R_px;
-          rise = rise_px / h_total;
-          cy = y_top - rise;
-          shapeTop = 'archTop';
-          shapeCasing = 'archCasing';
+          y_top_px = 62;
         }
+        const y_top = y_top_px / h_total;
+        const cy = y_top - rise;
 
         // 1. Classical Side Pilaster Columns & 3-Tier Impost Capitals
         for (const sx of [-0.5 + pw / 2, 0.5 - pw / 2]) {
@@ -9628,11 +9533,11 @@ F.builder = function (group) {
         }
 
         // 2. Seamless Radial Arch Vault & Spandrels
-        part(shapeTop, matKind, 0, cy + rise / 2, 0, 2 * R, rise, wallThick, wallCol, false, wallMat);
+        part('archTop', matKind, 0, cy + rise / 2, 0, 2 * R, rise, wallThick, wallCol, false, wallMat);
 
         // 3. Arched Archivolt Casings (Front & Back)
-        part(shapeCasing, trimKind, 0, cy + rise / 2, wallThick / 2 + casingThick / 2, 2 * R, rise, casingThick, trimCol, false, wallMat);
-        part(shapeCasing, trimKind, 0, cy + rise / 2, -(wallThick / 2 + casingThick / 2), 2 * R, rise, casingThick, trimCol, false, wallMat);
+        part('archCasing', trimKind, 0, cy + rise / 2, wallThick / 2 + casingThick / 2, 2 * R, rise, casingThick, trimCol, false, wallMat);
+        part('archCasing', trimKind, 0, cy + rise / 2, -(wallThick / 2 + casingThick / 2), 2 * R, rise, casingThick, trimCol, false, wallMat);
 
         // 4. Classical Wedge-Shaped Keystone (Voussoir at Apex)
         const kH = Math.min(0.065, rise * 0.45);
