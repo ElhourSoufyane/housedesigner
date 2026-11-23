@@ -590,7 +590,16 @@ HP.disconnectSelected = function () {
   HP.saveState(); HP.markDirty(); HP.refreshContext();
 };
 
-HP.invalidateRegions = () => { HP.regions = null; if (HP.cur()) delete HP.cur()._cachedArea; HP.dirty = true; };
+HP.invalidateRegions = () => {
+  HP.regions = null;
+  if (HP.state && HP.state.levels) {
+    for (const l of HP.state.levels) {
+      if (l) { delete l._cachedRegions; delete l._cachedArea; }
+    }
+  }
+  if (HP.cur()) { delete HP.cur()._cachedRegions; delete HP.cur()._cachedArea; }
+  HP.dirty = true;
+};
 HP.markDirty = () => { HP.dirty = true; };
 
 /* ---------- misc ---------- */

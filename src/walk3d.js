@@ -170,10 +170,18 @@ K.enter = function (start) {
   airY = airV = 0; airborne = false; feetY = groundY;
   yaw = start.yaw || 0; pitch = start.pitch !== undefined ? start.pitch : 0;
   K.camElevate = start.elevate !== undefined ? start.elevate : 0;
+  if (HP.world3d && HP.world3d.camera) {
+    HP.world3d.camera.position.set(px, (HP.world3d.EYE || 40) + feetY + K.camElevate, pz);
+    HP.world3d.camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  }
+  if (HP.cull3d && HP.cull3d.update) {
+    HP.cull3d.update(px, pz, true);
+  }
   started = true;
   paused = false;
   clearMotion();
   fpsT = 0; frames = 0; last = 0;
+  if (el.fps) { el.fps.textContent = '60 fps'; el.fps.style.color = '#7fe08a'; }
   el.overlay.style.display = 'none';
   requestLock();
 };
@@ -246,6 +254,7 @@ K.resume = function (spawn) {
   clearMotion();
   prompt = null;
   fpsT = 0; frames = 0; last = 0;
+  if (el.fps) { el.fps.textContent = '60 fps'; el.fps.style.color = '#7fe08a'; }
   el.overlay.style.display = 'none';
   requestLock();
   if (HP.sound3d) HP.sound3d.start();
@@ -260,9 +269,24 @@ Object.defineProperty(K, 'paused', {
   set: (v) => { paused = !!v; }
 });
 
-K.boot = function () {
+K.boot = function (initialSpawn) {
   initDoors();
   fpsT = 0; frames = 0; last = 0;
+  if (el.fps) { el.fps.textContent = '60 fps'; el.fps.style.color = '#7fe08a'; }
+  if (initialSpawn) {
+    px = initialSpawn.x || 0;
+    pz = initialSpawn.z !== undefined ? initialSpawn.z : (initialSpawn.y || 0);
+    yaw = initialSpawn.yaw || 0;
+    pitch = initialSpawn.pitch || 0;
+    groundY = feetY = (initialSpawn.feetY !== undefined) ? initialSpawn.feetY : groundAt(px, pz);
+    if (HP.world3d && HP.world3d.camera) {
+      HP.world3d.camera.position.set(px, (HP.world3d.EYE || 40) + feetY, pz);
+      HP.world3d.camera.rotation.set(pitch, yaw, 0, 'YXZ');
+    }
+    if (HP.cull3d && HP.cull3d.update) {
+      HP.cull3d.update(px, pz, true);
+    }
+  }
   el.canvas   = document.getElementById('gl');
   el.overlay  = document.getElementById('overlay');
   el.fps      = document.getElementById('fps');
@@ -1248,17 +1272,19 @@ function tick(t) {
   } else {
     frames++;
     if (t - fpsT >= 500) {
-      const dtSec = (t - fpsT) / 1000;
-      const fps = Math.round(frames / dtSec);
-      if (el.fps) {
-        el.fps.textContent = fps + ' fps';
-        el.fps.style.color = fps >= 50 ? '#7fe08a' : fps >= 28 ? '#e8c86a' : '#ff7a6a';
-      }
-      if (HP.graphics3d) HP.graphics3d.sample(fps, dtSec);
-      else if (fps < 42 && !K._lo) {                       /* legacy fallback */
-        K._lo = true;
-        const r = HP.world3d.renderer;
-        if (r && r.getPixelRatio() > 1) r.setPixelRatio(1);
+      if (frames >= 4) {
+        const dtSec = (t - fpsT) / 1000;
+        const fps = Math.round(frames / dtSec);
+        if (el.fps) {
+          el.fps.textContent = fps + ' fps';
+          el.fps.style.color = fps >= 50 ? '#7fe08a' : fps >= 28 ? '#e8c86a' : '#ff7a6a';
+        }
+        if (HP.graphics3d) HP.graphics3d.sample(fps, dtSec);
+        else if (fps < 42 && !K._lo) {                       /* legacy fallback */
+          K._lo = true;
+          const r = HP.world3d.renderer;
+          if (r && r.getPixelRatio() > 1) r.setPixelRatio(1);
+        }
       }
       frames = 0; fpsT = t;
     }

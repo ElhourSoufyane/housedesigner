@@ -1,8 +1,8 @@
 {
-  "version": "1.3.31",
-  "build": 1795455634438,
-  "updatedAt": "2026-11-23T17:40:34.438Z",
-  "notes": "Fix wall header and spandrel styling above doors and windows to match exterior and continuous wall materials",
+  "version": "1.3.32",
+  "build": 1795457253801,
+  "updatedAt": "2026-11-23T18:07:33.801Z",
+  "notes": "Eliminate 3D mode startup lag: cache room regions across floors, optimize ceiling mesh generation, pre-align camera and culling to spawn room",
   "files": [
     "version.json",
     "index.html",
@@ -39,8 +39,8 @@
     "src/play3d-inpage.js"
   ],
   "hashes": {
-    "index.html": "de83835878e2",
-    "play3d.html": "0cc3ec4ae4c1",
+    "index.html": "04d6c49dce5f",
+    "play3d.html": "2834ac9e0c0d",
     "style.css": "1b37ab4b2eb7",
     "manifest.json": "6b5cec7e7507",
     "sw.js": "8ed64ed4d432",
@@ -52,12 +52,12 @@
     "src/furniture3d.js": "bb78210161c0",
     "src/geom3d.js": "aa87f3205b42",
     "src/graphics3d.js": "be02d48a0529",
-    "src/grid.js": "159c9143ebb9",
+    "src/grid.js": "13eedac8d6f8",
     "src/input.js": "346bffc4ea5a",
     "src/life3d.js": "44042a9ca352",
     "src/main.js": "8fc1e28bb3c3",
     "src/presets.js": "91562f797f7d",
-    "src/rooms.js": "134ff35a795a",
+    "src/rooms.js": "d17fd2fb1e17",
     "src/save.js": "7d1213d1089d",
     "src/sky3d.js": "8af065653512",
     "src/weather3d.js": "fa3962ae3e1d",
@@ -68,8 +68,8 @@
     "src/tools.js": "c1f78c37b3b6",
     "src/ui.js": "35daa4864f19",
     "src/walk.js": "30dc56dd423a",
-    "src/walk3d.js": "75b9bfa840e0",
-    "src/world3d.js": "22f833ab1444",
-    "src/play3d-inpage.js": "fb411245c669"
+    "src/walk3d.js": "139ab014ad2d",
+    "src/world3d.js": "e434b8b91a1f",
+    "src/play3d-inpage.js": "80a4dc93f987"
   }
 }

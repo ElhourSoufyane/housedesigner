@@ -5,6 +5,7 @@
 (function () {
 HP.computeRegions = function (targetLvl) {
   const lvl = targetLvl || HP.cur();
+  if (lvl && lvl._cachedRegions) return lvl._cachedRegions;
   if (!targetLvl && HP.regions) return HP.regions;
   const W = HP.GRID_W, H = HP.GRID_H;
   const regionOf = new Int16Array(W * H).fill(-9);   // -9 unvisited
@@ -100,6 +101,7 @@ HP.computeRegions = function (targetLvl) {
   }
 
   const res = { regionOf, regions };
+  if (lvl) lvl._cachedRegions = res;
   if (!targetLvl) HP.regions = res;
   return res;
 };

@@ -4419,14 +4419,21 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   roofMat.userData.shared3d = true;
 
   const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
-  const hasFloorAbove = (cx, cy) => {
-    for (let l = lvlIdx + 1; l < allLevels.length; l++) {
-      const upLvl = allLevels[l];
-      if (!upLvl) continue;
-      const k = cx + ',' + cy;
-      if (upLvl.floors && upLvl.floors[k]) return true;
+  const upLevelRegions = [];
+  for (let l = lvlIdx + 1; l < allLevels.length; l++) {
+    const upLvl = allLevels[l];
+    if (upLvl) {
       const { regionOf: upReg } = HP.computeRegions(upLvl);
-      if (upReg && upReg[cy * gw + cx] >= 0) return true;
+      upLevelRegions.push({ lvl: upLvl, reg: upReg });
+    }
+  }
+  const hasFloorAbove = (cx, cy) => {
+    const k = cx + ',' + cy;
+    const idx = cy * gw + cx;
+    for (let i = 0; i < upLevelRegions.length; i++) {
+      const entry = upLevelRegions[i];
+      if (entry.lvl.floors && entry.lvl.floors[k]) return true;
+      if (entry.reg && entry.reg[idx] >= 0) return true;
     }
     return false;
   };

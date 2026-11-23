@@ -9,7 +9,7 @@
   HP.in3D = false;
   HP._3dInitialized = false;
 
-  HP.init3D = function () {
+  HP.init3D = function (initialSpawn) {
     if (HP._3dInitialized) return;
     HP._3dInitialized = true;
 
@@ -111,7 +111,7 @@
       pushBox.onchange = () => { HP.pushFurniture = pushBox.checked; };
     }
 
-    if (HP.walk3d) HP.walk3d.boot();
+    if (HP.walk3d) HP.walk3d.boot(initialSpawn);
     if (HP.sync3d && HP.sync3d.hook) HP.sync3d.hook(W3, HP.walk3d);
 
     const overlay = document.getElementById('overlay');
@@ -248,11 +248,6 @@
       if (HP.graphics3d && HP.graphics3d.touch) wrap.classList.add('touch-controls');
     }
 
-    HP.init3D();
-    if (HP.world3d && HP.world3d.fit) HP.world3d.fit();
-    HP.invalidateRegions();
-    if (HP.world3d) HP.world3d.buildLevel();
-
     let spawn = targetSpawn;
     if (!spawn) {
       spawn = { x: HP.GRID_W * HP.CELL / 2, y: HP.GRID_H * HP.CELL / 2, yaw: Math.PI };
@@ -266,6 +261,16 @@
         spawn.feetY = HP.state.level * WALL_H;
       }
     }
+
+    HP.init3D(spawn);
+    if (HP.world3d && HP.world3d.camera) {
+      const eyeH = (HP.world3d && HP.world3d.EYE) || 40;
+      HP.world3d.camera.position.set(spawn.x, eyeH + (spawn.feetY || 0), spawn.y !== undefined ? spawn.y : spawn.z);
+      HP.world3d.camera.rotation.set(spawn.pitch || 0, spawn.yaw || 0, 0, 'YXZ');
+    }
+    if (HP.world3d && HP.world3d.fit) HP.world3d.fit();
+    HP.invalidateRegions();
+    if (HP.world3d) HP.world3d.buildLevel();
 
     if (HP.walk3d) HP.walk3d.resume(spawn);
   };
