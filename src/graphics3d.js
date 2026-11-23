@@ -1305,10 +1305,11 @@ G.floorMaterial = function (id, opts) {
       G.setMapAndBump(m, t, bTex, bScale, pbrRoughness);
     };
 
+    const isActive = !opts || opts.activeLevel !== false;
     const cachedImg = HP._texImg && (HP._texImg[id] || (family && HP._texImg[family]));
-    if (cachedImg && (cachedImg.width || cachedImg.naturalWidth)) {
+    if (isActive && cachedImg && (cachedImg.width || cachedImg.naturalWidth)) {
       applyLoaded(cachedImg, id);
-    } else if (!opts || opts.activeLevel !== false) {
+    } else if (isActive) {
       photoCount++;
       const image = new Image();
       image.onload = () => {
@@ -1349,20 +1350,19 @@ G.floorMaterial = function (id, opts) {
   return m;
 };
 
-HP.preloadFloorTextures = function () {
+HP.preloadFloorTextures = function (targetLevel) {
   if (typeof Image === 'undefined') return;
-  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur ? HP.cur() : null];
-  for (const lvl of allLevels) {
-    if (!lvl || !lvl.floors) continue;
-    for (const id of Object.values(lvl.floors)) {
-      if (!id || /^grass([A-DF])?$/.test(id)) continue;
-      if (HP._texImg && HP._texImg[id]) continue;
-      const im = new Image();
-      im.onload = () => {
-        if (HP._texImg) HP._texImg[id] = im;
-      };
-      im.src = 'textures/' + id + '.jpg';
-    }
+  const activeLvlIdx = targetLevel !== undefined ? targetLevel : ((HP.state && HP.state.level) || 0);
+  const curLvl = (HP.state && HP.state.levels && HP.state.levels[activeLvlIdx]) || (HP.cur ? HP.cur() : null);
+  if (!curLvl || !curLvl.floors) return;
+  for (const id of Object.values(curLvl.floors)) {
+    if (!id || /^grass([A-DF])?$/.test(id)) continue;
+    if (HP._texImg && HP._texImg[id]) continue;
+    const im = new Image();
+    im.onload = () => {
+      if (HP._texImg) HP._texImg[id] = im;
+    };
+    im.src = 'textures/' + id + '.jpg';
   }
 };
 G.ceilingMaterial = function (style, color) {

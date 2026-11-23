@@ -257,13 +257,7 @@
 
     if (HP.preloadFloorTextures) HP.preloadFloorTextures();
 
-    const tStart = performance.now();
-    const timings = {};
-
     const runBuild = () => {
-      const t0 = performance.now();
-      timings.yieldDelayMs = +(t0 - tStart).toFixed(1);
-
       let spawn = targetSpawn;
       if (!spawn) {
         spawn = { x: HP.GRID_W * HP.CELL / 2, y: HP.GRID_H * HP.CELL / 2, yaw: Math.PI };
@@ -277,13 +271,8 @@
           spawn.feetY = HP.state.level * WALL_H;
         }
       }
-      const tSpawn = performance.now();
-      timings.computeSpawnMs = +(tSpawn - t0).toFixed(1);
 
       HP.init3D(spawn);
-      const tInit = performance.now();
-      timings.init3DMs = +(tInit - tSpawn).toFixed(1);
-
       if (HP.world3d && HP.world3d.camera) {
         const eyeH = (HP.world3d && HP.world3d.EYE) || 40;
         HP.world3d.camera.position.set(spawn.x, eyeH + (spawn.feetY || 0), spawn.y !== undefined ? spawn.y : spawn.z);
@@ -292,35 +281,9 @@
       if (HP.world3d && HP.world3d.fit) HP.world3d.fit();
       HP.invalidateRegions();
 
-      const tPreBuild = performance.now();
       if (HP.world3d) HP.world3d.buildLevel();
-      const tPostBuild = performance.now();
-      timings.buildLevelMs = +(tPostBuild - tPreBuild).toFixed(1);
 
       if (HP.walk3d) HP.walk3d.resume(spawn);
-      const tResume = performance.now();
-      timings.resumeMs = +(tResume - tPostBuild).toFixed(1);
-      timings.totalMs = +(tResume - tStart).toFixed(1);
-
-      let perfEl = document.getElementById('perf-breakdown');
-      if (!perfEl) {
-        perfEl = document.createElement('div');
-        perfEl.id = 'perf-breakdown';
-        perfEl.style.position = 'fixed';
-        perfEl.style.bottom = '10px';
-        perfEl.style.left = '10px';
-        perfEl.style.background = 'rgba(0,0,0,0.85)';
-        perfEl.style.color = '#fff';
-        perfEl.style.zIndex = '99999';
-        perfEl.style.fontSize = '12px';
-        perfEl.style.padding = '6px';
-        document.body.appendChild(perfEl);
-      }
-      if (HP.world3d && HP.world3d._lastBuildTimings) {
-        timings.buildDetails = HP.world3d._lastBuildTimings;
-      }
-      perfEl.textContent = JSON.stringify(timings);
-      console.log('[PERF_BREAKDOWN]', timings);
     };
 
     if (typeof requestAnimationFrame !== 'undefined') {

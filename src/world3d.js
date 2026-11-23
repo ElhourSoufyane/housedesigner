@@ -3255,6 +3255,12 @@ W3.buildLevel = function () {
       const s = HP.sky3d ? HP.sky3d.sample(TIME.hour) : { night: 0 };
       scene.environment = (s && s.night > 0.5) ? envNight : envDay;
     }
+    // Pre-cull scene to spawn room so initial render compiles ONLY visible spawn shaders
+    if (HP.cull3d && HP.cull3d.update) {
+      const camY = camera.position.y;
+      const camFloor = Math.max(0, Math.floor(((camY || 0) + 0.1) / WALL_H));
+      HP.cull3d.update(camera.position.x, camera.position.z, true, camFloor);
+    }
     if (typeof renderer.render === 'function') {
       const tRendStart = performance.now();
       try { renderer.render(scene, camera); } catch (_) {}
@@ -4331,18 +4337,6 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
   }
   W3.floorGrids[curLvlIdx] = grid;
 
-  if (baseY > 0) {
-    W3.elevatedDecks = W3.elevatedDecks || [];
-    for (const c of cells) {
-      if (c.in || c.id) {
-        W3.elevatedDecks.push({
-          x0: c.x * C, x1: (c.x + 1) * C,
-          z0: c.y * C, z1: (c.y + 1) * C,
-          deckY: baseY
-        });
-      }
-    }
-  }
   // Custom structure interior floors (greenhouse brick/flagstone, cabin wood floor)
   const interiorFloorGroups = new Map();
   for (const it of (lvl && lvl.furniture) || []) {

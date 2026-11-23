@@ -249,6 +249,10 @@ V.update = function (px, pz, force, camFloor) {
       drawn++;
       continue;
     }
+    if (e.isFloor && e.lvlIdx !== undefined && e.lvlIdx !== camFloor) {
+      e.obj.visible = false;
+      continue;
+    }
     if (e.lvlIdx !== undefined && e.lvlIdx !== camFloor) {
       e.obj.visible = true;
       drawn++;
