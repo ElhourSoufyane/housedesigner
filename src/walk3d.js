@@ -161,6 +161,7 @@ function floorMat() {                            /* material underfoot */
 }
 
 K.enter = function (start) {
+  initDoors();
   sitting = null;
   px = start.x; pz = start.z !== undefined ? start.z : start.y;
   const wa0 = waterAt(px, pz);
@@ -172,6 +173,7 @@ K.enter = function (start) {
   started = true;
   paused = false;
   clearMotion();
+  fpsT = 0; frames = 0; last = 0;
   el.overlay.style.display = 'none';
   requestLock();
 };
@@ -232,15 +234,18 @@ K.pause = function () {
   if (!started) return;
   paused = true;
   clearMotion();
+  fpsT = 0; frames = 0; last = 0;
   showOverlay('PAUSED', isTouch() ? 'tap to keep walking' : 'click to keep walking');
   el.prompt.style.display = 'none';
   document.exitPointerLock && document.exitPointerLock();
 };
 K.resume = function (spawn) {
   if (!started) { K.enter(spawn); return; }
+  initDoors();
   paused = false;
   clearMotion();
   prompt = null;
+  fpsT = 0; frames = 0; last = 0;
   el.overlay.style.display = 'none';
   requestLock();
   if (HP.sound3d) HP.sound3d.start();
@@ -256,6 +261,8 @@ Object.defineProperty(K, 'paused', {
 });
 
 K.boot = function () {
+  initDoors();
+  fpsT = 0; frames = 0; last = 0;
   el.canvas   = document.getElementById('gl');
   el.overlay  = document.getElementById('overlay');
   el.fps      = document.getElementById('fps');
@@ -585,13 +592,24 @@ function swingLimit(d) {
   const maxDeg = (d.a && d.a.dbl) ? 90 : 166;
   const dir = (d.a.d === 'h' ? 1 : -1) * (d.li === 1 ? -1 : 1) * (d.flip || 1);
   const cs = HP.world3d.colliders || [];
+  const P = d.pivot.position;
+  const reach = (d.lw || 32) + (d.dep || 10) + 4;
+  const rx0 = P.x - reach, rx1 = P.x + reach;
+  const rz0 = P.z - reach, rz1 = P.z + reach;
+  const ly0 = d.ly0 || 0, ly1 = d.ly1 || 60;
+  const candidates = [];
+  for (const b of cs) {
+    if (b.mv !== undefined) continue;                 // light items get shoved aside
+    if (b.y1 <= ly0 || b.y0 >= ly1) continue;         // outside the leaf's band
+    if (b.x1 <= rx0 || b.x0 >= rx1 || b.z1 <= rz0 || b.z0 >= rz1) continue; // outside swing reach
+    candidates.push(b);
+  }
+  if (!candidates.length) return maxDeg * Math.PI / 180;
   let good = 0;
   for (let deg = 6; deg <= maxDeg; deg += 4) {
     const ang = deg * Math.PI / 180 * dir;
     let blocked = false;
-    for (const b of cs) {
-      if (b.mv !== undefined) continue;                 // light items get shoved aside
-      if (b.y1 <= (d.ly0 || 0) || b.y0 >= (d.ly1 || 60)) continue; // outside the leaf's band
+    for (const b of candidates) {
       if (leafPen(d, ang, b) > 2) { blocked = true; break; }
     }
     if (blocked) break;
@@ -599,6 +617,28 @@ function swingLimit(d) {
   }
   return Math.max(good, 8) * Math.PI / 180;   // always at least a crack
 }
+
+function initDoor(d) {
+  if (!d || d.doorStyle === 'archway' || !d.leaf) return;
+  if (d.maxAng !== undefined) return;
+  if (d.casement) d.maxAng = Math.PI / 2;
+  else if (d.awning || d.hopper) d.maxAng = 0.8;
+  else if (d.slide) d.maxAng = Infinity;
+  else {
+    if (d.a.flip === undefined) chooseFlip(d);
+    else setFlip(d, d.a.flip);
+    d.flip = d.a.flip;
+    d.maxAng = swingLimit(d);
+  }
+}
+function initDoors() {
+  const pivots = (HP.world3d && HP.world3d.doorPivots) || [];
+  for (const d of pivots) {
+    initDoor(d);
+  }
+}
+K.initDoor = initDoor;
+K.initDoors = initDoors;
 /* Captive window tracks have hard end stops. Sweep the full sash
    (including handle) against solids at its actual height, in both
    directions; moved furniture can obstruct closing as well as opening. */
@@ -937,6 +977,7 @@ function interact() {
 let last = 0;
 function tick(t) {
   requestAnimationFrame(tick);
+  if (!last) last = t;
   const dt = Math.min(0.05, (t - last) / 1000 || 0.016); last = t;
   if (paused) { HP.world3d.render(); return; }
 
@@ -1066,17 +1107,7 @@ function tick(t) {
   for (const d of (HP.world3d.doorPivots || [])) {
     if (d.doorStyle === 'archway' || !d.leaf) continue;
     if (d.holdT > 0) d.holdT -= dt;
-    if (d.maxAng === undefined) {
-      if (d.casement) d.maxAng = Math.PI / 2;
-      else if (d.awning || d.hopper) d.maxAng = 0.8;
-      else if (d.slide) d.maxAng = Infinity;            // sashes slide, not swing
-      else {
-        if (d.a.flip === undefined) chooseFlip(d);        // pick roomier side
-        else setFlip(d, d.a.flip);
-        d.flip = d.a.flip;
-        d.maxAng = swingLimit(d);                          // swing arc vs world
-      }
-    }
+    if (d.maxAng === undefined) initDoor(d);
     const tgt = (d.latched || d.holdT > 0) ? 1 : 0;
     const err = tgt - d.open;
     const previous = d.open;
@@ -1211,20 +1242,27 @@ function tick(t) {
   }
 
   /* fps meter + adaptive resolution: sustained low fps drops DPR    */
-  frames++;
-  if (t - fpsT > 500) {
-    const fps = Math.round(frames * 1000 / (t - fpsT));
-    el.fps.textContent = fps + ' fps';
-    el.fps.style.color = fps >= 50 ? '#7fe08a' : fps >= 28 ? '#e8c86a' : '#ff7a6a';
-    if (HP.graphics3d) HP.graphics3d.sample(fps, (t - fpsT) / 1000);
-    else if (fps < 42 && !K._lo) {                       /* legacy fallback */
-      K._lo = true;
-      const r = HP.world3d.renderer;
-      if (r && r.getPixelRatio() > 1) r.setPixelRatio(1);
+  if (!fpsT) {
+    fpsT = t;
+    frames = 0;
+  } else {
+    frames++;
+    if (t - fpsT >= 500) {
+      const dtSec = (t - fpsT) / 1000;
+      const fps = Math.round(frames / dtSec);
+      if (el.fps) {
+        el.fps.textContent = fps + ' fps';
+        el.fps.style.color = fps >= 50 ? '#7fe08a' : fps >= 28 ? '#e8c86a' : '#ff7a6a';
+      }
+      if (HP.graphics3d) HP.graphics3d.sample(fps, dtSec);
+      else if (fps < 42 && !K._lo) {                       /* legacy fallback */
+        K._lo = true;
+        const r = HP.world3d.renderer;
+        if (r && r.getPixelRatio() > 1) r.setPixelRatio(1);
+      }
+      frames = 0; fpsT = t;
     }
-    frames = 0; fpsT = t;
   }
-  if (fpsT === 0) fpsT = t;
 
   HP.world3d.render();
 }

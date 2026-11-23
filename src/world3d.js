@@ -3220,6 +3220,24 @@ W3.buildLevel = function () {
   W3._furnMetaById = res.furnMetaById;
   if (res.visuals) res.visuals.move(W3.movers);
   if (HP.graphics3d) HP.graphics3d.applyMaterials(g);
+
+  /* Pre-initialize door limits and flips so tick() doesn't freeze on Frame 0 */
+  if (HP.walk3d && HP.walk3d.initDoors) HP.walk3d.initDoors();
+
+  /* Pre-warm shaders, textures, and shadow pass ahead of gameplay */
+  if (renderer && scene && camera) {
+    const q = HP.graphics3d && HP.graphics3d.current;
+    if (q && q.env && !scene.environment && (envDay || envNight)) {
+      const s = HP.sky3d ? HP.sky3d.sample(TIME.hour) : { night: 0 };
+      scene.environment = (s && s.night > 0.5) ? envNight : envDay;
+    }
+    if (typeof renderer.compile === 'function') {
+      try { renderer.compile(scene, camera); } catch (_) {}
+    }
+    if (typeof renderer.render === 'function') {
+      try { renderer.render(scene, camera); } catch (_) {}
+    }
+  }
 };
 
 /* ---------- Modular Furniture Building (Synchronous & Async Sliced) ---------- */
