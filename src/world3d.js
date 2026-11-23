@@ -1207,6 +1207,25 @@ function resolveDoorWallStyle(lvl, a) {
   const seg = k ? HP.parseWallKey(k) : null;
   const leaves = (a && a.dbl) ? 2 : 1;
 
+  let isExt = false;
+  if (a && a.ext !== undefined) {
+    isExt = !!a.ext;
+  } else if (seg && lvl) {
+    const env = (HP.world3d && HP.world3d.geomEnv) ? HP.world3d.geomEnv(lvl) : (HP.geomEnv && HP.geomEnv(lvl));
+    if (env && env.rAt) {
+      const ra = isH ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
+      const rb = isH ? env.rAt(seg.x, seg.y)     : env.rAt(seg.x, seg.y);
+      if (ra < 0 || rb < 0) isExt = true;
+    }
+  }
+
+  const getDefColor = (st) => {
+    if (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'marble') return '#ffffff';
+    if (st === 'wood' || st === 'shiplap') return '#ffffff';
+    if (st === 'glass') return '#cde5eb';
+    return isExt ? '#e9e2d2' : '#f4efe4';
+  };
+
   if (k) {
     const keys = [k];
     if (a.dbl && seg) {
@@ -1214,9 +1233,9 @@ function resolveDoorWallStyle(lvl, a) {
     }
     for (const key of keys) {
       const w = lvl.walls[key];
-      if (w && (w.style || w._resolvedStyle)) {
-        const st = w.style || w._resolvedStyle;
-        const defC = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'marble') ? '#ffffff' : '#f4efe4';
+      if (w && (w.style || w._resolvedStyle || w.ca || w._resolvedCa || w.cb || w._resolvedCb)) {
+        const st = w.style || w._resolvedStyle || HP.wallStyle || 'plaster';
+        const defC = getDefColor(st);
         return { style: st, ca: w.ca || w._resolvedCa || defC, cb: w.cb || w._resolvedCb || defC };
       }
     }
@@ -1232,16 +1251,34 @@ function resolveDoorWallStyle(lvl, a) {
         const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
         const nw = lvl.walls[nk];
         if (!nw) break;
-        if (nw.style) {
-          const defC = (nw.style === 'brick' || nw.style === 'brick_white' || nw.style === 'stone' || nw.style === 'tile' || nw.style === 'concrete' || nw.style === 'marble') ? '#ffffff' : '#f4efe4';
-          return { style: nw.style, ca: nw.ca || defC, cb: nw.cb || defC };
+        if (nw.style || nw._resolvedStyle || nw.ca || nw._resolvedCa || nw.cb || nw._resolvedCb) {
+          const st = nw.style || nw._resolvedStyle || HP.wallStyle || 'plaster';
+          const defC = getDefColor(st);
+          return { style: st, ca: nw.ca || nw._resolvedCa || defC, cb: nw.cb || nw._resolvedCb || defC };
+        }
+      }
+    }
+
+    // Check perpendicular corner connections
+    for (const endIdx of [0, leaves]) {
+      const vx = isH ? seg.x + endIdx : seg.x;
+      const vy = isH ? seg.y : seg.y + endIdx;
+      const perpKeys = isH
+        ? [`v,${vx},${vy}`, `v,${vx},${vy - 1}`]
+        : [`h,${vx},${vy}`, `h,${vx - 1},${vy}`];
+      for (const pk of perpKeys) {
+        const pw = lvl.walls[pk];
+        if (pw && (pw.style || pw._resolvedStyle || pw.ca || pw._resolvedCa || pw.cb || pw._resolvedCb)) {
+          const st = pw.style || pw._resolvedStyle || HP.wallStyle || 'plaster';
+          const defC = getDefColor(st);
+          return { style: st, ca: pw.ca || pw._resolvedCa || defC, cb: pw.cb || pw._resolvedCb || defC };
         }
       }
     }
   }
 
   const defStyle = HP.wallStyle || 'plaster';
-  const defC = (defStyle === 'brick' || defStyle === 'brick_white' || defStyle === 'stone' || defStyle === 'tile' || defStyle === 'concrete' || defStyle === 'marble') ? '#ffffff' : '#f4efe4';
+  const defC = getDefColor(defStyle);
   return { style: defStyle, ca: defC, cb: defC };
 }
 W3.resolveDoorWallStyle = resolveDoorWallStyle;
@@ -2874,7 +2911,7 @@ W3.buildLevel = function () {
           let st = (w && (w.style || w._resolvedStyle));
           let ca = w && (w.ca || w._resolvedCa), cb = w && (w.cb || w._resolvedCb);
           if (w && (w.f === 'door' || w.f === 'window')) {
-            const ws = resolveDoorWallStyle(curLvl, { k: wk, d: b.d, dbl: false });
+            const ws = resolveDoorWallStyle(curLvl, { k: wk, d: b.d, dbl: false, ext: b.ext });
             if (!st) st = ws.style;
             if (!ca) ca = ws.ca;
             if (!cb) cb = ws.cb;
