@@ -4904,10 +4904,10 @@ F.builder = function (group) {
       } else if (/^treehouse$/i.test(t)) {
         // Luxury Modern Nordic/Pacific-Northwest A-Frame Treehouse (Height 290px, 4x4 or 5x5 footprint)
         // Architectural Masterpiece inspired by Nelson Treehouse "On The Rocks Ranch" & contemporary glass A-frames:
-        // - Steep 65° Charcoal Standing-Seam Metal A-Frame Roof (#242830) with matte-black structural trim & continuous ridge cap (#181b20)
-        // - Full Floor-to-Apex Front Glass Curtain Wall (#e0f2fe) with sleek black steel mullions (#1a1f26) revealing luxury interior
+        // - Steep 65° Charcoal Standing-Seam Metal A-Frame Roof (#242830) with matte-black structural trim, architectural skylight & continuous ridge cap (#181b20)
+        // - Full Floor-to-Apex Front Glass Curtain Wall (#e0f2fe) with open walk-in pivot entrance door revealing warm luxury interior
         // - Asymmetrical Cantilevered West Dormer Pop-Out with horizontal cedar shiplap & panoramic glass ribbon picture window
-        // - Warm Scandinavian Interior: oak floorboards, rear cedar accent wall, cylindrical cast-iron wood stove (#1e293b) with glowing embers & roof flue, built-in linen daybed lounge with designer throw pillows, floating timber desk, hanging warm brass pendant lamp (#fef08a)
+        // - Warm Scandinavian Interior: light oak floorboards, rear cedar accent wall, cylindrical cast-iron wood stove (#1e293b) with glowing embers & roof flue, built-in linen daybed lounge with designer throw pillows, floating timber desk, hanging warm brass pendant lamp (#fef08a)
         // - Cantilevered Floating Western Red Cedar Deck (y=54) with matte-black rim beam, octagonal live tree collar framing the trunk
         // - Modern Minimalist Cable Railing: matte-black steel posts, continuous teak handrail (#844c26), and 4 horizontal stainless steel aircraft tension cables (#94a3b8)
         // - Outdoor Living Terrace: linear cast-concrete fire pit table (#64748b) with glowing fire glass embers (#f97316), deep modern outdoor lounge armchairs, side table with coffee, cedar planter box with shrubs, festoon catenary fairy lights
@@ -4946,7 +4946,6 @@ F.builder = function (group) {
         const glassColor = '#e0f2fe';
 
         // 1. ANCIENT OAK TRUNK & BUTTRESS ROOTS (Foundation to Earth)
-        // Massive gnarled root collar mound
         pCyl('wood', -16, 5, -12, 48, 10, barkDark);
         pCyl('wood', -16, 26, -12, 38, 52, barkCol);
 
@@ -4977,12 +4976,9 @@ F.builder = function (group) {
           [-48,  46], [48,  46]
         ];
         for (const [px, pz] of postPts) {
-          // Concrete foundation pier & steel standoff shoe
           pBox('stone', px, 1.5, pz, 7, 3, 7, '#94a3b8');
           pBox('metal', px, 4, pz, 5.5, 2, 5.5, '#1e293b', true);
-          // Heavy timber column up to deck rim beam
           pBox('wood', px, 28, pz, 5.0, 48, 5.0, '#2d1c10');
-          // 45° timber knee braces to deck beams
           if (px < 0) pCylSlope('wood', px, 40, pz, px + 14, 52, pz, 4.0, '#3d2716');
           if (px > 0) pCylSlope('wood', px, 40, pz, px - 14, 52, pz, 4.0, '#3d2716');
           if (pz < 0) pCylSlope('wood', px, 40, pz, px, 52, pz + 14, 4.0, '#3d2716');
@@ -4990,13 +4986,10 @@ F.builder = function (group) {
         }
         // Subfloor heavy timber structural rim & joist grid
         pBox('wood', 0, 52, 0, 110, 3.2, 106, '#2d1c10');
-        // Black steel perimeter fascia plate
         pBox('metal', 0, 52.8, 0, 112.5, 2.2, 108.5, '#1e242c');
 
         // 3. FLOATING WESTERN RED CEDAR DECK (y = 54.0)
-        // Deck surface
         pBox('wood', 0, 54.0, 0, 111, 0.8, 107, deckWood);
-        // Architectural plank groove shadow lines
         for (let pz = -50; pz <= 50; pz += 10) {
           pBox('wood', 0, 54.2, pz, 110, 0.25, 0.6, deckTrim);
         }
@@ -5006,64 +4999,48 @@ F.builder = function (group) {
         pCyl('dark', -16, 54.9, -12, 30, 1.2, '#181b1e');
 
         // 4. MODERN MINIMALIST CABLE RAILING SYSTEM
-        // Matte black steel posts around perimeter (height 20px, y=54..74)
         const railPosts = [
-          // North edge (z = -53.5)
           [-54, -53.5], [-27, -53.5], [0, -53.5], [27, -53.5], [54, -53.5],
-          // South edge (z = +53.5) - gap between 24 and 40 for ladder gate!
           [-54, 53.5], [-27, 53.5], [0, 53.5], [24, 53.5], [40, 53.5], [54, 53.5],
-          // West edge (x = -54)
           [-54, -36], [-54, -18], [-54, 0], [-54, 18], [-54, 36],
-          // East edge (x = +54)
           [54, -36], [54, -18], [54, 0], [54, 18], [54, 36]
         ];
         for (const [px, pz] of railPosts) {
           pBox('metal', px, 64, pz, 1.8, 20, 1.8, steelBlack);
-          pBox('metal', px, 54.6, pz, 2.8, 1.2, 2.8, '#0f172a'); // post base shoe
+          pBox('metal', px, 54.6, pz, 2.8, 1.2, 2.8, '#0f172a');
         }
-        // Continuous warm teak / cedar top handrail (y = 74.5)
+        // Continuous teak handrails
         pBox('wood', 0, 74.5, -53.5, 110, 1.8, 3.2, teakRail); // North
         pBox('wood', -54, 74.5, 0, 3.2, 1.8, 107, teakRail);  // West
         pBox('wood', 54, 74.5, 0, 3.2, 1.8, 107, teakRail);   // East
-        // South handrails (leaving clear opening for ladder entrance at x=24..40)
-        pBox('wood', -15, 74.5, 53.5, 78, 1.8, 3.2, teakRail); // South West to Gate
-        pBox('wood', 47, 74.5, 53.5, 14, 1.8, 3.2, teakRail);  // South East of Gate
-        // Gate post decorative rounded caps
+        pBox('wood', -15, 74.5, 53.5, 78, 1.8, 3.2, teakRail); // South West
+        pBox('wood', 47, 74.5, 53.5, 14, 1.8, 3.2, teakRail);  // South East
         pSphere('wood', 24, 75.2, 53.5, 2.6, teakRail);
         pSphere('wood', 40, 75.2, 53.5, 2.6, teakRail);
 
-        // 4 Horizontal Slim Stainless Steel Aircraft Tension Cables (y = 58, 62, 66, 70)
+        // 4 Stainless Steel Aircraft Cables
         const cableYs = [58.5, 62.5, 66.5, 70.5];
         for (const cy of cableYs) {
-          // North continuous cable
           pBox('metal', 0, cy, -53.5, 108, 0.4, 0.4, '#94a3b8', true);
-          // West continuous cable
           pBox('metal', -54, cy, 0, 0.4, 0.4, 105, '#94a3b8', true);
-          // East continuous cable
           pBox('metal', 54, cy, 0, 0.4, 0.4, 105, '#94a3b8', true);
-          // South cables (stopping before gate opening)
           pBox('metal', -15, cy, 53.5, 76, 0.4, 0.4, '#94a3b8', true);
           pBox('metal', 47, cy, 53.5, 13, 0.4, 0.4, '#94a3b8', true);
         }
 
         // 5. MODERN COMPANIONWAY SHIP'S LADDER
-        // Connects ground (x=32, z=74, y=0) to deck gate (x=32, z=50, y=54)
         pSlope('metal', 27, 0, 74, 27, 54, 50, 1.8, 2.6, steelBlack);
         pSlope('metal', 37, 0, 74, 37, 54, 50, 1.8, 2.6, steelBlack);
-        // Thick cedar treads with open risers
         for (let s = 1; s <= 11; s++) {
           const st = s / 12;
           const sy = st * 54;
           const sz = 74 - st * 24;
           pBox('wood', 32, sy, sz, 9.6, 1.4, 2.8, '#c28452');
         }
-        // Ergonomic tubular black steel handrails on both sides of ladder
         pSlope('metal', 26.5, 13, 74, 26.5, 67, 50, 1.2, 1.2, steelBlack);
         pSlope('metal', 37.5, 13, 74, 37.5, 67, 50, 1.2, 1.2, steelBlack);
 
         // 6. ARCHITECTURAL LUXURY MODERN A-FRAME CABIN
-        // Cabin Base: x from -36 to +14 (width 50, center x = -11), z from -46 to +20 (depth 66)
-        // Ridge at x = -11, y = 138 (height 84px above deck, steep 65° A-frame)
         const ridgeX = -11;
         const ridgeY = 138;
         const eaveY  = 54;
@@ -5076,84 +5053,78 @@ F.builder = function (group) {
         // Front Gable Matte Black Steel Mullions & Structural A-Frame Ring (z = 20.8)
         pSlope('metal', eaveL, eaveY, 20.8, ridgeX, ridgeY, 20.8, 2.0, 1.4, steelBlack);
         pSlope('metal', ridgeX, ridgeY, 20.8, eaveR, eaveY, 20.8, 2.0, 1.4, steelBlack);
-        pBox('metal', ridgeX, eaveY + 0.8, 20.8, 50, 1.6, 1.4, steelBlack); // bottom threshold
-        // Vertical center steel mullion
+        pBox('metal', ridgeX, eaveY + 0.8, 20.8, 50, 1.6, 1.4, steelBlack);
         pBox('metal', ridgeX, (eaveY + ridgeY) / 2, 20.8, 1.4, ridgeY - eaveY, 1.0, steelBlack);
-        // Horizontal transoms
-        pBox('metal', ridgeX, 74, 20.8, 38, 1.4, 1.0, steelBlack); // door lintel transom
-        pBox('metal', ridgeX, 98, 20.8, 24, 1.4, 1.0, steelBlack); // loft floor transom
-        // Modern black pivot door frame & handle (x = -11..-2, y = 54..74)
-        pBox('metal', -6.5, 64, 21.0, 9.0, 20.0, 0.6, steelBlack);
-        pBox('glass', -6.5, 64, 21.0, 7.8, 18.6, 0.3, glassColor);
-        pBox('metal', -3.0, 63, 21.6, 0.6, 6.0, 0.6, '#f8fafc', true); // sleek stainless pull bar
-        pBox('wood', -6.5, 54.4, 25.0, 12.0, 0.5, 7.0, '#78350f');   // cedar welcome mat
+        pBox('metal', ridgeX, 74, 20.8, 38, 1.4, 1.0, steelBlack);
+        pBox('metal', ridgeX, 98, 20.8, 24, 1.4, 1.0, steelBlack);
 
-        // Rear Gable Wall (z = -46) with warm horizontal cedar siding
-        pGable('wood', ridgeX, (eaveY + ridgeY) / 2, -46.0, 50, ridgeY - eaveY, 1.2, '#9a6035');
-        // Horizontal cedar shiplap bands on rear wall
+        // Open Walk-In Pivot Doorway (door is hinged open 85° inward along x=-10.5, z=15.5)
+        pBox('metal', -10.5, 64, 15.5, 0.6, 20.0, 8.5, steelBlack);
+        pBox('glass', -10.5, 64, 15.5, 0.3, 18.6, 7.5, glassColor);
+        pBox('metal', -9.9, 63, 12.0, 0.6, 6.0, 0.6, '#f8fafc', true);
+        pBox('wood', -6.5, 54.4, 25.0, 12.0, 0.5, 7.0, '#78350f'); // welcome deck mat
+
+        // Rear Gable Wall (z = -46) with warm cedar siding
+        pGable('wood', ridgeX, (eaveY + ridgeY) / 2, -46.0, 50, ridgeY - eaveY, 1.2, '#b87442');
         for (let ry = 62; ry <= 126; ry += 8) {
           const frac = (ry - eaveY) / (ridgeY - eaveY);
           const rw = 50 * (1 - frac) * 0.95;
-          if (rw > 3) pBox('wood', ridgeX, ry, -46.4, rw, 0.6, 0.8, '#78350f');
+          if (rw > 3) pBox('wood', ridgeX, ry, -46.4, rw, 0.6, 0.8, '#8c4c1d');
         }
 
-        // Continuous Pitch Standing-Seam Charcoal Metal Roof (Left & Right Slopes)
-        // Extends z from -48 to +22 (length 70px)
+        // Pitch Standing-Seam Charcoal Metal Roof (Left & Right Slopes)
         pSlope('metal', eaveL - 1, eaveY - 0.5, -13, ridgeX, ridgeY + 1, -13, 2.2, 70, roofMetal);
         pSlope('metal', ridgeX, ridgeY + 1, -13, eaveR + 1, eaveY - 0.5, -13, 2.2, 70, roofMetal);
 
-        // Standing-Seam Architectural Ribs along roof slopes
+        // Roof Architectural Skylight (East slope, bringing daylight into cabin interior)
+        pBox('glass', 0, 106, -8, 10, 0.8, 18, glassColor);
+        pBox('metal', 0, 106, -8, 10.8, 1.2, 18.8, steelBlack);
+
+        // Standing-Seam Architectural Ribs
         const ribZs = [-44, -34, -24, -14, -4, 6, 16];
         for (const rz of ribZs) {
           pSlope('metal', eaveL - 1.2, eaveY - 0.2, rz, ridgeX, ridgeY + 1.4, rz, 1.2, 0.8, steelBlack);
           pSlope('metal', ridgeX, ridgeY + 1.4, rz, eaveR + 1.2, eaveY - 0.2, rz, 1.2, 0.8, steelBlack);
         }
-        // Heavy front & rear architectural bargeboards
         for (const bz of [-47.5, 21.6]) {
           pSlope('metal', eaveL - 1.5, eaveY - 1, bz, ridgeX, ridgeY + 1.8, bz, 2.8, 2.2, steelBlack);
           pSlope('metal', ridgeX, ridgeY + 1.8, bz, eaveR + 1.5, eaveY - 1, bz, 2.8, 2.2, steelBlack);
         }
-        // Continuous charcoal metal ridge cap
         pBox('metal', ridgeX, ridgeY + 2.2, -13, 3.6, 1.8, 72, roofRidge);
 
         // 7. ASYMMETRICAL WEST SHED DORMER POP-OUT (z = -28..-4, x = -38..-23)
-        // Modern cantilevered pop-out with horizontal cedar shiplap & panoramic ribbon window
-        pBox('wood', -31, 54.2, -16, 16, 0.6, 24, '#d4976a'); // floor extension
-        // Front & back cheek walls
+        pBox('wood', -31, 54.2, -16, 16, 0.6, 24, '#d4976a');
         pBox('wood', -31, 68, -4, 15, 28, 1.2, '#ba7a48');
         pBox('wood', -31, 68, -28, 15, 28, 1.2, '#ba7a48');
-        // West outer wall with panoramic glass ribbon window
-        pBox('wood', -38.5, 60.5, -16, 1.2, 13, 24, '#ba7a48'); // bottom wainscot
-        pBox('glass', -38.5, 72.5, -16, 0.6, 10, 20, glassColor); // ribbon window
-        pBox('metal', -38.6, 72.5, -16, 0.8, 10.8, 20.8, steelBlack); // sleek frame
-        pBox('wood', -38.5, 80.5, -16, 1.2, 5, 24, '#ba7a48'); // upper header
-        // Flat charcoal shed roof
+        pBox('wood', -38.5, 60.5, -16, 1.2, 13, 24, '#ba7a48');
+        pBox('glass', -38.5, 72.5, -16, 0.6, 10, 20, glassColor);
+        pBox('metal', -38.6, 72.5, -16, 0.8, 10.8, 20.8, steelBlack);
+        pBox('wood', -38.5, 80.5, -16, 1.2, 5, 24, '#ba7a48');
         pBox('metal', -31, 83.5, -16, 17, 1.4, 26, roofMetal);
         pBox('metal', -31, 83.5, -16, 17.6, 1.8, 26.6, steelBlack);
 
-        // 8. SCANDINAVIAN LUXURY CABIN INTERIOR (Visible through Front Curtain Wall)
-        // Interior honey oak floor
-        pBox('wood', ridgeX, 54.2, -13, 48, 0.4, 64, '#d4976a');
-        // Interior warm cedar back wall
-        pBox('wood', ridgeX, 95, -45, 48, 80, 0.8, '#b87442');
+        // 8. SCANDINAVIAN LUXURY CABIN INTERIOR
+        // Bright Scandinavian honey oak floor & warm interior walls
+        pBox('wood', ridgeX, 54.2, -13, 48, 0.4, 64, '#f0c797');
+        pBox('wood', ridgeX, 95, -45, 48, 80, 0.8, '#d49b6a');
 
         // Scandinavian Cylindrical Cast-Iron Wood Stove (Right interior, x=+5, z=+6)
-        pBox('stone', 5, 54.6, 6, 10, 0.8, 10, '#334155');        // slate hearth plate
-        pCyl('dark', 5, 61, 6, 6.6, 12, '#1e293b');                // cylindrical stove body
-        pBox('glow', 5, 61, 9.3, 3.8, 5.0, 0.4, '#f97316');        // glowing fire window
-        pCyl('dark', 5, 67.5, 6, 7.4, 1.2, '#0f172a');             // stove top rim
-        pCyl('dark', 5, 85, 6, 2.2, 34, '#1e293b');                // interior black flue pipe
-        pCyl('dark', 5, 108, 6, 3.2, 8, steelBlack);               // roof flashing & exterior flue
-        pCyl('dark', 5, 113, 6, 4.8, 1.4, '#0f172a');              // flue rain cowl
+        pBox('stone', 5, 54.6, 6, 10, 0.8, 10, '#334155');
+        pCyl('dark', 5, 61, 6, 6.6, 12, '#1e293b');
+        pBox('glow', 5, 61, 9.3, 4.2, 5.2, 0.6, '#f97316');        // glowing fire window
+        pSphere('glow', 5, 61, 9.0, 2.5, '#fde047');               // warm fire core
+        pCyl('dark', 5, 67.5, 6, 7.4, 1.2, '#0f172a');
+        pCyl('dark', 5, 85, 6, 2.2, 34, '#1e293b');
+        pCyl('dark', 5, 108, 6, 3.2, 8, steelBlack);
+        pCyl('dark', 5, 113, 6, 4.8, 1.4, '#0f172a');
 
         // Built-In Daybed Lounge Nook (Left interior, x=-24, z=-5)
-        pBox('wood', -24, 58, -5, 18, 7.2, 26, '#a16207');         // solid cedar bed box
-        pBox('fabric', -24, 63, -5, 17, 3.5, 25, '#f1f5f9');       // linen mattress
-        pBox('fabric', -24, 64.2, -12, 16.5, 1.2, 10, '#cbd5e1');  // folded wool blanket
-        // Designer plush accent cushions
-        pBox('fabric', -24, 66.5, 5, 6, 4.5, 3.5, '#e07a5f');      // terracotta
-        pBox('fabric', -28, 66.0, 3, 5, 4.0, 3.5, '#3d5a80');      // slate navy
-        pBox('fabric', -20, 66.0, 3, 5, 4.0, 3.5, '#f4a261');      // warm amber
+        pBox('wood', -24, 58, -5, 18, 7.2, 26, '#a16207');
+        pBox('fabric', -24, 63, -5, 17, 3.5, 25, '#f8fafc');       // crisp linen mattress
+        pBox('fabric', -24, 64.2, -12, 16.5, 1.2, 10, '#cbd5e1');
+        pBox('fabric', -24, 66.5, 5, 6, 4.5, 3.5, '#e07a5f');
+        pBox('fabric', -28, 66.0, 3, 5, 4.0, 3.5, '#3d5a80');
+        pBox('fabric', -20, 66.0, 3, 5, 4.0, 3.5, '#f4a261');
 
         // Minimalist Floating Timber Desk & Stool
         pBox('wood', ridgeX, 64, -32, 22, 1.6, 10, '#c6834d');
@@ -5162,40 +5133,37 @@ F.builder = function (group) {
         // Warm Glowing Brass Pendant Lamp hanging from interior apex
         pCyl('metal', ridgeX, 112, 2, 0.4, 48, steelBlack);
         pCyl('metal', ridgeX, 88, 2, 5.5, 2.4, '#eab308');
-        pSphere('glow', ridgeX, 86, 2, 3.2, '#fef08a');
+        pSphere('glow', ridgeX, 86, 2, 3.8, '#fef08a');
 
         // Modern exterior entrance cylinder sconces
         pCyl('dark', -12.5, 70, 21.2, 1.4, 4.0, steelBlack);
-        pSphere('glow', -12.5, 70, 21.8, 1.6, '#fef08a');
+        pSphere('glow', -12.5, 70, 21.8, 2.0, '#fef08a');
         pCyl('dark', -0.5, 70, 21.2, 1.4, 4.0, steelBlack);
-        pSphere('glow', -0.5, 70, 21.8, 1.6, '#fef08a');
+        pSphere('glow', -0.5, 70, 21.8, 2.0, '#fef08a');
 
         // 9. OUTDOOR LIVING PATIO ON THE WRAP-AROUND DECK
-        // Linear Cast-Concrete Fire Pit Table (x=+34, z=+6)
-        pBox('stone', 34, 57.0, 6, 18, 6.0, 11, '#64748b');        // concrete block
-        pBox('metal', 34, 60.1, 6, 15, 0.4, 8.5, '#334155');       // recessed stainless pan
-        pBox('stone', 34, 60.3, 6, 13, 0.3, 6.5, '#1e293b');       // dark lava stone bed
-        pBox('glow',  34, 60.8, 6, 10, 0.8, 4, '#f97316');         // glowing fire glass
-        pSphere('glow', 31, 61.4, 6, 2.6, '#fbbf24');              // glowing flame cores
+        pBox('stone', 34, 57.0, 6, 18, 6.0, 11, '#64748b');
+        pBox('metal', 34, 60.1, 6, 15, 0.4, 8.5, '#334155');
+        pBox('stone', 34, 60.3, 6, 13, 0.3, 6.5, '#1e293b');
+        pBox('glow',  34, 60.8, 6, 10, 0.8, 4, '#f97316');
+        pSphere('glow', 31, 61.4, 6, 2.6, '#fbbf24');
         pSphere('glow', 34, 61.8, 6, 3.2, '#f97316');
         pSphere('glow', 37, 61.4, 6, 2.6, '#fb923c');
 
         // Modern Deep Outdoor Lounge Armchairs
-        // Chair 1 (South of fire pit, x=34, z=22, facing North)
         pBox('metal', 34, 57.0, 22, 12, 6.0, 10, steelBlack);
         pBox('metal', 34, 63.0, 26.5, 12, 8.0, 1.5, steelBlack);
-        pBox('fabric', 34, 60.5, 21.5, 11, 2.5, 9, '#e6ded3');     // seat cushion
-        pBox('fabric', 34, 64.0, 25.0, 10, 5.0, 2.5, '#e07a5f');   // back pillow
-        // Chair 2 (East of fire pit, x=48, z=6, facing West)
+        pBox('fabric', 34, 60.5, 21.5, 11, 2.5, 9, '#e6ded3');
+        pBox('fabric', 34, 64.0, 25.0, 10, 5.0, 2.5, '#e07a5f');
+
         pBox('metal', 48, 57.0, 6, 10, 6.0, 12, steelBlack);
         pBox('metal', 52.5, 63.0, 6, 1.5, 8.0, 12, steelBlack);
         pBox('fabric', 47.5, 60.5, 6, 9, 2.5, 11, '#e6ded3');
         pBox('fabric', 51.0, 64.0, 6, 2.5, 5.0, 10, '#3d5a80');
-        // Side drinks table between chairs
+
         pBox('wood', 47, 57.5, 20, 6.5, 5.0, 6.5, teakRail);
         pCyl('ceramic', 47, 61.2, 20, 2.0, 2.2, '#f8fafc');
 
-        // Modern cedar planter box with green shrubs on deck corner
         pBox('wood', -45, 57.0, 45, 16, 6.0, 8.0, '#78350f');
         pSphere('foliage', -45, 63.0, 45, 9.0, '#366e2c');
         pSphere('foliage', -40, 64.0, 45, 8.0, '#63aa4e');
@@ -5223,38 +5191,34 @@ F.builder = function (group) {
         }
 
         // 10. TOWERING ANCIENT OAK TRUNK, BOUGHS & VOLUMETRIC CANOPY (y = 54..290)
-        // Oak trunk emerging through deck collar and ascending past cabin
         pCyl('wood', -16, 85, -12, 32, 62, barkCol);
         pCyl('wood', -16, 125, -12, 28, 42, barkDark);
 
-        // Major Soaring Boughs branching into the heavens
-        // North rear bough
         pCylSlope('wood', -16, 135, -12, -26, 215, -38, 18, barkCol);
         pCylSlope('wood', -23, 190, -30, -45, 235, -50, 12, barkDark);
-        // East arching bough (arching gracefully above the A-frame roof ridge)
+
         pCylSlope('wood', -16, 138, -12, 14, 195, -8, 18, barkCol);
         pCylSlope('wood', 14, 195, -8, 38, 235, -4, 13, barkDark);
         pCylSlope('wood', 24, 210, -6, 48, 245, 18, 10, barkDark);
         pCylSlope('wood', 38, 235, -4, 56, 252, -18, 8, barkDark);
-        // South front canopy bough (spreading above front patio deck)
+
         pCylSlope('wood', -16, 135, -12, -12, 205, 28, 17, barkCol);
         pCylSlope('wood', -13, 185, 16, -4, 235, 42, 11, barkDark);
         pCylSlope('wood', -4, 235, 42, 12, 248, 48, 8, barkDark);
-        // Central soaring summit trunk
+
         pCylSlope('wood', -16, 140, -12, -10, 225, -10, 20, barkCol);
         pCylSlope('wood', -10, 225, -10, -6, 268, -8, 14, barkDark);
         pCylSlope('wood', -6, 255, -8, 14, 282, -4, 9, barkDark);
         pCylSlope('wood', -6, 255, -8, -22, 282, -14, 9, barkDark);
 
         // Volumetric Foliage Clouds in 5 woodland green tones (windify animated)
-        const leafDark = '#1b3d17'; // deepest shadow
-        const leafDeep = '#275220'; // rich forest green
-        const leafOak  = '#366e2c'; // true oak foliage
-        const leafMid  = '#4a8e3d'; // vibrant woodland midtone
-        const leafSun  = '#63aa4e'; // sunlit canopy highlight
+        const leafDark = '#1b3d17';
+        const leafDeep = '#275220';
+        const leafOak  = '#366e2c';
+        const leafMid  = '#4a8e3d';
+        const leafSun  = '#63aa4e';
 
         const canopySpheres = [
-          // Summit Crown (y = 250..290)
           [-6, 284, -8, 36, leafSun],
           [10, 285, -4, 32, leafMid],
           [-20, 283, -12, 32, leafMid],
@@ -5265,7 +5229,6 @@ F.builder = function (group) {
           [2, 288, -2, 28, leafSun],
           [-12, 288, -6, 28, leafSun],
 
-          // East & Over-Roof Crown (y = 215..268, lush sprawling canopy framing A-frame peak)
           [36, 244, -4, 38, leafSun],
           [48, 250, 16, 34, leafMid],
           [28, 240, 20, 36, leafOak],
@@ -5276,7 +5239,6 @@ F.builder = function (group) {
           [40, 258, 4, 32, leafSun],
           [32, 222, 6, 30, leafOak],
 
-          // South Front Crown (y = 205..260, shading front patio deck)
           [-8, 234, 34, 38, leafSun],
           [-2, 240, 46, 34, leafMid],
           [-22, 230, 28, 36, leafOak],
@@ -5286,7 +5248,6 @@ F.builder = function (group) {
           [4, 252, 36, 32, leafMid],
           [-16, 246, 42, 32, leafOak],
 
-          // North Rear Crown (y = 205..255)
           [-28, 236, -44, 38, leafMid],
           [-48, 242, -54, 34, leafSun],
           [-12, 232, -48, 36, leafOak],
@@ -5294,7 +5255,6 @@ F.builder = function (group) {
           [-24, 216, -56, 32, leafDark],
           [-36, 248, -46, 30, leafSun],
 
-          // West Flank Crown (y = 185..240)
           [-48, 214, -8, 36, leafOak],
           [-54, 220, 14, 32, leafMid],
           [-44, 206, -24, 34, leafDeep],

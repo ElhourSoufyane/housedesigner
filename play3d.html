@@ -1282,6 +1282,7 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
         yaw: uP.has('yaw') ? parseFloat(uP.get('yaw')) : Math.PI,
         pitch: uP.has('pitch') ? parseFloat(uP.get('pitch')) : 0
       };
+      if (uP.has('feetY')) spawn.feetY = parseFloat(uP.get('feetY'));
     } else {
       const { regions } = HP.computeRegions();
       if (regions.length) {

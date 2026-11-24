@@ -687,8 +687,8 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
   }
   if (/^treehouse$/i.test(t)) {
     return [
-      // Central ancient oak trunk (ground to tree canopy)
-      { x0: -0.28 * C, x1: 0.28 * C, z0: -0.28 * C, z1: 0.28 * C, y0: 0, y1: H },
+      // Central ancient oak trunk at (-16, -12) (ground to tree canopy)
+      { x0: -34, x1: 2, z0: -30, z1: 6, y0: 0, y1: H },
       // 4 Heavy timber corner stilts with clearance underneath (y=0 to 54)
       { x0: -W / 2, x1: -W / 2 + 0.25 * C, z0: -D / 2, z1: -D / 2 + 0.25 * C, y0: 0, y1: 54 },
       { x0: W / 2 - 0.25 * C, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.25 * C, y0: 0, y1: 54 },
@@ -696,21 +696,23 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
       { x0: W / 2 - 0.25 * C, x1: W / 2, z0: D / 2 - 0.25 * C, z1: D / 2, y0: 0, y1: 54 },
       // Elevated timber deck floor slab (y=50 to 54.0 - flush with feetY=54.0)
       { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 50, y1: 54.0 },
-      // Cabin rear wall (y=54 to 86)
-      { x0: -W / 2, x1: 0.12 * W, z0: -D / 2, z1: -D / 2 + 0.25 * C, y0: 54, y1: 104 },
-      // Cabin left wall (y=54 to 86)
-      { x0: -W / 2, x1: -W / 2 + 0.25 * C, z0: -D / 2, z1: 0.12 * D, y0: 54, y1: 104 },
-      // Cabin front wall (leaving walk-in Dutch doorway)
-      { x0: -W / 2, x1: -0.16 * W, z0: 0.10 * D, z1: 0.10 * D + 0.25 * C, y0: 54, y1: 104 },
-      // Cabin right wall
-      { x0: 0.10 * W, x1: 0.10 * W + 0.25 * C, z0: -D / 2, z1: 0.12 * D, y0: 54, y1: 104 },
-      // Cabin gabled roof (only over cabin footprint, leaves deck open & clear)
-      { x0: -W / 2, x1: 0.12 * W, z0: -D / 2, z1: 0.12 * D, y0: 104, y1: H },
-      // Observation deck perimeter guardrails (leaves ladder opening at front-right)
-      { x0: -W / 2, x1: 0.18 * W, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 66 },
-      { x0: 0.35 * W, x1: W / 2, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 66 },
-      { x0: 0.10 * W, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.20 * C, y0: 54, y1: 66 },
-      { x0: W / 2 - 0.20 * C, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 54, y1: 66 }
+      // Cabin rear wall (y=54 to 104)
+      { x0: -36, x1: 14, z0: -48, z1: -44, y0: 54, y1: 104 },
+      // Cabin west roof slope & dormer (y=54 to 104)
+      { x0: -39, x1: -34, z0: -44, z1: 20, y0: 54, y1: 104 },
+      // Cabin east roof slope (y=54 to 104)
+      { x0: 12, x1: 16, z0: -44, z1: 20, y0: 54, y1: 104 },
+      // Cabin front glass wall (leaving open walk-in entrance door at x=-11..-2)
+      { x0: -34, x1: -11, z0: 19, z1: 22, y0: 54, y1: 104 },
+      { x0: -2, x1: 12, z0: 19, z1: 22, y0: 54, y1: 104 },
+      // Fire pit table on outdoor deck patio
+      { x0: 25, x1: 43, z0: 1, z1: 11, y0: 54, y1: 63 },
+      // Observation deck perimeter guardrails (leaves ladder opening at front-right x=24..40)
+      { x0: -W / 2, x1: 24, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 72 },
+      { x0: 40, x1: W / 2, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 72 },
+      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.20 * C, y0: 54, y1: 72 },
+      { x0: W / 2 - 0.20 * C, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 54, y1: 72 },
+      { x0: -W / 2, x1: -W / 2 + 0.20 * C, z0: -D / 2, z1: D / 2, y0: 54, y1: 72 }
     ];
   }
   if (/^greenhouse/i.test(t)) {

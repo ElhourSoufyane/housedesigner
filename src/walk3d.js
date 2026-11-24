@@ -898,9 +898,11 @@ function nearestThing() {
   if (HP.world3d?.climbs) {
     for (const c of HP.world3d.climbs) {
       const atTop = feetY >= (c.y1 - 10);
-      const targetSpot = atTop ? c.deckSpot : c.groundSpot;
-      const cy = atTop ? c.y1 : (c.y0 || 0);
-      considerCandidate(targetSpot.x, cy + 18, targetSpot.z, 44, () => ({
+      const ladderMidX = (c.x0 + c.x1) / 2, ladderMidZ = (c.z0 + c.z1) / 2;
+      const targetX = atTop ? (c.deckSpot ? (c.deckSpot.x + ladderMidX) / 2 : ladderMidX) : ladderMidX;
+      const targetZ = atTop ? (c.deckSpot ? (c.deckSpot.z + ladderMidZ) / 2 : ladderMidZ) : ladderMidZ;
+      const cy = atTop ? c.y1 : ((c.y0 || 0) + 18);
+      considerCandidate(targetX, cy, targetZ, 65, () => ({
         kind: 'climb', climb: c, atTop,
         label: atTop ? (c.labelDown || 'Climb down Treehouse') : (c.labelUp || 'Climb up to Treehouse Deck')
       }));
