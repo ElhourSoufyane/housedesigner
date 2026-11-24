@@ -36,8 +36,7 @@
     "src/walk.js",
     "src/walk3d.js",
     "src/world3d.js",
-    "src/play3d-inpage.js",
-    "my-house.house.json"
+    "src/play3d-inpage.js"
   ],
   "hashes": {
     "index.html": "5c07697eb2b9",
@@ -71,7 +70,6 @@
     "src/walk.js": "30dc56dd423a",
     "src/walk3d.js": "a15537951c5b",
     "src/world3d.js": "ab50da38f535",
-    "src/play3d-inpage.js": "5129846ed747",
-    "my-house.house.json": "be0553b8939a"
+    "src/play3d-inpage.js": "5129846ed747"
   }
 }

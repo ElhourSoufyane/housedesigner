@@ -67,12 +67,19 @@ const requiredTracked = [
   'manifest.json',
   'sw.js',
   'preload.js',
-  'electron-main.js',
-  'my-house.house.json'
+  'electron-main.js'
 ];
-const fileSet = new Set(Array.isArray(vData.files) ? vData.files : []);
+// Exclude local-only gitignored files from remote update manifest
+const excludeRemote = new Set(['my-house.house.json']);
+const fileSet = new Set((Array.isArray(vData.files) ? vData.files : []).filter(f => !excludeRemote.has(f)));
 for (const rf of requiredTracked) fileSet.add(rf);
-vData.files = Array.from(fileSet);
+const srcDir = path.join(root, 'src');
+if (fs.existsSync(srcDir)) {
+  for (const name of fs.readdirSync(srcDir)) {
+    if (name.endsWith('.js')) fileSet.add(`src/${name}`);
+  }
+}
+vData.files = Array.from(fileSet).filter(f => f === 'version.json' || fs.existsSync(path.join(root, f)));
 
 // 2. Check whether any tracked file hash changed OR version stamps are out of sync
 const prevHashes = vData.hashes || {};
@@ -153,7 +160,7 @@ for (const f of vData.files) {
   }
 }
 
-if (hashChangedAfterStamp || vData.version !== targetVersion || Number(vData.build || 0) !== targetBuild) {
+if (hashChangedAfterStamp || Object.keys(prevHashes).length !== Object.keys(finalHashes).length || vData.version !== targetVersion || Number(vData.build || 0) !== targetBuild) {
   vData.version = targetVersion;
   vData.hashes = finalHashes;
   vData.build = targetBuild;
