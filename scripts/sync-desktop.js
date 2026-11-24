@@ -1,13 +1,28 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 const args = process.argv.slice(2);
 const quiet = args.includes('--quiet');
 const noBump = args.includes('--no-bump');
+const isPreCommit = args.includes('--pre-commit');
 const explicitVerArg = args.find(a => a.startsWith('--version='));
 const explicitVer = explicitVerArg ? explicitVerArg.split('=')[1].trim() : null;
+
+if (isPreCommit) {
+  try {
+    const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], { cwd: root, encoding: 'utf8' });
+    const changed = out.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const appFileRe = /^(src\/|index\.html$|play3d\.html$|style\.css$|sw\.js$|manifest\.json$|electron-main\.js$|preload\.js$|assets\/|textures\/)/;
+    if (!changed.some(f => appFileRe.test(f))) {
+      process.exit(0);
+    }
+  } catch (e) {
+    process.exit(0);
+  }
+}
 
 function log(...m) {
   if (!quiet) console.log(...m);
@@ -221,4 +236,10 @@ for (const destDir of targets) {
   } catch (err) {
     console.warn(`Warning: failed partial sync to ${destDir}:`, err.message);
   }
+}
+
+if (isPreCommit) {
+  try {
+    execFileSync('git', ['add', 'version.json', 'package.json', 'index.html', 'play3d.html', 'sw.js'], { cwd: root, stdio: 'ignore' });
+  } catch (e) {}
 }

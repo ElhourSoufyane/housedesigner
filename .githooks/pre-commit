@@ -1,12 +1,7 @@
 #!/bin/sh
-# Automatically bump version, recompute asset hashes/cache-busters, and sync Desktop/dist/www on every app commit.
-CHANGED=$(git diff --cached --name-only --diff-filter=ACMR)
-echo "$CHANGED" | grep -qE '^(src/|index\.html$|play3d\.html$|style\.css$|sw\.js$|manifest\.json$|electron-main\.js$|preload\.js$|my-house\.house\.json$|assets/|textures/)' || exit 0
-
-NODE_BIN=$(command -v node || echo "/c/Program Files/nodejs/node")
-if [ ! -x "$NODE_BIN" ] && [ -x "$LOCALAPPDATA/Microsoft/WinGet/Links/node.exe" ]; then
-  NODE_BIN="$LOCALAPPDATA/Microsoft/WinGet/Links/node.exe"
+if command -v node >/dev/null 2>&1; then
+  exec node scripts/sync-desktop.js --pre-commit --quiet
+elif [ -x "/c/Program Files/nodejs/node.exe" ]; then
+  exec "/c/Program Files/nodejs/node.exe" scripts/sync-desktop.js --pre-commit --quiet
 fi
-
-"$NODE_BIN" scripts/sync-desktop.js --quiet || exit 1
-git add version.json package.json index.html play3d.html sw.js
+exit 0
