@@ -1,5 +1,5 @@
 /* sw.js — House Designer Service Worker for Complete Offline & Standalone App Support */
-const CACHE_NAME = 'housedesigner-v1.3.34';
+const CACHE_NAME = 'housedesigner-v1.3.35';
 
 // In local development (localhost / 127.0.0.1), NEVER cache assets so updates are immediate
 const isLocalhost = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
@@ -60,11 +60,13 @@ if (isLocalhost) {
     self.skipWaiting();
     event.waitUntil(
       caches.open(CACHE_NAME).then(async cache => {
-        for (const url of ASSETS) {
-          try {
+        const BATCH = 8;
+        for (let i = 0; i < ASSETS.length; i += BATCH) {
+          const slice = ASSETS.slice(i, i + BATCH);
+          await Promise.allSettled(slice.map(async url => {
             const res = await fetch(url, { cache: 'reload' });
             if (res && res.status === 200) await cache.put(url, res);
-          } catch (e) {}
+          }));
         }
       })
     );
@@ -83,7 +85,7 @@ if (isLocalhost) {
     if (event.request.url.includes('version.json')) {
       event.respondWith(
         fetch(event.request, { cache: 'no-store' }).catch(() => {
-          return new Response(JSON.stringify({ version: '1.3.34', offline: true }), {
+          return new Response(JSON.stringify({ version: '1.3.35', offline: true }), {
             headers: { 'Content-Type': 'application/json' }
           });
         })
