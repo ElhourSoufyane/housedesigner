@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
-<link rel="stylesheet" href="style.css?v=1794093466650">
+<link rel="stylesheet" href="style.css?v=1.3.34">
 </head>
 <body>
 
@@ -134,7 +134,7 @@
 
 <!-- TOP BAR -->
 <header class="topbar">
-  <div class="logo"><svg class="ic"><use href="#i-logo"/></svg>House<span>Designer</span> <span class="ver-badge" id="btn-ver" title="Check for updates">v1.3.22 ✓</span></div>
+  <div class="logo"><svg class="ic"><use href="#i-logo"/></svg>House<span>Designer</span> <span class="ver-badge" id="btn-ver" title="Check for updates">v1.3.34 ✓</span></div>
   <button class="tbtn" id="btn-new">New</button>
   <button class="tbtn" id="btn-save" title="Download house as a backup file">Save</button>
   <button class="tbtn" id="btn-export">Export</button>
@@ -375,48 +375,53 @@
 </div>
 
 <script src="lib/peerjs.min.js"></script>
-<script src="src/grid.js?v=1.3.33"></script>
-<script src="src/catalog.js?v=1.3.33"></script>
-<script src="src/sprites.js?v=1.3.33"></script>
-<script src="src/rooms.js?v=1.3.33"></script>
-<script src="src/tools.js?v=1.3.33"></script>
-<script src="src/presets.js?v=1.3.33"></script>
-<script src="src/save.js?v=1.3.33"></script>
-<script src="src/default-house.js"></script>
-<script src="src/walk.js?v=1.3.33"></script>
-<script src="src/input.js?v=1.3.33"></script>
-<script src="src/ui.js?v=1.3.33"></script>
-<script src="src/main.js?v=1.3.33"></script>
-<script src="src/sync.js?v=1.3.33"></script>
+<script src="src/grid.js?v=1.3.34"></script>
+<script src="src/catalog.js?v=1.3.34"></script>
+<script src="src/sprites.js?v=1.3.34"></script>
+<script src="src/rooms.js?v=1.3.34"></script>
+<script src="src/tools.js?v=1.3.34"></script>
+<script src="src/presets.js?v=1.3.34"></script>
+<script src="src/save.js?v=1.3.34"></script>
+<script src="src/default-house.js?v=1.3.34"></script>
+<script src="src/walk.js?v=1.3.34"></script>
+<script src="src/input.js?v=1.3.34"></script>
+<script src="src/ui.js?v=1.3.34"></script>
+<script src="src/main.js?v=1.3.34"></script>
+<script src="src/sync.js?v=1.3.34"></script>
 <script src="lib/three.min.js"></script>
-<script src="src/geom3d.js?v=1.3.33"></script>
-<script src="src/graphics3d.js?v=1.3.33"></script>
-<script src="src/cull3d.js?v=1.3.33"></script>
-<script src="src/sky3d.js?v=1.3.33"></script>
-<script src="src/weather3d.js?v=1.3.33"></script>
-<script src="src/furniture3d.js?v=1.3.33"></script>
-<script src="src/life3d.js?v=1.3.33"></script>
-<script src="src/sound3d.js?v=1.3.33"></script>
-<script src="src/world3d.js?v=1.3.33"></script>
-<script src="src/walk3d.js?v=1.3.33"></script>
-<script src="src/sync3d.js?v=1.3.33"></script>
-<script src="src/play3d-inpage.js?v=1.3.33"></script>
+<script src="src/geom3d.js?v=1.3.34"></script>
+<script src="src/graphics3d.js?v=1.3.34"></script>
+<script src="src/cull3d.js?v=1.3.34"></script>
+<script src="src/sky3d.js?v=1.3.34"></script>
+<script src="src/weather3d.js?v=1.3.34"></script>
+<script src="src/furniture3d.js?v=1.3.34"></script>
+<script src="src/life3d.js?v=1.3.34"></script>
+<script src="src/sound3d.js?v=1.3.34"></script>
+<script src="src/world3d.js?v=1.3.34"></script>
+<script src="src/walk3d.js?v=1.3.34"></script>
+<script src="src/sync3d.js?v=1.3.34"></script>
+<script src="src/play3d-inpage.js?v=1.3.34"></script>
 <script>
+const LOCAL_APP_VERSION = '1.3.34';
+const LOCAL_APP_BUILD = 1795549964397;
 (async function initAppLifecycle() {
-  let CURRENT_VERSION = '1.3.19';
-  if (window.electronAPI && window.electronAPI.getVersion) {
+  let CURRENT_VERSION = LOCAL_APP_VERSION;
+  let CURRENT_BUILD = LOCAL_APP_BUILD;
+  let CURRENT_HASHES = null;
+  let HAS_LOCAL_WORKSPACE = false;
+  if (window.electronAPI && window.electronAPI.getVersionInfo) {
+    try {
+      const vi = await window.electronAPI.getVersionInfo();
+      if (vi && vi.version) CURRENT_VERSION = vi.version;
+      if (vi && vi.build) CURRENT_BUILD = Number(vi.build) || 0;
+      if (vi && vi.hashes) CURRENT_HASHES = vi.hashes;
+      if (vi && vi.hasLocalWorkspace) HAS_LOCAL_WORKSPACE = true;
+    } catch(e) {}
+  } else if (window.electronAPI && window.electronAPI.getVersion) {
     try {
       const v = await window.electronAPI.getVersion();
       if (v) CURRENT_VERSION = v;
     } catch(e) {}
-  } else {
-    try {
-      const vLoc = await fetch('./version.json?_t=' + Date.now(), { cache: 'no-store' });
-      if (vLoc && vLoc.ok) {
-        const vData = await vLoc.json();
-        if (vData && vData.version) CURRENT_VERSION = vData.version;
-      }
-    } catch (e) {}
   }
 
   const splash = document.getElementById('splash-screen');
@@ -598,25 +603,42 @@
     setProgress(35, 'Checking for updates...');
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      let res;
-      try {
-        res = await fetch('https://elhoursoufyane.github.io/housedesigner/version.json?_t=' + Date.now(), {
-          cache: 'no-store',
-          signal: controller.signal
-        });
-      } catch (netErr) {
-        res = await fetch('https://raw.githubusercontent.com/ElhourSoufyane/housedesigner/main/version.json?_t=' + Date.now(), {
-          cache: 'no-store',
-          signal: controller.signal
-        });
-      }
-      clearTimeout(timeoutId);
+      const isDesktop = !!(window.electronAPI && window.electronAPI.applyUpdate);
+      const t = Date.now();
+      const fetchManifest = async (url) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        try {
+          const r = await fetch(url + '?_t=' + t, { cache: 'no-store', signal: controller.signal });
+          if (r && r.ok) return await r.json();
+        } catch (e) {} finally {
+          clearTimeout(timeoutId);
+        }
+        return null;
+      };
 
-      if (res && res.ok) {
-        const info = await res.json();
-        const hasUpdate = isNewerVersion(info.version, CURRENT_VERSION);
+      let info = null;
+      if (isDesktop || window.Capacitor || location.protocol === 'file:') {
+        const [pagesInfo, rawInfo] = await Promise.all([
+          fetchManifest('https://elhoursoufyane.github.io/housedesigner/version.json'),
+          fetchManifest('https://raw.githubusercontent.com/ElhourSoufyane/housedesigner/main/version.json')
+        ]);
+        if (pagesInfo && rawInfo) {
+          if (isNewerVersion(rawInfo.version, pagesInfo.version)) info = rawInfo;
+          else if (isNewerVersion(pagesInfo.version, rawInfo.version)) info = pagesInfo;
+          else info = (Number(rawInfo.build || 0) >= Number(pagesInfo.build || 0)) ? rawInfo : pagesInfo;
+        } else {
+          info = pagesInfo || rawInfo;
+        }
+      } else {
+        info = await fetchManifest('./version.json') || await fetchManifest('https://elhoursoufyane.github.io/housedesigner/version.json');
+      }
+
+      if (info && info.version) {
+        const semverNewer = isNewerVersion(info.version, CURRENT_VERSION);
+        const buildNewer = (info.version === CURRENT_VERSION) && info.build && CURRENT_BUILD && (Number(info.build) > Number(CURRENT_BUILD));
+        const hashMismatch = !HAS_LOCAL_WORKSPACE && info.hashes && CURRENT_HASHES && (info.version === CURRENT_VERSION) && Object.keys(info.hashes).some(k => CURRENT_HASHES[k] && CURRENT_HASHES[k] !== info.hashes[k]);
+        const hasUpdate = semverNewer || buildNewer || hashMismatch;
 
         if (hasUpdate) {
           // If running in Capacitor (Android/iOS app wrapper), seamlessly load live remote build
@@ -664,7 +686,6 @@
           }
 
           // Desktop Electron / file: protocol
-          const isDesktop = !!(window.electronAPI && window.electronAPI.applyUpdate);
           if (isDesktop && !manual) {
             // User requested: auto-update without intrusive popups
             if (!canAttemptReload()) {
