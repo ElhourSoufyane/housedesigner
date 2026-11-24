@@ -696,17 +696,17 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
       { x0: W / 2 - 0.25 * C, x1: W / 2, z0: D / 2 - 0.25 * C, z1: D / 2, y0: 0, y1: 54 },
       // Elevated timber deck floor slab (y=50 to 54.0 - flush with feetY=54.0)
       { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 50, y1: 54.0 },
-      // Cabin rear wall (y=54 to 104)
-      { x0: -36, x1: 14, z0: -48, z1: -44, y0: 54, y1: 104 },
-      // Cabin west roof slope & dormer (y=54 to 104)
-      { x0: -39, x1: -34, z0: -44, z1: 20, y0: 54, y1: 104 },
-      // Cabin east roof slope (y=54 to 104)
-      { x0: 12, x1: 16, z0: -44, z1: 20, y0: 54, y1: 104 },
-      // Cabin front glass wall (leaving open walk-in entrance door at x=-11..-2)
-      { x0: -34, x1: -11, z0: 19, z1: 22, y0: 54, y1: 104 },
-      { x0: -2, x1: 12, z0: 19, z1: 22, y0: 54, y1: 104 },
-      // Fire pit table on outdoor deck patio
-      { x0: 25, x1: 43, z0: 1, z1: 11, y0: 54, y1: 63 },
+      // Cabin rear wall (y=54 to 160)
+      { x0: -48, x1: 38, z0: -52, z1: -48, y0: 54, y1: 160 },
+      // Cabin west roof slope & dormer (y=54 to 160)
+      { x0: -50, x1: -44, z0: -48, z1: 34, y0: 54, y1: 160 },
+      // Cabin east roof slope (y=54 to 160)
+      { x0: 34, x1: 40, z0: -48, z1: 34, y0: 54, y1: 160 },
+      // Cabin front glass wall (leaving open walk-in entrance portal at x=-13..+3)
+      { x0: -46, x1: -13, z0: 33, z1: 36, y0: 54, y1: 160 },
+      { x0: 3, x1: 36, z0: 33, z1: 36, y0: 54, y1: 160 },
+      // Fire pit table on front cantilever terrace
+      { x0: 19, x1: 37, z0: 38, z1: 50, y0: 54, y1: 63 },
       // Observation deck perimeter guardrails (leaves ladder opening at front-right x=24..40)
       { x0: -W / 2, x1: 24, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 72 },
       { x0: 40, x1: W / 2, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 72 },
