@@ -1633,7 +1633,7 @@ HP.CATALOG = [
       g.strokeStyle = HP.shade(c, 0.6); g.lineWidth = 2; g.stroke();
       g.beginPath(); g.arc(cx, cy, 3, 0, 7); g.fillStyle = '#8b5a3a'; g.fill(); // parasol hole
     } },
-  { id: 'coatrack', name: 'Coat Rack', cat: 'Outdoor', w: 1, h: 1, colors: ['#6b4f33', '#3a3f47', '#a4805c'],
+  { id: 'coatrack', name: 'Coat Rack', cat: 'Living', w: 1, h: 1, colors: ['#6b4f33', '#3a3f47', '#a4805c'],
     draw(g, W, H, v) {
       const p = P(), c = this.colors[v];
       g.strokeStyle = c; g.lineWidth = 3;

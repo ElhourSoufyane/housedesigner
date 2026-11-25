@@ -52,10 +52,15 @@ function coopStatus(txt, on) {
 }
 
 function showPanel() {
+  const panel = $('#coop-panel');
+  if (panel && !panel.classList.contains('hidden')) {
+    hidePanel();
+    return;
+  }
   if (document.exitPointerLock) {
     try { document.exitPointerLock(); } catch (e) {}
   }
-  $('#coop-panel').classList.remove('hidden');
+  panel.classList.remove('hidden');
   renderPanel();
 }
 function hidePanel() { $('#coop-panel').classList.add('hidden'); }
@@ -95,7 +100,7 @@ function renderPanel() {
     const hasBackup = !!localStorage.getItem(LS_BACKUP);
     body.innerHTML = `
       <div class="field"><label>Your name</label>
-        <input type="text" id="coop-name" maxlength="16" placeholder="e.g. Soufyane"></div>
+        <input type="text" id="coop-name" maxlength="16" placeholder="Enter your name"></div>
       <button class="panel-btn primary" id="coop-host" style="width:100%">Host my house — get a code</button>
       <div class="field"><label>…or join with a code</label>
         <input type="text" id="coop-code" maxlength="6" placeholder="ABCD" style="text-transform:uppercase"></div>

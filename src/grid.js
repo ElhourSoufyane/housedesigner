@@ -1,7 +1,7 @@
 /* grid.js — core constants, shared state, coordinate math */
 window.HP = {};
 
-HP.VERSION = 'v36';
+HP.VERSION = 'v1.3.38';
 HP.GRID_W = 64;          // cells wide  (32 m)
 HP.GRID_H = 44;          // cells tall  (22 m)
 HP.CELL   = 28;          // world px per cell (1 cell = 0.5 m)
@@ -220,6 +220,7 @@ HP.nearestVertex = function (wx, wy) {
 /* wall segments on the straight line between two vertices (axis-locked) */
 HP.segmentsBetween = function (a, b) {
   const segs = [];
+  if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) return segs;
   if (a.x === b.x) {                       // vertical line
     const y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
     for (let y = y0; y < y1; y++) segs.push(HP.wallKey('v', a.x, y));
@@ -368,7 +369,7 @@ HP.itemAt = function (cx, cy, px, py) {
          is the item; the rest of the cell belongs to what's below    */
       const hs = it.hang || HP.hangSide(it.type, it.x, it.y, it.rot,
         { w: it.w || f.w, h: it.h || f.h });
-      const S = 0.62;
+      const S = 0.78;
       if (hs === 'n' && fy >= f.y + S) continue;
       if (hs === 's' && fy < f.y + f.h - S) continue;
       if (hs === 'w' && fx >= f.x + S) continue;
@@ -709,11 +710,11 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
       { x0: -W / 2 - 14, x1: -W / 2 + 2, z0: -D * 0.14 - 8, z1: -D * 0.14 + 8, y0: L.deckY, y1: H },
       { x0: W / 2 - 2, x1: W / 2 + 14, z0: -D * 0.34 - 8, z1: -D * 0.34 + 8, y0: L.deckY, y1: H },
       // Deck perimeter guardrails (open at stairGapX0..stairGapX1 on South edge)
-      { x0: -W / 2, x1: L.stairGapX0, z0: D / 2 - 0.18 * C, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 },
-      { x0: L.stairGapX1, x1: W / 2, z0: D / 2 - 0.18 * C, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 },
-      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.18 * C, y0: L.deckY, y1: L.deckY + 20 },
-      { x0: W / 2 - 0.18 * C, x1: W / 2, z0: -D / 2, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 },
-      { x0: -W / 2, x1: -W / 2 + 0.18 * C, z0: -D / 2, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 }
+      { x0: -W / 2, x1: L.stairGapX0, z0: D / 2 - 0.18 * C, z1: D / 2, y0: L.deckY, y1: L.deckY + 34 },
+      { x0: L.stairGapX1, x1: W / 2, z0: D / 2 - 0.18 * C, z1: D / 2, y0: L.deckY, y1: L.deckY + 34 },
+      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.18 * C, y0: L.deckY, y1: L.deckY + 34 },
+      { x0: W / 2 - 0.18 * C, x1: W / 2, z0: -D / 2, z1: D / 2, y0: L.deckY, y1: L.deckY + 34 },
+      { x0: -W / 2, x1: -W / 2 + 0.18 * C, z0: -D / 2, z1: D / 2, y0: L.deckY, y1: L.deckY + 34 }
     ];
   }
   if (/^greenhouse/i.test(t)) {
@@ -1272,8 +1273,10 @@ HP.enterInterior = function (it) {
   HP.ghost = null;
 
   HP.invalidateRegions();
+  if (HP.invalidateFloors) HP.invalidateFloors();
   if (HP.resetLayers) HP.resetLayers();
   if (HP.markDirty) HP.markDirty();
+  if (HP.updateZoomUI) HP.updateZoomUI();
   if (HP.showInteriorUI) HP.showInteriorUI(it);
   if (HP.refreshContext) HP.refreshContext();
   if (HP.status) HP.status(`Entered ${it.type === 'greenhouse' ? 'Glasshouse' : 'Cabin'} interior — customize freely!`);
@@ -1308,8 +1311,10 @@ HP.exitInterior = function () {
   HP.ghost = null;
 
   HP.invalidateRegions();
+  if (HP.invalidateFloors) HP.invalidateFloors();
   if (HP.resetLayers) HP.resetLayers();
   if (HP.markDirty) HP.markDirty();
+  if (HP.updateZoomUI) HP.updateZoomUI();
   if (HP.saveState) HP.saveState();
   if (HP.hideInteriorUI) HP.hideInteriorUI();
   if (HP.refreshContext) HP.refreshContext();

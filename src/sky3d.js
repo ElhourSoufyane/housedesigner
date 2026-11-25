@@ -8,16 +8,16 @@ const C = h => new THREE.Color(h);
 /* hour → look. sun = direct light colour/strength while the sun is up;
    amb = hemisphere sky colour/strength (fills shadows, rooms at night) */
 const KEYS = [
-  { h: 0,    zen: 0x0b1424, hor: 0x1d2a3e, sun: 0x9fb4d8, sunI: 0,    amb: 0x4a5a80, ambI: 0.13, fog: 0x18222f, cloud: 0x2a3446 },
-  { h: 4.8,  zen: 0x101b30, hor: 0x2b3550, sun: 0x9fb4d8, sunI: 0,    amb: 0x56688a, ambI: 0.16, fog: 0x232c3d, cloud: 0x343d52 },
+  { h: 0,    zen: 0x050a14, hor: 0x0e1726, sun: 0x8ea6cc, sunI: 0,    amb: 0x2c3852, ambI: 0.13, fog: 0x0b121c, cloud: 0x1a2232 },
+  { h: 4.8,  zen: 0x0a1324, hor: 0x1c253b, sun: 0x9fb4d8, sunI: 0,    amb: 0x3b4a68, ambI: 0.15, fog: 0x151d2a, cloud: 0x273042 },
   { h: 6,    zen: 0x3e5d86, hor: 0xe9a67c, sun: 0xffa66b, sunI: 0.75, amb: 0xc9b4a6, ambI: 0.55, fog: 0xc9a48c, cloud: 0xf2b490 },
   { h: 7.5,  zen: 0x5d8fbd, hor: 0xf1d2b0, sun: 0xffd9a8, sunI: 1.05, amb: 0xd7e0e8, ambI: 0.80, fog: 0xd8cfbf, cloud: 0xfbe9d8 },
   { h: 12,   zen: 0x5f9cc9, hor: 0xe6e2cf, sun: 0xfff1d8, sunI: 1.20, amb: 0xe0edf1, ambI: 0.92, fog: 0xd4d7c8, cloud: 0xffffff },
   { h: 16,   zen: 0x6599c2, hor: 0xead9bd, sun: 0xffe0b2, sunI: 1.15, amb: 0xe4e4dc, ambI: 0.88, fog: 0xd8d1bf, cloud: 0xfff6e8 },
   { h: 17.8, zen: 0x7c97b2, hor: 0xf5be86, sun: 0xffb36b, sunI: 1.05, amb: 0xe8d4b8, ambI: 0.72, fog: 0xdcb894, cloud: 0xffcf9a },
   { h: 18.8, zen: 0x4b5d86, hor: 0xe88a62, sun: 0xff8a52, sunI: 0.45, amb: 0xb79fa4, ambI: 0.50, fog: 0xa57e70, cloud: 0xe9937a },
-  { h: 19.8, zen: 0x1c2846, hor: 0x5a4a63, sun: 0x9fb4d8, sunI: 0,    amb: 0x5f6a90, ambI: 0.22, fog: 0x3a3a4e, cloud: 0x4a4458 },
-  { h: 24,   zen: 0x0b1424, hor: 0x1d2a3e, sun: 0x9fb4d8, sunI: 0,    amb: 0x4a5a80, ambI: 0.13, fog: 0x18222f, cloud: 0x2a3446 },
+  { h: 19.8, zen: 0x141f38, hor: 0x403850, sun: 0x9fb4d8, sunI: 0,    amb: 0x475274, ambI: 0.16, fog: 0x26293a, cloud: 0x363244 },
+  { h: 24,   zen: 0x050a14, hor: 0x0e1726, sun: 0x8ea6cc, sunI: 0,    amb: 0x2c3852, ambI: 0.13, fog: 0x0b121c, cloud: 0x1a2232 },
 ].map(k => ({ ...k, zen: C(k.zen), hor: C(k.hor), sun: C(k.sun), amb: C(k.amb), fog: C(k.fog), cloud: C(k.cloud) }));
 
 const out = { zen: new THREE.Color(), hor: new THREE.Color(), sun: new THREE.Color(),
@@ -48,7 +48,7 @@ S.sample = function (hour) {
   } else {                                        // moonlight: dim, cool
     out.lightDir.copy(out.moonDir); out.lightDir.y = Math.max(out.lightDir.y, 0.3);
     out.lightDir.normalize();
-    out.lightCol.copy(MOON); out.lightI = 0.16 * out.night;
+    out.lightCol.copy(MOON); out.lightI = 0.09 * out.night;
   }
   return out;
 };

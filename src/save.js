@@ -33,7 +33,8 @@ function restore(snap) {
     }
   }
   HP.selected = null; HP.pending = null; HP.ghost = null; HP.selectedRoom = null; HP.selectedSet = [];
-  if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
+  if (HP.invalidateFloors) HP.invalidateFloors();
+  HP.invalidateRegions();
   HP.refreshContext();
   if (HP.updateFloorUI) HP.updateFloorUI();
 }
@@ -117,8 +118,26 @@ HP.loadState = function () {
     if (raw) {
       const data = JSON.parse(raw);
       HP.state = HP.migrate(data.state);
+      const l0 = HP.state && HP.state.levels && HP.state.levels[0];
+      const defState = HP.DEFAULT_HOUSE && HP.DEFAULT_HOUSE.state;
+      if (l0 && defState && !localStorage.getItem('hp_starter_upgraded_v1337')) {
+        const isStarter = l0.roomNames && l0.roomNames['13,31'] === 'Floor Showroom'
+          && l0.roomNames['29,34'] === 'Garage';
+        if (isStarter && l0.fences && l0.fences['h,31,37']) {
+          HP.state = HP.migrate(JSON.parse(JSON.stringify(defState)));
+          const upgradedNextId = Math.max(data.nextId || 0, HP.DEFAULT_HOUSE.nextId || 0, HP.maxFurnitureId() + 1);
+          localStorage.setItem(LS_KEY, JSON.stringify({ state: HP.state, nextId: upgradedNextId }));
+          localStorage.setItem('hp_starter_upgraded_v1337', '1');
+        } else if (isStarter && l0.walls && l0.walls['h,26,13'] && l0.walls['h,26,13'].f === 'door') {
+          if (!l0.walls['v,14,31'] || l0.walls['v,14,31'].f !== 'door') {
+            l0.walls['v,14,31'] = { f: 'door' };
+            localStorage.setItem(LS_KEY, JSON.stringify({ state: HP.state, nextId: Math.max(data.nextId || 0, HP.maxFurnitureId() + 1) }));
+          }
+          localStorage.setItem('hp_starter_upgraded_v1337', '1');
+        }
+      }
       HP.applyGridSize();
-      HP.nextId = Math.max(data.nextId || 0, HP.maxFurnitureId() + 1);
+      HP.nextId = Math.max(data.nextId || 0, (HP.DEFAULT_HOUSE && HP.DEFAULT_HOUSE.nextId) || 0, HP.maxFurnitureId() + 1);
       return true;
     }
   } catch (e) { }
@@ -127,13 +146,13 @@ HP.loadState = function () {
 
 /* start a fresh empty lot at a chosen plot size */
 HP.newSizedPlot = function (w, h) {
-  HP.pushUndo();
+  undoStack.length = 0; redoStack.length = 0;
   HP.state = HP.newEmpty(w, h);
   HP.applyGridSize();
   HP.nextId = Math.max(1, HP.maxFurnitureId() + 1);
   HP.selected = null; HP.pending = null; HP.ghost = null; HP.selectedRoom = null; HP.selectedSet = [];
   if (HP.resetLayers) HP.resetLayers();
-  HP.invalidateRegions(); HP.saveState(); HP.refreshContext();
+  HP.invalidateRegions(); HP.saveState(); HP.updateUndoButtons(); HP.refreshContext();
   if (HP.updateFloorUI) HP.updateFloorUI();
   HP.status('New empty plot — ' + (w * 0.5) + '×' + (h * 0.5) + ' m');
 };
@@ -141,13 +160,14 @@ HP.newSizedPlot = function (w, h) {
 HP.loadPreset = function (id) {
   const p = HP.PRESETS.find(p => p.id === id);
   if (!p) return;
-  HP.pushUndo();
+  undoStack.length = 0; redoStack.length = 0;
   HP.state = HP.migrate(p.build());
   HP.applyGridSize();
   HP.nextId = HP.maxFurnitureId() + 1;
   HP.selected = null; HP.pending = null; HP.ghost = null; HP.selectedRoom = null; HP.selectedSet = [];
   if (HP.resetLayers) HP.resetLayers();
-  HP.invalidateRegions(); HP.saveState(); HP.refreshContext();
+  HP.invalidateRegions(); HP.saveState(); HP.updateUndoButtons(); HP.refreshContext();
+  if (HP.updateFloorUI) HP.updateFloorUI();
   HP.status('Loaded: ' + p.name);
 };
 
@@ -156,7 +176,8 @@ HP.setLevel = function (i) {
   if (i < 0 || i >= HP.state.levels.length) return;
   HP.state.level = i;
   HP.selected = null; HP.selectedRoom = null; HP.pending = null; HP.ghost = null; HP.selectedSet = [];
-  if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
+  if (HP.invalidateFloors) HP.invalidateFloors();
+  HP.invalidateRegions();
   HP.refreshContext(); HP.updateFloorUI();
   HP.saveState();
 };

@@ -1024,20 +1024,20 @@ function causticTexture() {
    gets vertex waves + transparency so it reads as water on Low        */
 G.poolWater = function () {
   const surf = G.current.lite ?
-    new THREE.MeshLambertMaterial({ color: 0x2e9cc4, transparent: true, opacity: 0.5 }) :
+    new THREE.MeshLambertMaterial({ color: 0x1b96c4, transparent: true, opacity: 0.58 }) :
     new THREE.MeshStandardMaterial({
-      color: 0x1e8fb9, transparent: true, opacity: 0.38, roughness: 0.06, metalness: 0,
-      normalMap: waterNormal(), envMapIntensity: 1.1,
+      color: 0x1a94c2, transparent: true, opacity: 0.55, roughness: 0.08, metalness: 0.04,
+      normalMap: waterNormal(), envMapIntensity: 1.0,
     });
   if (surf.normalScale) surf.normalScale.set(0.45, 0.45);
   surf.depthWrite = false; surf.side = THREE.DoubleSide;
   surf.userData.shared3d = false;
   const caustic = new THREE.MeshBasicMaterial({
-    map: causticTexture(), transparent: true, opacity: 0.4,
-    blending: THREE.AdditiveBlending, depthWrite: false, color: 0x9fdcff,
+    map: causticTexture(), transparent: true, opacity: 0.45,
+    blending: THREE.AdditiveBlending, depthWrite: false, color: 0xa6e3ff,
   });
   caustic.userData.shared3d = false;
-  const basin = G.worldUV(G.material('tile', '#93d2dd').clone(), 7);
+  const basin = G.worldUV(G.material('tile', '#6ec4d8').clone(), 7);
   basin.userData.shared3d = false;
   basin.side = THREE.DoubleSide;                   // basin wall planes face inward
   return { surf, caustic, basin };

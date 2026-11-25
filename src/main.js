@@ -9,14 +9,15 @@ HP.invalidateRegions = function () { staticDirty = true; belowDirty = true; _inv
 
 let groundLayer = null, groundDirty = true;
 let belowLayer = null, belowDirty = true, lastBelowLevel = -1;
-let floorLayer = null, floorDirty = true, lastFloorLevel = -1, lastRegionHash = '';
+let floorLayer = null, floorDirty = true, lastFloorLevel = -1, lastRegionHash = '', lastPhotoFloors = null;
 HP.resetLayers = function () {
   staticLayer = null; belowLayer = null; groundLayer = null; floorLayer = null;
   groundDirty = true; belowDirty = true; staticDirty = true; floorDirty = true;
   lastBelowLevel = -1; lastFloorLevel = -1; lastRegionHash = '';
+  _inv();
 };
 HP.invalidateFloors = function () {
-  floorDirty = true; staticDirty = true; HP.dirty = true;
+  floorDirty = true; staticDirty = true; _inv();
 };
 
 /* ================= STATIC LAYER ================= */
@@ -71,16 +72,21 @@ function drawGround(g) {
     gg.fillStyle = 'rgba(255,255,255,.045)';
     for (let y = 0; y < H * C; y += C * 8)
       gg.fillRect(-MARGIN * C * 0.4, y, W * C + MARGIN * C * 0.8, C * 4);
+    const gh1 = (n, s) => {
+      let k = Math.imul(n ^ s, 0x27d4eb2d);
+      k = Math.imul(k ^ (k >>> 15), 0x85ebca6b);
+      return ((k ^ (k >>> 13)) >>> 0) / 4294967296;
+    };
     gg.fillStyle = 'rgba(0,0,0,.05)';
     for (let i = 0; i < 900; i++) {
-      const x = ((i * 2654435761) % 1000) / 1000 * W * C;
-      const y = ((i * 40503) % 977) / 977 * H * C;
+      const x = gh1(i + 1, 17) * W * C;
+      const y = gh1(i + 1, 91) * H * C;
       gg.fillRect(x, y, 3, 3);
     }
     gg.fillStyle = 'rgba(255,255,255,.06)';
     for (let i = 0; i < 700; i++) {
-      const x = ((i * 2246822519) % 1000) / 1000 * W * C;
-      const y = ((i * 74121) % 983) / 983 * H * C;
+      const x = gh1(i + 1, 313) * W * C;
+      const y = gh1(i + 1, 757) * H * C;
       gg.fillRect(x, y, 2, 4);
     }
     groundDirty = false;
@@ -1633,9 +1639,11 @@ function drawFloors(g) {
     floorLayer.width = fw; floorLayer.height = fh;
     floorDirty = true;
   }
-  if (lastFloorLevel !== HP.state.level) {
+  const pf = HP.state ? (HP.state.photoFloors !== false) : true;
+  if (lastFloorLevel !== HP.state.level || lastPhotoFloors !== pf) {
     floorDirty = true;
     lastFloorLevel = HP.state.level;
+    lastPhotoFloors = pf;
   }
   const { regions, regionOf } = HP.computeRegions();
   let rHash = '';
@@ -1692,6 +1700,9 @@ HP.floorPreview = function (mat, w, h) {
   if (_prevCvs.length > 400) _prevCvs.splice(0, 200);   // cap stale swatches
   paintPreview(p);
   return c;
+};
+HP.repaintFloorPreviews = function () {
+  for (const p of _prevCvs) paintPreview(p);
 };
 
 function drawGridLines(g) {

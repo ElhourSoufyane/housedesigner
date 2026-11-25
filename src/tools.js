@@ -73,8 +73,10 @@ const selectTool = {
       }
       HP.selectedFeature = null;
       HP.selectedWall = null;
-      if (p.e && p.e.shiftKey) {
-        /* Shift + drag on empty space = box select; normal drag = pan     */
+      const isTouch = p.e && p.e.pointerType === 'touch';
+      const wantPan = isTouch || HP.spaceDown || (p.e && p.e.button === 1);
+      if (!wantPan) {
+        /* Desktop mouse Left-drag on empty space = box select; Touch / Middle / Space+drag = pan */
         HP.selected = null;
         drag = { kind: 'marquee', ax: p.wx, ay: p.wy, sx: p.sx, sy: p.sy,
                  roomCell: HP.regionAt(p.cx, p.cy) ? { cx: p.cx, cy: p.cy } : null };
@@ -352,8 +354,8 @@ const eraseTool = {
   move(p) {
     if (!drag) return;
     const it = HP.itemAt(p.cx, p.cy, p.wx, p.wy);
-    const k = HP.nearestWallSeg(p.wx, p.wy, 0.5);
-    const fk = HP.nearestWallSeg(p.wx, p.wy, 0.5, HP.cur().fences);
+    const k = HP.nearestWallSeg(p.wx, p.wy, 0.55);
+    const fk = HP.nearestWallSeg(p.wx, p.wy, 0.65, HP.cur().fences);
     // floor paint on a non-room cell = outdoor path — erasable
     const ck = HP.cellKey(p.cx, p.cy);
     const pathK = (HP.cur().floors[ck] && !HP.regionAt(p.cx, p.cy)) ? ck : null;
@@ -368,13 +370,13 @@ const eraseTool = {
       delete HP.cur().walls[k];
       if (HP.selectedFeature && HP.selectedFeature.k === k) HP.selectedFeature = null;
     }
-    if (fk) delete HP.cur().fences[fk];
+    if (fk && HP.cur().fences) delete HP.cur().fences[fk];
     if (pathK) {
       delete HP.cur().floors[pathK];
       if (HP.invalidateFloors) HP.invalidateFloors();
       if (HP.in3D && HP.world3d && HP.world3d.updateFloors) HP.world3d.updateFloors();
     }
-    HP.saveState(); HP.invalidateRegions(); HP.refreshContext();
+    HP.saveState(); HP.invalidateRegions(); HP.markDirty(); HP.refreshContext();
   },
   up() { drag = null; },
   cancel() { drag = null; }

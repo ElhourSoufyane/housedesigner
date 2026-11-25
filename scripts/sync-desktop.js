@@ -168,6 +168,10 @@ updateTextFile('play3d.html', (txt) => txt
   .replace(/(const LOCAL_APP_BUILD\s*=\s*)\d+(;)/g, `$1${targetBuild}$2`)
 );
 
+updateTextFile('src/grid.js', (txt) => txt
+  .replace(/(HP\.VERSION\s*=\s*')[^']*(';)/, `$1v${targetVersion}$2`)
+);
+
 updateTextFile('sw.js', (txt) => txt
   .replace(/(const CACHE_NAME\s*=\s*'housedesigner-v)[^']*(';)/g, `$1${targetVersion}$2`)
   .replace(/(JSON\.stringify\(\{\s*version:\s*')[^']*(')/g, `$1${targetVersion}$2`)

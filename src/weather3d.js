@@ -220,7 +220,7 @@ window.HP = window.HP || {};
         clear: '☀️ Clear Skies',
         rain: '🌧️ Gentle Rain',
         snow: '❄️ Winter Snowfall',
-        fog: '🌫️ Dense Fog',
+        fog: '☁️ Dense Fog',
         storm: '⛈️ Thunderstorm'
       };
       HP.status('Weather: ' + (names[t] || t));
@@ -240,7 +240,7 @@ window.HP = window.HP || {};
       clear: '☀️ Clear',
       rain: '🌧️ Rain',
       snow: '❄️ Snow',
-      fog: '🌫️ Fog',
+      fog: '☁️ Fog',
       storm: '⛈️ Storm'
     };
     if (btn) {
@@ -306,13 +306,13 @@ window.HP = window.HP || {};
         const rx = rainPos[idx], rz = rainPos[idx + 2];
         const minY = getRoofHeight(rx, rz);
 
-        if (rainPos[idx + 4] <= minY || Math.hypot(dx, dz) > WRAP_RADIUS) {
+        if (rainPos[idx + 4] <= minY + 1 || rainPos[idx + 1] <= minY + 1 || Math.hypot(dx, dz) > WRAP_RADIUS) {
           const ang = Math.random() * Math.PI * 2;
           const rad = Math.sqrt(Math.random()) * WRAP_RADIUS;
           const newRx = cx + Math.cos(ang) * rad;
           const newRz = cz + Math.sin(ang) * rad;
           const newMinY = getRoofHeight(newRx, newRz);
-          const ry = Math.max(newMinY + 15, 110 + Math.random() * (HEIGHT_SPAN - 110));
+          const ry = Math.max(newMinY + 24, 145 + Math.random() * (HEIGHT_SPAN - 110));
           const len = (w === 'storm' ? 5.5 : 4.0) + Math.random() * 2.5;
 
           rainPos[idx] = newRx;
@@ -346,14 +346,14 @@ window.HP = window.HP || {};
         const sx = snowPos[idx], sz = snowPos[idx + 2];
         const minY = getRoofHeight(sx, sz);
 
-        if (snowPos[idx + 1] <= minY || Math.hypot(dx, dz) > WRAP_RADIUS) {
+        if (snowPos[idx + 1] <= minY + 2 || Math.hypot(dx, dz) > WRAP_RADIUS) {
           const ang = Math.random() * Math.PI * 2;
           const rad = Math.sqrt(Math.random()) * WRAP_RADIUS;
           const newSx = cx + Math.cos(ang) * rad;
           const newSz = cz + Math.sin(ang) * rad;
           const newMinY = getRoofHeight(newSx, newSz);
           snowPos[idx] = newSx;
-          snowPos[idx + 1] = Math.max(newMinY + 10, 100 + Math.random() * (HEIGHT_SPAN - 100));
+          snowPos[idx + 1] = Math.max(newMinY + 18, 140 + Math.random() * (HEIGHT_SPAN - 100));
           snowPos[idx + 2] = newSz;
         }
       }
@@ -438,7 +438,7 @@ window.HP = window.HP || {};
       { id: 'clear', icon: '☀️', name: 'Clear Sky' },
       { id: 'rain', icon: '🌧️', name: 'Rainfall' },
       { id: 'snow', icon: '❄️', name: 'Snowfall' },
-      { id: 'fog', icon: '🌫️', name: 'Atmospheric Fog' },
+      { id: 'fog', icon: '☁️', name: 'Atmospheric Fog' },
       { id: 'storm', icon: '⛈️', name: 'Thunderstorm' }
     ];
 

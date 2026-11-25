@@ -113,7 +113,7 @@ W3.init = function (canvas) {
     /* two prefiltered skies; we switch at twilight, when it's too dim
        to notice, and scale reflection strength with daylight between  */
     envDay = G.environment(0xe6e2cf, 0x5f9cc9, 0x8a7a62);
-    envNight = G.environment(0x1d2a3e, 0x0b1424, 0x141414);
+    envNight = G.environment(0x0b121e, 0x050912, 0x080a0d);
   }
   W3._groundMat = null;
   W3._wallMat = null;
@@ -144,8 +144,8 @@ function buildLampPool(n) {
   for (const l of lampPool) scene.remove(l.light);
   lampPool = [];
   for (let i = 0; i < n; i++) {
-    // Distance 95, decay 1.0: smooth natural room falloff without blown-out ceiling hotspots
-    const light = new THREE.PointLight(0xffc98a, 0, 95, 1.0);
+    // Distance 155, decay 2.0: smooth inverse-square room falloff without harsh cutouts
+    const light = new THREE.PointLight(0xffc98a, 0, 155, 2.0);
     light.position.set(0, -1000, 0);
     scene.add(light);
     lampPool.push({ light, src: null, target: 0 });
@@ -225,7 +225,7 @@ function assignLamps(night) {
       L.light.intensity = 0;
       L.light.position.set(0, -1000, 0);
     } else {
-      L.target = L.src && L.src.on !== false ? L.src.power * night : 0;
+      L.target = L.src && L.src.on !== false ? L.src.power * night * 1.35 : 0;
     }
   }
 }
@@ -248,7 +248,7 @@ W3.syncLamps = function () {
       L.light.intensity = 0;
       L.light.position.set(0, -1000, 0);
     } else if (L.src) {
-      L.target = L.src.power * night;
+      L.target = L.src.power * night * 1.35;
     }
   }
   assignLamps(night);
@@ -260,7 +260,7 @@ function tickTime(dt, now) {
   sun.color.copy(s.lightCol);
   /* with real shadows the sun can be strong: lit vs shaded reads     */
   sun.intensity = s.lightI * (q && q.shadow ? 1 + 0.45 * s.day : 1);
-  renderer.toneMappingExposure = 0.94 + 0.12 * s.night;   // eyes adapt a little
+  renderer.toneMappingExposure = 0.92 + 0.12 * s.night;   // eyes adapt a little
   ambient.color.copy(s.amb);
   /* IBL replaces most of the hemisphere fill by day on PBR tiers      */
   ambient.intensity = s.ambI * (q && q.env ? 1 - 0.6 * s.day : 1);
@@ -576,7 +576,7 @@ const H3D = [
   [/piano/i, 32],
   [/pooltable/i, 25],
   [/aquarium/i, 36],
-  [/fireplace/i, 32],
+  [/fireplace/i, 52],
   [/plantbig|bigplant|fiddle|palm/i, 38],
   [/plantsm|smplant|succulent|cactus/i, 16],
   [/^bench$|entrybench|bedbench/i, 16],
@@ -1540,31 +1540,26 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   group.add(rightMesh);
 
   // Architectural casing trim on front & back wall faces framing the doorway
-  if (doorStyle === 'panel' || doorStyle === 'modern' || doorStyle === 'glass' || doorStyle === 'slideglass') {
-    const cW = 1.6;  // 1.6px wide trim on wall face
-    const cT = 0.45; // 0.45px thickness protruding from wall
-    for (const f of [-1, 1]) {
-      const faceZ = wMid + f * (wThick / 2 + cT / 2);
-      // Top header casing
-      const cHeadGeo = new THREE.BoxGeometry(isH ? span + 2 * cW : cT, cW, isH ? cT : span + 2 * cW);
-      const cHeadMesh = new THREE.Mesh(cHeadGeo, frameMat);
-      cHeadMesh.position.set(isH ? midU : faceZ, dh + cW / 2, isH ? faceZ : midU);
-      cHeadMesh.castShadow = true;
-      group.add(cHeadMesh);
+  const cW = 1.6;  // 1.6px wide trim on wall face
+  const cT = 0.52; // 0.52px thickness protruding cleanly proud of wall face
+  const cHeadGeo = new THREE.BoxGeometry(isH ? span + 2 * cW : cT, cW, isH ? cT : span + 2 * cW);
+  const cSideGeo = new THREE.BoxGeometry(isH ? cW : cT, dh, isH ? cT : cW);
+  for (const f of [-1, 1]) {
+    const faceZ = wMid + f * (wThick / 2 + cT / 2);
+    const cHeadMesh = new THREE.Mesh(cHeadGeo, frameMat);
+    cHeadMesh.position.set(isH ? midU : faceZ, dh + cW / 2, isH ? faceZ : midU);
+    cHeadMesh.castShadow = true;
+    group.add(cHeadMesh);
 
-      // Left side casing
-      const cSideGeo = new THREE.BoxGeometry(isH ? cW : cT, dh + cW, isH ? cT : cW);
-      const cLeftMesh = new THREE.Mesh(cSideGeo, frameMat);
-      cLeftMesh.position.set(isH ? s0 - cW / 2 : faceZ, (dh + cW) / 2, isH ? faceZ : s0 - cW / 2);
-      cLeftMesh.castShadow = true;
-      group.add(cLeftMesh);
+    const cLeftMesh = new THREE.Mesh(cSideGeo, frameMat);
+    cLeftMesh.position.set(isH ? s0 - cW / 2 : faceZ, dh / 2, isH ? faceZ : s0 - cW / 2);
+    cLeftMesh.castShadow = true;
+    group.add(cLeftMesh);
 
-      // Right side casing
-      const cRightMesh = new THREE.Mesh(cSideGeo, frameMat);
-      cRightMesh.position.set(isH ? s1 + cW / 2 : faceZ, (dh + cW) / 2, isH ? faceZ : s1 + cW / 2);
-      cRightMesh.castShadow = true;
-      group.add(cRightMesh);
-    }
+    const cRightMesh = new THREE.Mesh(cSideGeo, frameMat);
+    cRightMesh.position.set(isH ? s1 + cW / 2 : faceZ, dh / 2, isH ? faceZ : s1 + cW / 2);
+    cRightMesh.castShadow = true;
+    group.add(cRightMesh);
   }
 
   // Floor sill / threshold
@@ -1593,29 +1588,6 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     const htMesh = new THREE.Mesh(htGeo, headTrackMat);
     htMesh.position.set(isH ? midU : wMid, dh - jt - 0.12, isH ? wMid : midU);
     group.add(htMesh);
-  }
-
-  // Casing trim bands on both wall faces
-  const casingW = 1.4, casingT = 0.55;
-  const casingGeoH = new THREE.BoxGeometry(isH ? span + casingW * 2 : casingT, casingW, isH ? casingT : span + casingW * 2);
-  const casingGeoV = new THREE.BoxGeometry(isH ? casingW : casingT, dh + casingW, isH ? casingT : casingW);
-
-  for (const f of [-1, 1]) {
-    const facePos = wMid + f * (wThick / 2 + casingT / 2);
-    const ch = new THREE.Mesh(casingGeoH, frameMat);
-    ch.position.set(isH ? midU : facePos, dh + casingW / 2, isH ? facePos : midU);
-    ch.castShadow = true;
-    group.add(ch);
-
-    const cl = new THREE.Mesh(casingGeoV, frameMat);
-    cl.position.set(isH ? s0 - casingW / 2 : facePos, (dh + casingW) / 2, isH ? facePos : s0 - casingW / 2);
-    cl.castShadow = true;
-    group.add(cl);
-
-    const cr = new THREE.Mesh(casingGeoV, frameMat);
-    cr.position.set(isH ? s1 + casingW / 2 : facePos, (dh + casingW) / 2, isH ? facePos : s1 + casingW / 2);
-    cr.castShadow = true;
-    group.add(cr);
   }
 
   parentGroup.add(group);
@@ -2578,6 +2550,7 @@ W3.buildLevel = function () {
     tMark = now;
   };
   /* wipe previous level group */
+  if (W3.clearAudit) W3.clearAudit();
   if (W3.levelGroup) { scene.remove(W3.levelGroup); disposeGroup(W3.levelGroup); }
   const g = W3.levelGroup = new THREE.Group();
   scene.add(g);
@@ -2593,12 +2566,6 @@ W3.buildLevel = function () {
   const C = HP.CELL, V = HP.cull3d;
   V.reset();
   const m4 = new THREE.Matrix4(), col = new THREE.Color();
-  /* axis-aligned box → culler part (matrix + footprint)              */
-  const boxPart = (b, c) => {
-    const m = new THREE.Matrix4().makeScale(b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0);
-    m.setPosition((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2);
-    return { m, c, x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, y0: b.y0, y1: b.y1 };
-  };
 
   const getWallMat = (style) => {
     W3._wallMats = W3._wallMats || {};
@@ -2749,7 +2716,7 @@ W3.buildLevel = function () {
     };
     const DEPTH = C, WY = -3.5;
     const w = p.x1 - p.x0, d = p.z1 - p.z0, pcx = (p.x0 + p.x1) / 2, pcz = (p.z0 + p.z1) / 2;
-    const stone = HP.graphics3d ? HP.graphics3d.material('stone', '#d8d0bd')
+    const stone = HP.graphics3d ? HP.graphics3d.worldUV(HP.graphics3d.material('stone', '#d8d0bd').clone(), C * 2)
                               : new THREE.MeshLambertMaterial({ color: 0xd8d0bd });
     const g2 = new THREE.Group();
     const rec = { caustics: [] };
@@ -2799,7 +2766,7 @@ W3.buildLevel = function () {
         g2.add(wall);
       }
       for (const [bx, bz, bw, bd] of [[0, -d / 2 + 1, w + 4, 5], [0, d / 2 - 1, w + 4, 5],
-                                      [-w / 2 + 1, 0, 5, d - 6], [w / 2 - 1, 0, 5, d - 6]]) {
+                                      [-w / 2 + 1, 0, 5, d - 6.04], [w / 2 - 1, 0, 5, d - 6.04]]) {
         const b = new THREE.Mesh(new THREE.BoxGeometry(bw, 3.4, bd), stone);
         b.position.set(pcx + bx, 0.2, pcz + bz); b.castShadow = b.receiveShadow = true;
         g2.add(b);
@@ -2910,8 +2877,11 @@ W3.buildLevel = function () {
       const s = style || 'plaster';
       (wallPartsByMat[s] = wallPartsByMat[s] || []).push(part);
     };
+    const adjWallBox = (box, st) => (st !== 'glass' && lIdx > 0 && Math.abs(box.y0 - bY) < 0.05 && box.y1 > bY + 2)
+      ? { ...box, y0: bY - 0.18 } : box;
 
-    for (const b of V.splitBoxes(geo.boxes)) {
+    const splitBoxes = V.splitBoxes(geo.boxes);
+    for (const b of splitBoxes) {
       if (b.tag === 'fence') continue;
       const defC = b.ext ? '#e9e2d2' : '#f4efe4';
       if (b.tag === 'wall' && b.line !== undefined) {
@@ -2938,7 +2908,7 @@ W3.buildLevel = function () {
           const sDefC = styleDefaultCol(st, b.ext);
           ca = ca || sDefC;
           cb = cb || sDefC;
-          const sb = isH ? { ...b, x0: s0, x1: s1 } : { ...b, z0: s0, z1: s1 };
+          const sb = adjWallBox(isH ? { ...b, x0: s0, x1: s1 } : { ...b, z0: s0, z1: s1 }, st);
           if (ca === cb) {
             addWallPart(st, boxPart(sb, ca));
           } else if (isH) {
@@ -2964,18 +2934,19 @@ W3.buildLevel = function () {
         const cNE = (hR && hR.ca) || (vT && vT.cb) || sDefC;
         const cSW = (hL && hL.cb) || (vB && vB.ca) || sDefC;
         const cSE = (hR && hR.cb) || (vB && vB.cb) || sDefC;
+        const cbBox = adjWallBox(b, st);
         if (cNW === cNE && cNW === cSW && cNW === cSE) {
-          addWallPart(st, boxPart(b, cNW));
+          addWallPart(st, boxPart(cbBox, cNW));
         } else {
-          const xm = (b.x0 + b.x1) / 2, zm = (b.z0 + b.z1) / 2;
-          addWallPart(st, boxPart({ ...b, x1: xm, z1: zm }, cNW));
-          addWallPart(st, boxPart({ ...b, x0: xm, z1: zm }, cNE));
-          addWallPart(st, boxPart({ ...b, x1: xm, z0: zm }, cSW));
-          addWallPart(st, boxPart({ ...b, x0: xm, z0: zm }, cSE));
+          const xm = (cbBox.x0 + cbBox.x1) / 2, zm = (cbBox.z0 + cbBox.z1) / 2;
+          addWallPart(st, boxPart({ ...cbBox, x1: xm, z1: zm }, cNW));
+          addWallPart(st, boxPart({ ...cbBox, x0: xm, z1: zm }, cNE));
+          addWallPart(st, boxPart({ ...cbBox, x1: xm, z0: zm }, cSW));
+          addWallPart(st, boxPart({ ...cbBox, x0: xm, z0: zm }, cSE));
         }
         continue;
       }
-      addWallPart('plaster', boxPart(b, defC));
+      addWallPart('plaster', boxPart(adjWallBox(b, 'plaster'), defC));
     }
 
     mark('splitWallBoxes_' + lIdx);
@@ -3004,15 +2975,45 @@ W3.buildLevel = function () {
 
     if (HP.graphics3d) {
       const rails = [];
-      for (const b of geo.boxes) {
-        if (b.tag === 'fence' || b.y0 > bY || b.y1 < bY + 10) continue;
-        rails.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.25, z1: b.z0 + 0.01, y0: bY, y1: bY + 2.2 },
-          { x0: b.x0, x1: b.x1, z0: b.z1 - 0.01, z1: b.z1 + 0.25, y0: bY, y1: bY + 2.2 },
-          { x0: b.x0 - 0.25, x1: b.x0 + 0.01, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 },
-          { x0: b.x1 - 0.01, x1: b.x1 + 0.25, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
+      for (const b of splitBoxes) {
+        if (b.tag === 'fence' || b.y0 > bY + 0.1 || b.y1 < bY + 10) continue;
+        if (b.tag === 'corner' && b.vx !== undefined) {
+          const nw = env.rAt(b.vx - 1, b.vy - 1) >= 0;
+          const ne = env.rAt(b.vx, b.vy - 1) >= 0;
+          const sw = env.rAt(b.vx - 1, b.vy) >= 0;
+          const se = env.rAt(b.vx, b.vy) >= 0;
+          const hL = curLvl.walls && curLvl.walls['h,' + (b.vx - 1) + ',' + b.vy];
+          const hR = curLvl.walls && curLvl.walls['h,' + b.vx + ',' + b.vy];
+          const vT = curLvl.walls && curLvl.walls['v,' + b.vx + ',' + (b.vy - 1)];
+          const vB = curLvl.walls && curLvl.walls['v,' + b.vx + ',' + b.vy];
+          if ((nw || ne) && !vT) rails.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.25, z1: b.z0 + 0.01, y0: bY, y1: bY + 2.2 });
+          if ((sw || se) && !vB) rails.push({ x0: b.x0, x1: b.x1, z0: b.z1 - 0.01, z1: b.z1 + 0.25, y0: bY, y1: bY + 2.2 });
+          if ((nw || sw) && !hL) rails.push({ x0: b.x0 - 0.25, x1: b.x0 + 0.01, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
+          if ((ne || se) && !hR) rails.push({ x0: b.x1 - 0.01, x1: b.x1 + 0.25, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
+          continue;
+        }
+        const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+        const isH = b.d ? b.d === 'h' : (b.x1 - b.x0) >= (b.z1 - b.z0);
+        if (isH) {
+          if (env.rAt(Math.floor(cx / C), Math.floor((b.z0 - 1.5) / C)) >= 0) {
+            rails.push({ x0: b.x0, x1: b.x1, z0: b.z0 - 0.25, z1: b.z0 + 0.01, y0: bY, y1: bY + 2.2 });
+          }
+          if (env.rAt(Math.floor(cx / C), Math.floor((b.z1 + 1.5) / C)) >= 0) {
+            rails.push({ x0: b.x0, x1: b.x1, z0: b.z1 - 0.01, z1: b.z1 + 0.25, y0: bY, y1: bY + 2.2 });
+          }
+        } else {
+          if (env.rAt(Math.floor((b.x0 - 1.5) / C), Math.floor(cz / C)) >= 0) {
+            rails.push({ x0: b.x0 - 0.25, x1: b.x0 + 0.01, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
+          }
+          if (env.rAt(Math.floor((b.x1 + 1.5) / C), Math.floor(cz / C)) >= 0) {
+            rails.push({ x0: b.x1 - 0.01, x1: b.x1 + 0.25, z0: b.z0, z1: b.z1, y0: bY, y1: bY + 2.2 });
+          }
+        }
       }
-      V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
-        V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true, lvlIdx: lIdx });
+      if (rails.length) {
+        V.instanced(sg, unitBox(), HP.graphics3d.material('ceramic', '#dfd8c9'),
+          V.splitBoxes(rails).map(b => boxPart(b)), { receive: true, detail: true, lvlIdx: lIdx });
+      }
     }
     mark('skirtingRails_' + lIdx);
 
@@ -4062,6 +4063,7 @@ W3._buildFurnitureSync = function (targetGroup) {
   }
   buildFurnitureLamps(ctx);
   W3.lamps = (W3.staticLamps || []).concat(ctx.furnLamps);
+  W3.colliders = (W3.staticColliders || []).concat(ctx.furnColliders);
   if (HP.life3d) HP.life3d.build(targetGroup, ctx.lifeItems);
   ctx.fit2.instanceMatrix.needsUpdate = true;
   if (ctx.fit2.instanceColor) ctx.fit2.instanceColor.needsUpdate = true;
@@ -4105,6 +4107,7 @@ W3._buildFurnitureAsync = async function (targetGroup, seq) {
   }
   buildFurnitureLamps(ctx);
   W3.lamps = (W3.staticLamps || []).concat(ctx.furnLamps);
+  W3.colliders = (W3.staticColliders || []).concat(ctx.furnColliders);
   if (HP.life3d) HP.life3d.build(targetGroup, ctx.lifeItems);
   ctx.fit2.instanceMatrix.needsUpdate = true;
   if (ctx.fit2.instanceColor) ctx.fit2.instanceColor.needsUpdate = true;
@@ -4317,6 +4320,12 @@ W3.updateApertures = function () {
   }
 };
 
+function boxPart(b, c) {
+  const m = new THREE.Matrix4().makeScale(b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0);
+  m.setPosition((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2);
+  return { m, c, x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, y0: b.y0, y1: b.y1 };
+}
+
 function cellPart(c, y) {
   const C = HP.CELL;
   const m = new THREE.Matrix4().makeScale(C, 1, C);
@@ -4408,6 +4417,31 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
       new THREE.MeshLambertMaterial({ color: floorColor(matId) });
     V.instanced(targetGroup, floorQuad(), material, iCells.map(c => cellPart(c, iH)), { receive: true, lvlIdx: curLvlIdx, isFloor: true });
   }
+  if (baseY > 0 && stairHoles && stairHoles.size > 0) {
+    const holeSet = stairHoles;
+    const hasFloorAt = (cx, cy) => {
+      if (cx < 0 || cy < 0 || cx >= gw || cy >= gh) return false;
+      const nk = cx + ',' + cy;
+      if (holeSet.has(nk)) return false;
+      return grid[cy * gw + cx] === 1 || !!(lvl.floors && lvl.floors[nk]);
+    };
+    const rimParts = [];
+    const ry0 = baseY - 0.35, ry1 = baseY + 0.08, rt = 1.0;
+    for (const hk of holeSet) {
+      const [hx, hy] = hk.split(',').map(Number);
+      const x0 = hx * C, x1 = (hx + 1) * C, z0 = hy * C, z1 = (hy + 1) * C;
+      if (hasFloorAt(hx, hy - 1)) rimParts.push(boxPart({ x0, x1, z0, z1: z0 + rt, y0: ry0, y1: ry1 }));
+      if (hasFloorAt(hx, hy + 1)) rimParts.push(boxPart({ x0, x1, z0: z1 - rt, z1, y0: ry0, y1: ry1 }));
+      if (hasFloorAt(hx - 1, hy)) rimParts.push(boxPart({ x0, x1: x0 + rt, z0, z1, y0: ry0, y1: ry1 }));
+      if (hasFloorAt(hx + 1, hy)) rimParts.push(boxPart({ x0: x1 - rt, x1, z0, z1, y0: ry0, y1: ry1 }));
+    }
+    if (rimParts.length) {
+      const rimMat = HP.graphics3d
+        ? HP.graphics3d.material('wood', '#cbbba3')
+        : new THREE.MeshLambertMaterial({ color: 0xcbbba3 });
+      V.instanced(targetGroup, unitBox(), rimMat, rimParts, { receive: true, lvlIdx: curLvlIdx });
+    }
+  }
   return cells;
 };
 
@@ -4455,6 +4489,16 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
           }
         }
       }
+    } else if (/treehouse|greenhouse/i.test(it.type)) {
+      const f = HP.footprint(it);
+      const rh = baseY + (/treehouse/i.test(it.type) ? 118 : 74);
+      for (let py = f.y; py < f.y + f.h; py++) {
+        for (let px = f.x; px < f.x + f.w; px++) {
+          if (W3.roofHeights) {
+            W3.roofHeights[py * gw + px] = Math.max(W3.roofHeights[py * gw + px] || 0, rh);
+          }
+        }
+      }
     }
   }
 
@@ -4492,6 +4536,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
     }
     return false;
   };
+  const allRoofSet = new Set();
 
   for (const [key, { style, color, cells }] of byStyle) {
     const ceilMat = HP.graphics3d
@@ -4506,6 +4551,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
       if (style !== 'glass') {
         const roofCells = cells.filter(c => !hasFloorAbove(c.x, c.y));
         if (roofCells.length > 0) {
+          for (const rc of roofCells) allRoofSet.add(rc.k);
           V.instanced(targetGroup, floorQuad(), roofMat, roofCells.map(c => cellPart(c, ceilY + 0.3)), { cast: true, receive: true, lvlIdx, isRoof: true });
         }
       }
@@ -4650,6 +4696,26 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
       V.instanced(targetGroup, unitBox(), frameMat, mullionParts, { cast: true, receive: false, lvlIdx });
     }
   }
+
+  if (allRoofSet.size > 0) {
+    const isRoof = (cx, cy) => allRoofSet.has(cx + ',' + cy);
+    const isExposed = (cx, cy) => !isRoof(cx, cy) && !hasFloorAbove(cx, cy);
+    const E = 2.0, y0 = ceilY - 1.15, y1 = ceilY + 0.29;
+    const eaveParts = [];
+    for (const rk of allRoofSet) {
+      const [rx, ry] = rk.split(',').map(Number);
+      const x0 = rx * C, x1 = (rx + 1) * C, z0 = ry * C, z1 = (ry + 1) * C;
+      const expN = isExposed(rx, ry - 1), expS = isExposed(rx, ry + 1);
+      const expW = isExposed(rx - 1, ry), expE = isExposed(rx + 1, ry);
+      if (expN) eaveParts.push(boxPart({ x0: x0 - (expW ? E : 0), x1: x1 + (expE ? E : 0), z0: z0 - E, z1: z0 + 0.05, y0, y1 }));
+      if (expS) eaveParts.push(boxPart({ x0: x0 - (expW ? E : 0), x1: x1 + (expE ? E : 0), z0: z1 - 0.05, z1: z1 + E, y0, y1 }));
+      if (expW) eaveParts.push(boxPart({ x0: x0 - E, x1: x0 + 0.05, z0, z1, y0, y1 }));
+      if (expE) eaveParts.push(boxPart({ x0: x1 - 0.05, x1: x1 + E, z0, z1, y0, y1 }));
+    }
+    if (eaveParts.length) {
+      V.instanced(targetGroup, unitBox(), roofMat, eaveParts, { cast: true, receive: true, lvlIdx });
+    }
+  }
 };
 
 W3.updateFloors = function () {
@@ -4746,8 +4812,58 @@ function disposeGroup(gr) {
 
 /* ---------- audit overlay + 3D markers ---------- */
 W3.runAudit = function () {
-  const { checks } = HP.geom3d.audit(HP.cur().walls, geomEnv());
-  if (markerGroup) { W3.levelGroup.remove(markerGroup); markerGroup = null; }
+  const lvl = HP.cur ? HP.cur() : {};
+  const walls = (lvl && lvl.walls) || {};
+  const env = geomEnv(lvl);
+  const { checks } = HP.geom3d.audit(walls, env);
+  const roomNames = (lvl && lvl.roomNames) || {};
+  const labelRoom = (rid) => rid >= 0 ? (roomNames[rid] || `Room ${rid + 1}`) : 'Exterior';
+  const segLabel = (k) => {
+    const seg = HP.parseWallKey ? HP.parseWallKey(k) : null;
+    if (!seg) return k;
+    const ra = seg.d === 'h' ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
+    const rb = env.rAt(seg.x, seg.y);
+    const names = [...new Set([ra, rb].filter(r => r >= 0).map(labelRoom))];
+    return names.length ? `${names.join('/')} (${k})` : k;
+  };
+  for (const ch of checks) {
+    if (ch.marks && ch.marks.length && ch.detail) {
+      ch.detail = ch.marks.slice(0, 6).map(m => segLabel(m.k || '')).filter(Boolean).join(', ') || ch.detail;
+    }
+  }
+  if (HP.computeRegions) {
+    const { regionOf, regions } = HP.computeRegions(lvl);
+    const openRid = new Set();
+    for (const wk of Object.keys(walls)) {
+      const w = walls[wk];
+      if (!w || (w.f !== 'door' && w.f !== 'archway')) continue;
+      const seg = HP.parseWallKey ? HP.parseWallKey(wk) : null;
+      if (!seg) continue;
+      const ra = seg.d === 'h' ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
+      const rb = env.rAt(seg.x, seg.y);
+      if (ra >= 0) openRid.add(ra);
+      if (rb >= 0) openRid.add(rb);
+    }
+    const gw = HP.GRID_W || 64;
+    for (const it of (lvl.furniture || [])) {
+      if (!/stairs/i.test(it.type)) continue;
+      const f = HP.footprint(it);
+      for (let fy = f.y; fy < f.y + f.h; fy++) {
+        for (let fx = f.x; fx < f.x + f.w; fx++) {
+          const rid = regionOf[fy * gw + fx];
+          if (rid >= 0) openRid.add(rid);
+        }
+      }
+    }
+    const sealed = (regions || []).filter(r => r && r.id !== undefined && !openRid.has(r.id));
+    checks.push({
+      ok: sealed.length === 0,
+      name: 'All rooms have doors or stairs',
+      detail: sealed.length ? ('Sealed: ' + sealed.map(r => labelRoom(r.id)).join(', ')) : `all ${regions.length} rooms accessible`,
+      marks: sealed.map(r => ({ x0: r.lx - 10, x1: r.lx + 10, z0: r.ly - 10, z1: r.ly + 10, y0: 0, y1: 60 })),
+    });
+  }
+  W3.clearAudit();
   markerGroup = new THREE.Group();
   const mat = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.55, depthTest: false });
   for (const c of checks) for (const m of c.marks || []) {
@@ -4759,6 +4875,12 @@ W3.runAudit = function () {
   }
   W3.levelGroup.add(markerGroup);
   return checks;
+};
+W3.clearAudit = function () {
+  if (!markerGroup) return;
+  if (W3.levelGroup) W3.levelGroup.remove(markerGroup);
+  disposeGroup(markerGroup);
+  markerGroup = null;
 };
 
 let lastRender = 0;

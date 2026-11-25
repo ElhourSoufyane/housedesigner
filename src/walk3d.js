@@ -108,7 +108,7 @@ function groundAt(x, z) {
     for (const c of HP.world3d.climbs) {
       if (x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1) {
         const progress = c.ax === 'z' ? ((z - c.from) * c.dir) / c.run : ((x - c.from) * c.dir) / c.run;
-        const clampedProg = Math.max(0, Math.min(1, progress));
+        const clampedProg = Math.max(0, Math.min(1, progress / 0.82));
         const climbY = c.y0 + clampedProg * (c.y1 - c.y0);
         if (climbY > y) y = climbY;
       }
@@ -302,13 +302,32 @@ K.boot = function (initialSpawn) {
   el.stickLn  = document.getElementById('stickL-nub');
 
   let lockTime = 0, lastDx = 0, lastDy = 0, lastMoveT = 0;
+  let dragLook = false, dragX = 0, dragY = 0, dragMoved = false;
   document.addEventListener('pointerlockchange', () => {
     locked = document.pointerLockElement === el.canvas;
-    if (locked) { lockTime = performance.now(); lastDx = lastDy = 0; }
+    if (locked) { lockTime = performance.now(); lastDx = lastDy = 0; dragLook = false; }
     if (!locked && started && !paused && !isTouch() && (typeof location === 'undefined' || (!location.search.includes('showroom') && !location.search.includes('autoenter=1')))) K.pause();
   });
+  el.canvas.addEventListener('mousedown', e => {
+    if (e.button === 0 && started && !paused && !locked && !isTouch()) {
+      dragLook = true; dragMoved = false; dragX = e.clientX; dragY = e.clientY;
+    }
+  });
+  addEventListener('mouseup', () => { dragLook = false; });
   document.addEventListener('mousemove', e => {
-    if (!locked || paused) return;
+    if (paused) return;
+    if (!locked) {
+      if (!dragLook || !started) return;
+      const dx = e.clientX - dragX, dy = e.clientY - dragY;
+      dragX = e.clientX; dragY = e.clientY;
+      if (Math.hypot(dx, dy) > 2) dragMoved = true;
+      yaw -= dx * 0.0045;
+      yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
+      if (sitting) yaw = clampSittingYaw(yaw, sitting.sitYaw);
+      pitch -= dy * 0.0045;
+      pitch = Math.max(-1.45, Math.min(1.45, pitch));
+      return;
+    }
     const dx = e.movementX || 0, dy = e.movementY || 0;
     const now = performance.now();
     /* Chromium on Windows emits a bogus recenter spike (~innerWidth/2 px)
@@ -342,8 +361,10 @@ K.boot = function (initialSpawn) {
   });
   el.canvas.addEventListener('click', () => {
     if (HP.sound3d) HP.sound3d.start();
-    if (!locked && started && !paused) requestLock();
-    else if (locked && started && !paused) interact();
+    if (!locked && started && !paused) {
+      if (!dragMoved) requestLock();
+      dragMoved = false;
+    } else if (locked && started && !paused) interact();
   });
   el.canvas.addEventListener('touchstart', () => { if (HP.sound3d) HP.sound3d.start(); }, { passive: true });
   document.addEventListener('visibilitychange', () => {
@@ -560,6 +581,21 @@ function resolveCasement(d, nx, nz, angle = d.pivot.rotation.y) {
   const [rx, rz] = resolveBox(b, x, z);
   return [root.x + p.x + rx * cs + rz * sn, root.z + p.z - rx * sn + rz * cs];
 }
+function resolveLeafOBB(d, nx, nz) {
+  const th = d.pivot.rotation.y;
+  if (d.slide || Math.abs(th) < 0.18) return resolveBox(leafBox(d), nx, nz);
+  const P = d.pivot.position, L = d.leaf, g = L && L.geometry && L.geometry.parameters;
+  if (!g) return resolveBox(leafBox(d), nx, nz);
+  const cs = Math.cos(th), sn = Math.sin(th);
+  const dx = nx - P.x, dz = nz - P.z;
+  const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+  const b = {
+    x0: L.position.x - g.width / 2, x1: L.position.x + g.width / 2,
+    z0: L.position.z - g.depth / 2, z1: L.position.z + g.depth / 2
+  };
+  const [rx, rz] = resolveBox(b, lx, lz);
+  return [P.x + rx * cs + rz * sn, P.z - rx * sn + rz * cs];
+}
 function swingWindow(d, from, to) {
   if (Math.abs(to - from) < 1e-8) return from;
   const steps = Math.max(1, Math.ceil(Math.abs(to - from) * 180));
@@ -743,7 +779,7 @@ function collide(nx, nz, vx, vz) {
     for (const d of HP.world3d.doorPivots) {
       if ((d.window && !d.casement) || d.doorStyle === 'archway' || !d.leaf) continue;           // lift sashes stay above the sill, archways are open
       if (d.ly0 !== undefined && d.ly1 !== undefined && (feetY >= d.ly1 || (feetY + 42) <= d.ly0)) continue;
-      const [rx, rz] = d.casement ? resolveCasement(d, nx, nz) : resolveBox(leafBox(d), nx, nz);
+      const [rx, rz] = d.casement ? resolveCasement(d, nx, nz) : resolveLeafOBB(d, nx, nz);
       if (!d.window && (rx !== nx || rz !== nz) && (vx || vz)) {
         /* pressing into a leaf from its SWING side shoves it open —
            the pull side holds firm like a real hinged door         */
@@ -788,51 +824,53 @@ function resolveBox(b, nx, nz) {
 }
 
 /* ---------- door + gadget interaction ---------- */
-function isLineOfSightClear(ox, oy, oz, tx, ty, tz) {
+function rayHitsBox(ox, oy, oz, rx, ry, rz, dist, b) {
+  let tmin = 0, tmax = dist;
+  if (Math.abs(rx) < 1e-6) {
+    if (ox < b.x0 || ox > b.x1) return false;
+  } else {
+    let t1 = (b.x0 - ox) / rx, t2 = (b.x1 - ox) / rx;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return false;
+  }
+  if (Math.abs(ry) < 1e-6) {
+    if (oy < b.y0 || oy > b.y1) return false;
+  } else {
+    let t1 = (b.y0 - oy) / ry, t2 = (b.y1 - oy) / ry;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return false;
+  }
+  if (Math.abs(rz) < 1e-6) {
+    if (oz < b.z0 || oz > b.z1) return false;
+  } else {
+    let t1 = (b.z0 - oz) / rz, t2 = (b.z1 - oz) / rz;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+    tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+    if (tmin > tmax) return false;
+  }
+  return tmin < dist - 1.2 && tmax > 1.2;
+}
+function isLineOfSightClear(ox, oy, oz, tx, ty, tz, ignoreObj) {
   const dx = tx - ox, dy = ty - oy, dz = tz - oz;
   const dist = Math.hypot(dx, dy, dz);
   if (dist < 1.0) return true;
   const invDist = 1 / dist;
   const rx = dx * invDist, ry = dy * invDist, rz = dz * invDist;
-  const boxes = HP.world3d?.staticColliders || [];
+  const boxes = HP.world3d?.colliders || HP.world3d?.staticColliders || [];
   for (let i = 0; i < boxes.length; i++) {
     const b = boxes[i];
-    // Solid wall geometry only (skip low sills/thresholds)
-    if (b.y1 - b.y0 < 15) continue;
-    let tmin = 0, tmax = dist;
-    // X slab
-    if (Math.abs(rx) < 1e-6) {
-      if (ox < b.x0 || ox > b.x1) continue;
-    } else {
-      let t1 = (b.x0 - ox) / rx, t2 = (b.x1 - ox) / rx;
-      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-      tmin = Math.max(tmin, t1);
-      tmax = Math.min(tmax, t2);
-      if (tmin > tmax) continue;
-    }
-    // Y slab
-    if (Math.abs(ry) < 1e-6) {
-      if (oy < b.y0 || oy > b.y1) continue;
-    } else {
-      let t1 = (b.y0 - oy) / ry, t2 = (b.y1 - oy) / ry;
-      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-      tmin = Math.max(tmin, t1);
-      tmax = Math.min(tmax, t2);
-      if (tmin > tmax) continue;
-    }
-    // Z slab
-    if (Math.abs(rz) < 1e-6) {
-      if (oz < b.z0 || oz > b.z1) continue;
-    } else {
-      let t1 = (b.z0 - oz) / rz, t2 = (b.z1 - oz) / rz;
-      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-      tmin = Math.max(tmin, t1);
-      tmax = Math.min(tmax, t2);
-      if (tmin > tmax) continue;
-    }
-    if (tmin < dist - 1.2 && tmax > 1.2) {
-      return false; // Obstructed by solid wall
-    }
+    if (b.mv !== undefined || (b.y1 - b.y0) < 20) continue;
+    if (tx >= b.x0 - 1.5 && tx <= b.x1 + 1.5 && tz >= b.z0 - 1.5 && tz <= b.z1 + 1.5 && ty >= b.y0 - 1.5 && ty <= b.y1 + 1.5) continue;
+    if (rayHitsBox(ox, oy, oz, rx, ry, rz, dist, b)) return false;
+  }
+  for (const d of (HP.world3d?.doorPivots || [])) {
+    if (d === ignoreObj || d.window || d.doorStyle === 'archway' || !d.leaf || d.open >= 0.25) continue;
+    if (rayHitsBox(ox, oy, oz, rx, ry, rz, dist, {
+      x0: d.a.x0, x1: d.a.x1, z0: d.a.z0, z1: d.a.z1,
+      y0: d.ly0 !== undefined ? d.ly0 : 0, y1: d.ly1 !== undefined ? d.ly1 : 60
+    })) return false;
   }
   return true;
 }
@@ -851,16 +889,18 @@ function nearestThing() {
   const fz = -Math.cos(yaw) * cosPitch;
 
   const touch = isTouch();
-  const minDot = touch ? 0.30 : 0.38;
-  const considerCandidate = (tx, ty, tz, maxDist, constructData) => {
+  const minDot = touch ? 0.45 : 0.72;
+  const considerCandidate = (tx, ty, tz, maxDist, constructData, ignoreObj) => {
     const vx = tx - eyeX, vy = ty - eyeY, vz = tz - eyeZ;
     const dist = Math.hypot(vx, vy, vz);
     if (dist > maxDist || dist < 0.5) return;
     const dot = (vx * fx + vy * fy + vz * fz) / dist;
-    if (dot < minDot) return; // Behind or too far to the side
-    if (!isLineOfSightClear(eyeX, eyeY, eyeZ, tx, ty, tz)) return; // Solid wall blocks sight
+    const effDist = Math.hypot(vx, vy * 0.35, vz) || dist;
+    const effDot = (vx * fx + vy * fy * 0.35 + vz * fz) / effDist;
+    if (effDot < minDot || dot < (touch ? 0.15 : 0.25)) return; // Behind or outside look cone
+    if (!isLineOfSightClear(eyeX, eyeY, eyeZ, tx, ty, tz, ignoreObj)) return; // Solid wall blocks sight
     // Crosshair angular alignment dominates (4th power on desktop, quadratic on mobile for touch ease), distance is secondary
-    const score = touch ? (Math.pow(dot, 2) / (dist + 4)) : (Math.pow(dot, 4) / (dist + 6));
+    const score = touch ? (Math.pow(effDot, 2) / (dist + 4)) : (Math.pow(effDot, 4) / (dist + 6));
     if (score > bestScore) {
       bestScore = score;
       best = constructData();
@@ -899,7 +939,8 @@ function nearestThing() {
     if (!def) continue;
     const spots = HP.itemSeatSpots ? HP.itemSeatSpots(it, def) : [];
     for (const sp of spots) {
-      const sy = (/^treehouse$/i.test(it.type) ? Math.max(groundAt(sp.x, sp.z), 54) : itemBaseY) + 12;
+      const seatOffset = /barstool/i.test(it.type) ? 19 : 12;
+      const sy = (/^treehouse$/i.test(it.type) ? Math.max(groundAt(sp.x, sp.z), 54) : itemBaseY) + seatOffset;
       considerCandidate(sp.x, sy, sp.z, 50, () => ({
         kind: 'seat', it, def, sk, spot: sp,
         label: (sk === 'lie' ? 'Lie down' : 'Sit') + ' — ' + (def.name || it.type)
@@ -920,8 +961,17 @@ function nearestThing() {
       leafX = (rootPos ? rootPos.x : d.a.cx) + d.pivot.position.x + sashPos.x;
       leafY = (d.ly0 !== undefined && d.ly1 !== undefined) ? (d.ly0 + d.ly1) / 2 : (d.pivot.position.y + (rootPos ? rootPos.y : 0));
       leafZ = (rootPos ? rootPos.z : d.a.cz) + d.pivot.position.z + sashPos.z;
+    } else if (d.leaf) {
+      if (d.slide) {
+        leafX = d.pivot.position.x + d.leaf.position.x;
+        leafZ = d.pivot.position.z + d.leaf.position.z;
+      } else {
+        const th = d.pivot.rotation.y || 0, cs = Math.cos(th), sn = Math.sin(th);
+        leafX = d.pivot.position.x + d.leaf.position.x * cs + d.leaf.position.z * sn;
+        leafZ = d.pivot.position.z - d.leaf.position.x * sn + d.leaf.position.z * cs;
+      }
     }
-    considerCandidate(leafX, leafY, leafZ, 65, () => d);
+    considerCandidate(leafX, leafY, leafZ, 65, () => d, d);
   }
 
   // 4. Climbs (ladders, stairs, treehouse)
@@ -1080,15 +1130,26 @@ function tick(t) {
     if (Math.hypot(velX, velZ) < 3) { velX = velZ = 0; }
     const vx = velX * dt, vz = velZ * dt;
     if (vx || vz) {
-      const [nx, nz] = collide(px + vx, pz + vz, vx, vz);
-      px = nx; pz = nz;
+      const moveDist = Math.hypot(vx, vz);
+      const subSteps = Math.max(1, Math.ceil(moveDist / 3.5));
+      const svx = vx / subSteps, svz = vz / subSteps;
+      for (let s = 0; s < subSteps; s++) {
+        const [nx, nz] = collide(px + svx, pz + svz, svx, svz);
+        px = nx; pz = nz;
+      }
     }
     /* step down into / climb out of the basin — a smooth fall, not a
        teleport, so it reads as stepping into water                  */
     const wa = waterAt(px, pz);
     const tgtY = groundAt(px, pz);
-    groundY += (tgtY - groundY) * Math.min(1, dt * 4.5);
-    if (Math.abs(tgtY - groundY) < 0.05) groundY = tgtY;
+    const onClimb = !wa && HP.world3d && HP.world3d.climbs && HP.world3d.climbs.some(
+      c => px >= c.x0 && px <= c.x1 && pz >= c.z0 && pz <= c.z1);
+    if (onClimb) {
+      groundY = tgtY;
+    } else {
+      groundY += (tgtY - groundY) * Math.min(1, dt * 4.5);
+      if (Math.abs(tgtY - groundY) < 0.05) groundY = tgtY;
+    }
     const wading = !!wa && feetY < -8;
     if (wading !== wasIn) { if (HP.sound3d) HP.sound3d.splash(wading); wasIn = wading; }
     /* jump: gravity pulls you back to whatever you're standing on   */

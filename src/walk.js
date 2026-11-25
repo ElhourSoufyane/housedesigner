@@ -121,6 +121,7 @@ HP.togglePlay = function () {
     savedCam = { ...HP.camera };
     spawn();
     HP.camera.zoom = Math.max(1.15, HP.camera.zoom);
+    if (HP.updateZoomUI) HP.updateZoomUI();
     if (btn) btn.innerHTML = '<svg class="ic"><use href="#i-stop"/></svg>Stop';
     if (hint) {
       hint.textContent = ('ontouchstart' in window)

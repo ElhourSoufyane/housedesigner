@@ -22,6 +22,7 @@ let dog = null;              // the pet
 
 L.interactables = [];
 L.dogState = () => dog && { x: dog.x, z: dog.z, state: dog.state };
+Object.defineProperty(L, 'dog', { get: () => dog, enumerable: true });
 
 /* ---------- helpers ---------- */
 function std(color, opts) {
@@ -74,7 +75,7 @@ function addFan(cx, cz, baseY) {
   group.add(g);
   spinners.push({ obj: blades, speed: 7 });
 }
-function addClock(cx, cz, rot, w, off, isHung, customR, baseY) {
+function addClock(cx, cz, rot, w, off, isHung, customR, baseY, dialY) {
   const g = new THREE.Group();
   const r = customR !== undefined ? customR : Math.min(w, 26) * 0.42;
   const darkCase = std('#2c221e');
@@ -129,7 +130,7 @@ function addClock(cx, cz, rot, w, off, isHung, customR, baseY) {
   second.geometry.translate(r * 0.38, 0, 0); second.position.z = isHung ? 1.8 : 0.4;
 
   g.add(face, rim, hour, minute, second);
-  g.position.set(cx, (baseY || 0) + (isHung ? 46 : 44), cz);
+  g.position.set(cx, (baseY || 0) + (dialY !== undefined ? dialY : (isHung ? 46 : 44)), cz);
   g.rotation.y = -rot * Math.PI / 2;
 
   const fwd = new THREE.Vector3(0, 0, off === undefined ? 2.6 : off).applyEuler(g.rotation);
@@ -223,7 +224,7 @@ function addFire(cx, cz, rot, dep, h, baseY, it) {
   const a = -rot * Math.PI / 2;
   // Place flames right over the grate logs at center of open firebox (z = +0.06 * dep)
   const ox = Math.sin(a) * dep * 0.06, oz = Math.cos(a) * dep * 0.06;
-  const fy = (baseY || 0) + Math.max(4, h * 0.24);
+  const fy = (baseY || 0) + Math.min(9.5, Math.max(4, h * 0.17));
   const cones = [];
   const cols = ['#ff5a1f', '#ffa03d', '#ffe08a'];
   for (let i = 0; i < 3; i++) {
@@ -293,8 +294,18 @@ function addLampBulb(cx, cy, cz, it, cfg) {
   const mesh = new THREE.Mesh(geom, glowMat(col));
   mesh.position.set(cx, cy, cz); mesh.visible = false;
   group.add(mesh);
+  let shadeMesh = null;
+  if (it && /^floorlamp$/i.test(it.type)) {
+    shadeMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(5.1, 6.0, 15.8, 12, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffdf9e, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
+    );
+    shadeMesh.position.set(cx, cy + 2.1, cz);
+    shadeMesh.visible = false;
+    group.add(shadeMesh);
+  }
   const isOn = it ? (it.on !== false) : true;
-  const lp = { mesh, src, on: isOn, x: cx, z: cz, it };
+  const lp = { mesh, shadeMesh, src, on: isOn, x: cx, z: cz, it };
   if (src) src.lampRef = lp;
   lampBulbs.push(lp);
   L.interactables.push({ x: cx, z: cz, kind: 'lamp', ref: lp });
@@ -418,17 +429,38 @@ function addShoeCabinet(cx, cz, rot, w, dep, h, color, it, baseY) {
 
 /* ---------- creatures ---------- */
 function addBirds() {
-  const m = std('#4a4f57', { roughness: 1 });
+  const bodyMat = std('#e2e8f0', { roughness: 0.9 });
+  const wingMat = new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.9, side: THREE.DoubleSide });
+  const mkWing = (dir) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(0, -0.70);
+    sh.lineTo(1.8 * dir, -0.42);
+    sh.lineTo(4.0 * dir, 0.55);
+    sh.lineTo(2.0 * dir, 0.85);
+    sh.lineTo(0, 0.65);
+    sh.closePath();
+    const g = new THREE.ShapeGeometry(sh);
+    g.rotateX(-Math.PI / 2);
+    return g;
+  };
+  const lwGeo = mkWing(-1), rwGeo = mkWing(1);
+  const tailSh = new THREE.Shape();
+  tailSh.moveTo(0, 0.8); tailSh.lineTo(-0.7, 2.2); tailSh.lineTo(0.7, 2.2); tailSh.closePath();
+  const tailGeo = new THREE.ShapeGeometry(tailSh); tailGeo.rotateX(-Math.PI / 2);
+  const bodyGeo = new THREE.SphereGeometry(0.62, 6, 5);
+  bodyGeo.scale(0.85, 0.72, 2.3);
+  const beakGeo = new THREE.ConeGeometry(0.22, 0.75, 5);
+  beakGeo.rotateX(Math.PI / 2);
   for (let i = 0; i < 6; i++) {
     const b = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.ConeGeometry(1.1, 5, 4), m);
-    body.rotation.z = -Math.PI / 2;
-    const wl = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 7), new THREE.MeshStandardMaterial({ color: '#5a5f68', side: THREE.DoubleSide }));
-    wl.rotation.x = -Math.PI / 2; wl.position.x = -3.6;
-    const wr = wl.clone(); wr.position.x = 3.6;
-    b.add(body, wl, wr);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    const beak = new THREE.Mesh(beakGeo, wingMat); beak.position.z = 1.65;
+    const tail = new THREE.Mesh(tailGeo, wingMat);
+    const wl = new THREE.Mesh(lwGeo, wingMat);
+    const wr = new THREE.Mesh(rwGeo, wingMat);
+    b.add(body, beak, tail, wl, wr);
     group.add(b);
-    birds.push({ g: b, wl, wr, r: 160 + i * 30, h: 95 + (i % 3) * 14,
+    birds.push({ g: b, wl, wr, r: 230 + i * 42, h: 175 + (i % 3) * 24,
       ph: i * 1.05, sp: (0.05 + (i % 3) * 0.012) * (i % 2 ? 1 : -1) });
   }
 }
@@ -628,7 +660,7 @@ L.build = function (g, entries) {
   const hi = HP.graphics3d && HP.graphics3d.tier !== 'low';
   const spots = [];
   L.ambience = { water: [], fire: [], fan: [] };
-  let dogHome = null;
+  let dogHome = null, dogHomePriority = 0;
   const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
   const envCache = new Map();
   const getLvlInfo = (it) => {
@@ -682,9 +714,9 @@ L.build = function (g, entries) {
         const unrotW = Math.max(3, ((it.w || (def && def.w) || 1)) * C() - 3);
         const unrotH = Math.max(3, ((it.h || (def && def.h) || 1)) * C() - 3);
         const isGrand = /^clock$|clkgrand|grandfather/i.test(t);
-        const dialRadius = isGrand ? unrotW * 0.28 : Math.min(unrotW, 26) * 0.42;
-        const dialOffset = isGrand ? unrotH * 0.26 + 0.3 : unrotH * 0.275 + 0.3;
-        addClock(cx, cz, it.rot || 0, unrotW, dialOffset, false, dialRadius, bY);
+        const dialRadius = isGrand ? Math.min(unrotW * 0.22, 4.4) : Math.min(unrotW, 26) * 0.42;
+        const dialOffset = isGrand ? unrotH * 0.235 : unrotH * 0.275 + 0.3;
+        addClock(cx, cz, it.rot || 0, unrotW, dialOffset, false, dialRadius, bY, isGrand ? 41.3 : undefined);
       }
     }
     else if (/walltv|sconce/.test(t)) {
@@ -716,7 +748,7 @@ L.build = function (g, entries) {
     }
     else if (/tvstand|media.*console/.test(t)) {
       // 65" 16:9 OLED TV screen on lowline credenza: exact bezel width=32.8, height=18.4, y=25.2
-      addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep - 0.65, 25.2, bY);
+      addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep + 0.42, 25.2, bY);
     }
     else if (/^shoecab$/i.test(t)) {
       const def = HP.itemDef ? HP.itemDef(it.type) : null;
@@ -736,7 +768,13 @@ L.build = function (g, entries) {
       }
     }
     if (hi && /flower|veggie|tomato|seedling|rose/i.test(t)) spots.push({ x: cx, z: cz });
-    if (bY < 20 && /doghouse|petbed|kennel/.test(t)) dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };
+    if (bY < 20 && (/doghouse|kennel/.test(t) || /petbed/.test(t))) {
+      const prio = /doghouse|kennel/.test(t) ? 2 : 1;
+      if (prio >= dogHomePriority) {
+        dogHomePriority = prio;
+        dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };
+      }
+    }
   }
   if (hi) {
     addBirds();
@@ -745,9 +783,10 @@ L.build = function (g, entries) {
   addFireflies();
   /* the dog — lives at the dog house, else wanders the yard          */
   dog = null;
-  if (HP.world3d.colliders) {
-    const home = dogHome || { x: HP.GRID_W * C() / 2, z: HP.GRID_H * C() * 0.75 };
-    addDog(home);
+  if (HP.world3d) {
+    const rawHome = dogHome || { x: HP.GRID_W * C() / 2, z: HP.GRID_H * C() * 0.75 };
+    const [sx, sz] = HP.world3d.colliders ? dogStep(rawHome.x, rawHome.z) : [rawHome.x, rawHome.z];
+    addDog({ x: sx, z: sz });
   }
 };
 
@@ -796,7 +835,9 @@ L.tick = function (dt, t, s, cam) {
   const night = s.night || 0;
   for (const lp of lampBulbs) {
     if (lp.src) lp.src.on = lp.on;
-    lp.mesh.visible = lp.on && night > 0.15;
+    const vis = lp.on && night > 0.15;
+    lp.mesh.visible = vis;
+    if (lp.shadeMesh) lp.shadeMesh.visible = vis;
   }
   for (const sc of shoeCabinets) {
     const target = sc.open ? 1 : 0;
@@ -818,9 +859,10 @@ L.tick = function (dt, t, s, cam) {
       const a = t * b.sp + b.ph;
       b.g.position.set(camX + Math.cos(a) * b.r, b.h + Math.sin(t * 0.4 + b.ph) * 4,
         camZ + Math.sin(a) * b.r);
-      b.g.rotation.y = -a + (b.sp > 0 ? Math.PI : 0);
-      const flap = Math.sin(t * 9 + b.ph) * 0.7;
-      b.wl.rotation.y = flap; b.wr.rotation.y = -flap;
+      b.g.rotation.y = -a + (b.sp > 0 ? 0 : Math.PI);
+      b.g.rotation.z = b.sp > 0 ? 0.14 : -0.14;
+      const flap = Math.sin(t * 7.5 + b.ph) * 0.42 - 0.12;
+      b.wl.rotation.z = flap; b.wr.rotation.z = -flap;
     }
   }
   for (const f of flies) {

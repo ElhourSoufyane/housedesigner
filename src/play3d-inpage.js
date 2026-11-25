@@ -169,20 +169,30 @@
     const btnAudit = document.getElementById('btn-audit');
     const panel = document.getElementById('audit');
     if (btnAudit && panel) {
+      const closeAudit = () => {
+        panel.style.display = 'none';
+        if (HP.world3d && HP.world3d.clearAudit) HP.world3d.clearAudit();
+      };
       btnAudit.onclick = () => {
+        if (panel.style.display === 'block') { closeAudit(); return; }
         const checks = W3.runAudit();
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Physical wall check</h3><button onclick="document.getElementById(\'audit\').style.display=\'none\'" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer">×</button></div>' + checks.map(c =>
+        panel.style.display = 'block';
+        panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">Physical wall check</h3><button type="button" class="audit-close" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer">×</button></div>' + checks.map(c =>
           `<div class="chk"><span class="${c.ok ? 'ok' : 'bad'}">${c.ok ? '✓' : '✗'}</span>
            <div><div>${c.name}</div><div class="det">${c.detail}</div></div></div>`).join('');
+        const xBtn = panel.querySelector('.audit-close');
+        if (xBtn) xBtn.onclick = closeAudit;
       };
     }
 
     const btnRebuild = document.getElementById('btn-rebuild');
     if (btnRebuild) {
       btnRebuild.onclick = () => {
+        const p = HP.walk3d && HP.walk3d.playerPos ? HP.walk3d.playerPos() : null;
+        if (HP.invalidateFloors) HP.invalidateFloors();
         HP.invalidateRegions();
         W3.buildLevel();
+        if (p && HP.walk3d && HP.walk3d.teleport) HP.walk3d.teleport(p.x, p.z, p.yaw, undefined, p.pitch);
       };
     }
   };
@@ -243,6 +253,10 @@
     HP.in3D = true;
     if (document.body) document.body.classList.add('in-3d');
     if (document.documentElement) document.documentElement.classList.add('in-3d');
+    const audit = document.getElementById('audit');
+    if (audit) audit.style.display = 'none';
+    if (HP.world3d && HP.world3d.clearAudit) HP.world3d.clearAudit();
+
     const wrap = document.getElementById('view3d-wrap');
     if (wrap) {
       wrap.classList.remove('hidden');
@@ -253,7 +267,7 @@
     if (overlay) {
       overlay.style.display = 'flex';
       const p = overlay.querySelector('p');
-      if (p) p.textContent = 'Preparing 3D walkthrough...';
+      if (p) p.textContent = (HP.graphics3d && HP.graphics3d.touch) ? 'tap to enter your home' : 'click to explore your home in 3D';
     }
 
     if (HP.preloadFloorTextures) HP.preloadFloorTextures();
@@ -274,6 +288,7 @@
       }
 
       HP.init3D(spawn);
+      if (HP.weather3d && HP.weather3d.syncUI) HP.weather3d.syncUI();
       if (HP.world3d && HP.world3d.camera) {
         const eyeH = (HP.world3d && HP.world3d.EYE) || 40;
         HP.world3d.camera.position.set(spawn.x, eyeH + (spawn.feetY || 0), spawn.y !== undefined ? spawn.y : spawn.z);
@@ -311,6 +326,10 @@
     if (document.exitPointerLock) {
       try { document.exitPointerLock(); } catch (e) {}
     }
+
+    const audit = document.getElementById('audit');
+    if (audit) audit.style.display = 'none';
+    if (HP.world3d && HP.world3d.clearAudit) HP.world3d.clearAudit();
 
     const wrap = document.getElementById('view3d-wrap');
     if (wrap) wrap.classList.add('hidden');

@@ -4,6 +4,8 @@
 const pointers = new Map();          // id -> {x,y}
 let pinch = null;
 let placing = false;                 // pointer gesture inside placement mode
+let midPan = null;
+HP.spaceDown = false;
 
 function evtPoint(e) {
   const w = HP.s2w(e.clientX, e.clientY);
@@ -37,12 +39,20 @@ HP.initInput = function () {
   cv.addEventListener('wheel', onWheel, { passive: false });
   cv.addEventListener('pointerleave', () => { HP.ghost = null; HP.markDirty(); });
   document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup', e => {
+    if (e.code === 'Space') {
+      HP.spaceDown = false;
+      if (!midPan) cv.style.cursor = '';
+    }
+  });
+  window.addEventListener('blur', () => { HP.spaceDown = false; midPan = null; cv.style.cursor = ''; });
 
   function onDown(e) {
     if (HP.playing) return;                       // walk.js owns input in play mode
     cv.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {                       // begin pinch
+      midPan = null;
       const [a, b] = [...pointers.values()];
       pinch = {
         d0: Math.hypot(a.x - b.x, a.y - b.y),
@@ -51,6 +61,12 @@ HP.initInput = function () {
         cam0: { ...HP.camera }
       };
       HP.tools[HP.tool].cancel(); placing = false;
+      return;
+    }
+    if (e.button === 1 || (e.button === 0 && HP.spaceDown)) {
+      e.preventDefault();
+      midPan = { sx: e.clientX, sy: e.clientY, cam: { ...HP.camera } };
+      cv.style.cursor = 'grabbing';
       return;
     }
     if (e.button === 2) {                            // right click: cancel
@@ -66,6 +82,12 @@ HP.initInput = function () {
     if (HP.playing) return;
     const rec = pointers.get(e.pointerId);
     if (rec) { rec.x = e.clientX; rec.y = e.clientY; }
+    if (midPan) {
+      HP.camera.x = midPan.cam.x - (e.clientX - midPan.sx) / HP.camera.zoom;
+      HP.camera.y = midPan.cam.y - (e.clientY - midPan.sy) / HP.camera.zoom;
+      HP.markDirty();
+      return;
+    }
     if (pinch && pointers.size >= 2) {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -90,6 +112,7 @@ HP.initInput = function () {
   function onUp(e) {
     if (HP.playing) return;
     pointers.delete(e.pointerId);
+    if (midPan) { midPan = null; cv.style.cursor = HP.spaceDown ? 'grab' : ''; return; }
     if (pinch) { if (pointers.size < 2) pinch = null; return; }
     const p = evtPoint(e);
     if (HP.pending) {
@@ -139,9 +162,14 @@ HP.initInput = function () {
   }
 
   function onKey(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
     if (HP.in3D) {
       if (e.key === 'Escape' && HP.exit3D) HP.exit3D();
+      return;
+    }
+    if (e.code === 'Space' && !HP.playing) {
+      e.preventDefault();
+      if (!HP.spaceDown) { HP.spaceDown = true; if (!midPan) cv.style.cursor = 'grab'; }
       return;
     }
     const k = e.key.toLowerCase();

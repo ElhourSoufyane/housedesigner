@@ -37,8 +37,28 @@ const _saveState = HP.saveState;
 HP.saveState = function () { _saveState(); markAutosaved(); };
 
 /* ---------- mobile inspector drawer ---------- */
-function openInspector() { $('#inspector').classList.add('open'); }
-function closeInspector() { $('#inspector').classList.remove('open'); }
+function syncToolRailActive() {
+  const insp = $('#inspector');
+  const openSettings = insp && insp.dataset.sec === 'settings' &&
+    (insp.classList.contains('open') || window.innerWidth > 820);
+  const activeKey = openSettings ? 'settings' : HP.tool;
+  document.querySelectorAll('#toolrail .tool').forEach(b =>
+    b.classList.toggle('active', b.dataset.tool === activeKey));
+}
+function openInspector() {
+  $('#inspector').classList.add('open');
+  document.body.classList.add('insp-open');
+  syncToolRailActive();
+}
+function closeInspector() {
+  const insp = $('#inspector');
+  insp.classList.remove('open');
+  document.body.classList.remove('insp-open');
+  if (insp.dataset.sec === 'settings') {
+    insp.dataset.sec = SEC_FOR[HP.tool] || 'generic';
+  }
+  syncToolRailActive();
+}
 
 /* ---------- generic choice dialog ---------- */
 function showDialog({ title, desc, buttons }) {
@@ -75,17 +95,42 @@ const TOOL_HINTS = {
 function setTool(t) {
   const insp = $('#inspector');
   if (t === 'settings') {
-    if (insp.dataset.sec === 'settings' && insp.classList.contains('open')) { closeInspector(); return; }
-    insp.dataset.sec = 'settings'; settingsUI(); openInspector(); return;
+    const isDesktop = window.innerWidth > 820;
+    const isAlreadySettings = insp.dataset.sec === 'settings' && (isDesktop || insp.classList.contains('open'));
+    if (isAlreadySettings) {
+      closeInspector();
+      refreshInspector();
+      return;
+    }
+    insp.dataset.sec = 'settings';
+    settingsUI();
+    openInspector();
+    return;
   }
-  if (t === HP.tool && SEC_FOR[t]) { insp.classList.toggle('open'); return; }   // 2nd tap toggles the panel
+  if (HP.tool && HP.tools && HP.tools[HP.tool] && HP.tools[HP.tool].cancel && t !== HP.tool) {
+    HP.tools[HP.tool].cancel();
+  }
+  if (t === HP.tool && SEC_FOR[t]) {
+    if (insp.dataset.sec === 'settings') {
+      insp.dataset.sec = SEC_FOR[t];
+      openInspector();
+      refreshInspector();
+      return;
+    }
+    if (insp.classList.contains('open')) closeInspector(); else openInspector();
+    return;
+  }   // 2nd tap toggles the panel
   HP.tool = t;
   HP.measureLine = null;
-  document.querySelectorAll('#toolrail .tool').forEach(b =>
-    b.classList.toggle('active', b.dataset.tool === t));
   HP.status(TOOL_HINTS[t] || 'Ready');
-  if (SEC_FOR[t]) openInspector(); else closeInspector();   // drawer only for tools with a panel
+  if (SEC_FOR[t]) {
+    insp.dataset.sec = SEC_FOR[t];
+    openInspector();
+  } else {
+    closeInspector();
+  }   // drawer only for tools with a panel
   if (t === 'furniture') $('#insp-catalog-sec').scrollIntoView({ block: 'start' });
+  syncToolRailActive();
   HP.markDirty();
   refreshInspector();
 }
@@ -157,10 +202,47 @@ function placingUI() {
 
 function itemUI(it) {
   const top = $('#insp-top'), def = HP.itemDef(it.type);
-  const members = HP.groupOf(it);
+  const setMembers = HP.selSet ? HP.selSet() : HP.groupOf(it);
+  const isMultiSet = !!(HP.selectedSet && HP.selectedSet.length > 1 && setMembers.length > 1);
   top.innerHTML = '';
   const s = document.createElement('div');
   s.className = 'insp-section';
+
+  if (isMultiSet) {
+    $('#edit-title').textContent = setMembers.length + ' items selected';
+    const row = document.createElement('div');
+    row.appendChild(btn('Rotate All', '', () => HP.rotateActive()));
+    row.appendChild(btn('Copy', '', () => HP.duplicateSelected()));
+    row.appendChild(btn('Delete', 'danger', () => HP.deleteSelected()));
+    s.appendChild(row);
+    const sameGroup = setMembers.every(m => m.g && m.g === setMembers[0].g);
+    if (!sameGroup) {
+      const row2 = document.createElement('div');
+      row2.appendChild(btn('Connect Group', '', () => {
+        HP.pushUndo();
+        const gid = HP.maxGroup ? HP.maxGroup() + 1 : 1;
+        for (const m of setMembers) m.g = gid;
+        HP.saveState(); HP.markDirty(); HP.refreshContext();
+        HP.status('Grouped ' + setMembers.length + ' items together');
+      }));
+      s.appendChild(row2);
+    }
+    const counts = {};
+    for (const m of setMembers) {
+      const md = HP.itemDef(m.type);
+      const nm = (md && md.name) || m.type;
+      counts[nm] = (counts[nm] || 0) + 1;
+    }
+    const summary = Object.entries(counts).map(([nm, n]) => n > 1 ? nm + ' ×' + n : nm).join(' · ');
+    const info = document.createElement('div');
+    info.className = 'hint';
+    info.textContent = summary;
+    s.appendChild(info);
+    top.appendChild(s);
+    return;
+  }
+
+  const members = HP.groupOf(it);
   $('#edit-title').textContent = (def.brand ? def.brand + ' ' : '') + def.name + (members.length > 1 ? ' ×' + members.length : '');
   const row = document.createElement('div');
   row.appendChild(btn('Rotate', '', () => HP.rotateActive()));
@@ -207,9 +289,15 @@ function itemUI(it) {
   };
   mkStep('W', -1, 0);
   mkStep('H', 0, -1);
-  const rs = btn('<svg class="ic"><use href="#i-reset"/></svg>', '', () => { const d = HP.itemDef(it.type);
-    HP.resizeItem(it, (it.rot % 2 === 0 ? d.w : d.h) - f.w, (it.rot % 2 === 0 ? d.h : d.w) - f.h); });
-  rs.title = 'Reset size'; sr.appendChild(rs);
+  const defW = it.rot % 2 === 0 ? def.w : def.h;
+  const defH = it.rot % 2 === 0 ? def.h : def.w;
+  if (f.w !== defW || f.h !== defH) {
+    const rs = btn('<svg class="ic"><use href="#i-reset"/></svg>', '', () => {
+      HP.resizeItem(it, defW - f.w, defH - f.h);
+    });
+    rs.title = 'Reset size to ' + (defW / 2).toFixed(1) + 'm × ' + (defH / 2).toFixed(1) + 'm';
+    sr.appendChild(rs);
+  }
   sizeF.appendChild(sr);
   s.appendChild(sizeF);
   if (def.colors.length > 1) {
@@ -344,13 +432,14 @@ function roomUI() {
   curLvl.ceilings = curLvl.ceilings || {};
   curLvl.roomCeilings = curLvl.roomCeilings || {};
   const firstCellKey = HP.cellKey(r.cells[0][0], r.cells[0][1]);
+  const curName = r.name || (curLvl.roomNames && r.cells.map(([cx, cy]) => curLvl.roomNames[HP.cellKey(cx, cy)]).find(Boolean)) || '';
   const cellCeil = curLvl.ceilings[firstCellKey];
   const roomCeil = (r.id !== undefined && curLvl.roomCeilings[r.id]) || cellCeil || {};
   let curCeilStyle = (typeof roomCeil === 'string' ? roomCeil : (roomCeil.style || 'plaster')).toLowerCase();
   let curCeilColor = typeof roomCeil === 'object' ? (roomCeil.color || '') : '';
 
   s.innerHTML = `<div class="field"><label>Room Name</label>
-      <input type="text" id="room-name-i" value="${(r.name || '').replace(/"/g, '&quot;')}" placeholder="e.g. Bedroom">
+      <input type="text" id="room-name-i" value="${curName.replace(/"/g, '&quot;')}" placeholder="e.g. Bedroom">
       <button class="ibtn primary" id="room-name-apply" style="display:none;margin-top:8px">Apply Name</button></div>
     <div class="field"><label>Flooring — click to apply</label><div class="fam-list" id="room-sw"></div></div>
     <div class="field"><label>Wall Style / Material</label>
@@ -441,7 +530,7 @@ function roomUI() {
   });
 
   const nameI = $('#room-name-i'), applyB = $('#room-name-apply');
-  const origName = r.name || '';
+  const origName = curName;
   nameI.addEventListener('input', () => {
     applyB.style.display = nameI.value.trim() !== origName ? 'inline-block' : 'none';
   });
@@ -533,22 +622,28 @@ function settingsUI() {
     const b = btn(on ? 'ON' : 'OFF', on ? 'primary' : '', () => { fn(); settingsUI(); });
     f.appendChild(b); s.appendChild(f);
   };
-  mkTog('Grid lines', HP.showGrid, () => { HP.showGrid = !HP.showGrid; HP.invalidateRegions(); HP.saveState(); });
+  mkTog('Grid lines', HP.showGrid, () => { HP.toggleGrid(); HP.saveState(); });
   mkTog('Photo floor textures', HP.state.photoFloors !== false,
     () => {
       HP.state.photoFloors = !(HP.state.photoFloors !== false);
       if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
-      HP.saveState(); settingsUI();
+      if (HP.repaintFloorPreviews) HP.repaintFloorPreviews();
+      HP.saveState(); HP.markDirty();
+      HP.status('Photo floor textures: ' + (HP.state.photoFloors !== false ? 'ON' : 'OFF'));
     });
 
   const fStyle = document.createElement('div'); fStyle.className = 'field';
   const curFloorStyle = (HP.graphics3d && HP.graphics3d.getFloorStyle) ? HP.graphics3d.getFloorStyle() : (localStorage.getItem('hp_floor_style') || '3d');
+  const styleDescText = st => st === 'photo'
+    ? 'Smooth flat photographic slabs in 3D view.'
+    : 'Physical beveled tiles, recessed grout seams, and tactile relief in 3D view.';
   fStyle.innerHTML = `
     <label>Floor material style</label>
     <select id="ui-floor-style" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12px">
       <option value="3d"${curFloorStyle === '3d' ? ' selected' : ''}>✨ 3D Relief (Beveled Pavers & Planks)</option>
       <option value="photo"${curFloorStyle === 'photo' ? ' selected' : ''}>📷 Photographic (Smooth Slabs)</option>
     </select>
+    <div class="hint" id="ui-floor-style-desc" style="margin-top:4px">${styleDescText(curFloorStyle)}</div>
   `;
   const fStyleSel = fStyle.querySelector('#ui-floor-style');
   fStyleSel.onchange = () => {
@@ -557,6 +652,11 @@ function settingsUI() {
     } else {
       try { localStorage.setItem('hp_floor_style', fStyleSel.value); } catch (_) {}
     }
+    const d = fStyle.querySelector('#ui-floor-style-desc');
+    if (d) d.textContent = styleDescText(fStyleSel.value);
+    const fs3 = $('#floor-style'), fs3d = $('#floor-style-desc');
+    if (fs3) fs3.value = fStyleSel.value;
+    if (fs3d) fs3d.textContent = styleDescText(fStyleSel.value);
   };
   s.appendChild(fStyle);
   if (HP.state.level > 0)
@@ -580,7 +680,8 @@ function settingsUI() {
   const v = document.createElement('div');
   v.className = 'hint';
   v.style.marginTop = '14px';
-  v.textContent = 'Build ' + (HP.VERSION || '?') + ' — house-designer on GitHub Pages';
+  const badgeVer = (document.getElementById('btn-ver')?.textContent || '').replace(/\s*✓.*/, '').trim();
+  v.textContent = 'Build ' + (badgeVer || HP.VERSION || '?') + ' — house-designer on GitHub Pages';
   s.appendChild(v);
 }
 
@@ -1590,7 +1691,7 @@ function projectStats() {
   const gw = HP.state.w || HP.GRID_W, gh = HP.state.h || HP.GRID_H;
   let rooms = 0, pieces = 0;
   const interiors = [];
-  const curReg = HP.regions || (HP.computeRegions && HP.computeRegions());
+  const curReg = HP.editingInterior ? null : (HP.regions || (HP.computeRegions && HP.computeRegions()));
   let curCount = 0;
   if (curReg && curReg.regionOf) {
     for (let j = 0; j < curReg.regionOf.length; j++) if (curReg.regionOf[j] >= 0) curCount++;
@@ -1598,23 +1699,26 @@ function projectStats() {
   for (let i = 0; i < HP.state.levels.length; i++) {
     const lvl = HP.state.levels[i];
     let floorArea = 0;
-    if (i === HP.state.level) {
+    if (!HP.editingInterior && i === HP.state.level) {
       floorArea = curCount * m2;
     } else {
-      if (lvl._cachedArea === undefined) lvl._cachedArea = HP.interiorCells(i) * m2;
-      floorArea = lvl._cachedArea;
+      floorArea = HP.interiorCells ? HP.interiorCells(i) * m2 : 0;
     }
     interiors.push(floorArea);
-    rooms += new Set(Object.values(lvl.roomNames)).size;
-    pieces += lvl.furniture.length;
+    rooms += new Set(Object.values(lvl.roomNames || {})).size;
+    pieces += (lvl.furniture || []).length;
   }
+  const intBannerRow = HP.editingInterior
+    ? `<div class="stat-row"><span class="k">Editing ${HP.editingInterior.item?.type === 'greenhouse' ? 'Glasshouse' : 'Treehouse'}</span><span class="v accent">${(HP.editingInterior.item?.w || 6) * (HP.editingInterior.item?.h || 6) * m2} m²</span></div>`
+    : '';
   const areaRows = interiors.length > 1
     ? interiors.map((a, i) =>
-        `<div class="stat-row"><span class="k">Interior · Floor ${i + 1}</span><span class="v${i === HP.state.level ? ' accent' : ''}">${a.toFixed(1)} m²</span></div>`).join('')
+        `<div class="stat-row"><span class="k">Interior · Floor ${i + 1}</span><span class="v${!HP.editingInterior && i === HP.state.level ? ' accent' : ''}">${a.toFixed(1)} m²</span></div>`).join('')
     : `<div class="stat-row"><span class="k">Interior area</span><span class="v accent">${interiors[0].toFixed(1)} m²</span></div>`;
   el.innerHTML = `
     <div class="stat-row"><span class="k">Floors</span><span class="v">${HP.state.levels.length}</span></div>
     <div class="stat-row"><span class="k">Plot</span><span class="v">${(gw * 0.5).toFixed(0)}×${(gh * 0.5).toFixed(0)} m (${(gw * gh * m2).toFixed(0)} m²)</span></div>
+    ${intBannerRow}
     ${areaRows}
     <div class="stat-row"><span class="k">Named rooms</span><span class="v">${rooms}</span></div>
     <div class="stat-row"><span class="k">Furniture pieces</span><span class="v">${pieces}</span></div>`;
@@ -1628,6 +1732,7 @@ function refreshInspector(force) {
   if (force === 'settings') { insp.dataset.sec = 'settings'; settingsUI(); }
   else insp.dataset.sec = SEC_FOR[HP.tool] ||            // keep Settings visible
     (insp.dataset.sec === 'settings' ? 'settings' : 'generic');   // while it's open
+  syncToolRailActive();
   const h = $('#tool-hint'); if (h) h.textContent = TOOL_HINTS[HP.tool] || '';
   const top = $('#insp-top');
   top.innerHTML = '';
@@ -1636,12 +1741,32 @@ function refreshInspector(force) {
   else if (HP.selectedFeature) featureSelectedUI(HP.selectedFeature);
   else if (HP.selectedWall) wallSelectedUI(HP.selectedWall);
   else if (HP.selectedRoom) roomUI();
-  $('#edit-panel').classList.toggle('hidden', !top.firstChild);
+  const ep = $('#edit-panel');
+  const showEp = !!top.firstChild;
+  ep.classList.toggle('hidden', !showEp);
+  if (!showEp) {
+    ep.style.left = ''; ep.style.top = ''; ep.style.right = '';
+  } else {
+    const banner = $('#interior-banner');
+    if (banner && !banner.classList.contains('hidden')) {
+      const wrap = ep.parentElement?.getBoundingClientRect();
+      const bRect = banner.getBoundingClientRect();
+      const minTop = wrap ? Math.max(16, Math.ceil(bRect.bottom - wrap.top + 8)) : 68;
+      if (!ep.style.top || parseFloat(ep.style.top) < minTop) ep.style.top = minTop + 'px';
+    }
+  }
+  const hasDoorWinSel = !!(HP.selectedFeature && (HP.tool === 'door' || HP.tool === 'window'));
   if (insp.dataset.sec === 'wall') wallUI();
   if (insp.dataset.sec === 'floor') floorUI();
   if (insp.dataset.sec === 'fence') fenceUI();
-  if (insp.dataset.sec === 'door') doorUI();
-  if (insp.dataset.sec === 'window') windowUI();
+  if (insp.dataset.sec === 'door') {
+    if (hasDoorWinSel) $('#door-panel').innerHTML = '<div class="hint">Editing selected door in floating inspector. Click an empty wall to place another.</div>';
+    else doorUI();
+  }
+  if (insp.dataset.sec === 'window') {
+    if (hasDoorWinSel) $('#window-panel').innerHTML = '<div class="hint">Editing selected window in floating inspector. Click an empty wall to place another.</div>';
+    else windowUI();
+  }
   projectStats();
 }
 HP.refreshContext = refreshInspector;
@@ -1651,23 +1776,25 @@ HP.refreshInspector = refreshInspector;
    Mobile browsers blank canvas elements inside scroll/transformed panels.
    Render previews to <img> only when a tile scrolls into view — fewer live
    canvases (iOS/Android purge canvas memory) and images always composite. */
-function lazyThumb(listWrap, el, id, make) {
+function lazyThumb(listWrap, el, id, make, immediate) {
+  const slot = el.querySelector('.cat-thumb') || el;
   const paint = () => {
     try {
       const img = document.createElement('img');
       img.draggable = false; img.alt = '';
       img.src = make(id).toDataURL();
-      el.prepend(img);
+      if (slot === el) el.prepend(img);
+      else slot.appendChild(img);
     } catch (e) { /* leave the tile empty rather than breaking the list */ }
   };
-  if (!('IntersectionObserver' in window)) { paint(); return; }
+  if (immediate || !('IntersectionObserver' in window)) { paint(); return; }
   if (!listWrap._io) listWrap._io = new IntersectionObserver(entries => {
     for (const en of entries) {
       if (!en.isIntersecting) continue;
       listWrap._io.unobserve(en.target);
       en.target._paint && en.target._paint();
     }
-  }, { rootMargin: '300px' });
+  }, { root: $('#inspector') || null, rootMargin: '500px' });
   el._paint = paint;
   listWrap._io.observe(el);
 }
@@ -1685,15 +1812,34 @@ function buildCatalog(filter) {
     if (!byCat[def.cat]) { byCat[def.cat] = []; cats.push(def.cat); }
     byCat[def.cat].push(def);
   }
+  if (!q && cats.length > 1) {
+    const tabs = document.createElement('div');
+    tabs.className = 'cat-tabs';
+    for (const cat of cats) {
+      const tb = document.createElement('button');
+      tb.className = 'cat-tab';
+      tb.type = 'button';
+      tb.textContent = cat;
+      tb.onclick = () => {
+        const hdr = wrap.querySelector(`.cat-title[data-cat="${cat}"]`);
+        if (hdr) hdr.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      tabs.appendChild(tb);
+    }
+    wrap.appendChild(tabs);
+  }
+  let itemIdx = 0;
   for (const cat of cats) {
     const h = document.createElement('div');
-    h.className = 'cat-title'; h.textContent = cat;
+    h.className = 'cat-title'; h.textContent = cat; h.dataset.cat = cat;
     wrap.appendChild(h);
     const grid = document.createElement('div'); grid.className = 'cat-grid';
     wrap.appendChild(grid);
     for (const def of byCat[cat]) {
       const d = document.createElement('button');
       d.className = 'cat-item';
+      const th = document.createElement('div'); th.className = 'cat-thumb';
+      d.appendChild(th);
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = def.name;
       d.appendChild(nm);
       if (def.brand) {
@@ -1701,7 +1847,7 @@ function buildCatalog(filter) {
         d.appendChild(br);
       }
       d.onclick = () => {
-        HP.selectedRoom = null; HP.selected = null;
+        HP.selectedRoom = null; HP.selected = null; HP.selectedSet = [];
         HP.pending = { def, rot: 0, v: 0 };
         HP.ghost = null;
         HP.setTool('furniture');
@@ -1711,7 +1857,8 @@ function buildCatalog(filter) {
         HP.markDirty();
       };
       grid.appendChild(d);
-      lazyThumb(wrap, d, def.id, id => HP.itemPreview(id, 112, 80));
+      lazyThumb(wrap, d, def.id, id => HP.itemPreview(id, 112, 80), itemIdx < 36 || !!q);
+      itemIdx++;
     }
   }
 }
@@ -1818,7 +1965,7 @@ HP.initUI = function () {
   };
 
   $('#btn-play').onclick = () => HP.togglePlay();
-  $('#catalog-fab').onclick = () => $('#inspector').classList.toggle('open');
+  $('#catalog-fab').onclick = () => $('#inspector').classList.contains('open') ? closeInspector() : openInspector();
   $('#insp-grabber').onclick = () => closeInspector();
 
   /* floating edit panel: close button + drag by header */
@@ -1836,13 +1983,18 @@ HP.initUI = function () {
   eh.addEventListener('pointerdown', e => {
     if (e.target.closest('#edit-close')) return;
     const r = ep.getBoundingClientRect(), w = ep.parentElement.getBoundingClientRect();
-    epd = { dx: e.clientX - r.left, dy: e.clientY - r.top, left: w.left, top: w.top, w: w.width, h: w.height };
+    const banner = $('#interior-banner');
+    const minY = (banner && !banner.classList.contains('hidden'))
+      ? Math.max(6, Math.ceil(banner.getBoundingClientRect().bottom - w.top + 8)) : 6;
+    const sb = document.querySelector('.statusbar');
+    const maxBottom = sb ? Math.min(w.height, sb.getBoundingClientRect().top - w.top) : w.height;
+    epd = { dx: e.clientX - r.left, dy: e.clientY - r.top, left: w.left, top: w.top, w: w.width, minY, maxH: Math.max(120, maxBottom - 8) };
     eh.setPointerCapture(e.pointerId);
   });
   eh.addEventListener('pointermove', e => {
     if (!epd) return;
-    const x = Math.max(0, Math.min(e.clientX - epd.dx - epd.left, epd.w - ep.offsetWidth));
-    const y = Math.max(0, Math.min(e.clientY - epd.dy - epd.top, epd.h - ep.offsetHeight));
+    const x = Math.max(6, Math.min(e.clientX - epd.dx - epd.left, epd.w - ep.offsetWidth - 6));
+    const y = Math.max(epd.minY, Math.min(e.clientY - epd.dy - epd.top, epd.maxH - ep.offsetHeight));
     ep.style.left = x + 'px'; ep.style.top = y + 'px'; ep.style.right = 'auto';
   });
   eh.addEventListener('pointerup', () => { epd = null; });
