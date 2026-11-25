@@ -104,6 +104,7 @@
       if (snd) snd.onchange = () => { HP.sound3d.setEnabled(snd.checked); if (snd.checked) HP.sound3d.start(); syncSnd(); };
       if (sndBtn) sndBtn.onclick = () => { const next = !HP.sound3d.enabled(); HP.sound3d.setEnabled(next); if (next) HP.sound3d.start(); syncSnd(); };
     }
+    if (HP.weather3d && HP.weather3d.syncUI) HP.weather3d.syncUI();
 
     const pushBox = document.getElementById('push-furniture');
     if (pushBox) {
@@ -209,7 +210,7 @@
       pendingFloorsChanged = false;
       pendingFurnitureChanged = false;
       if (HP.in3D && HP.world3d) {
-        if (mustRebuildStatic || !HP.world3d.furnitureGroup || !HP.world3d.floorGroup) {
+        if (mustRebuildStatic) {
           HP.invalidateRegions();
           HP.world3d.buildLevel();
         } else {
@@ -240,8 +241,8 @@
     } catch (e) {}
 
     HP.in3D = true;
-    document.body.classList.add('in-3d');
-    document.documentElement.classList.add('in-3d');
+    if (document.body) document.body.classList.add('in-3d');
+    if (document.documentElement) document.documentElement.classList.add('in-3d');
     const wrap = document.getElementById('view3d-wrap');
     if (wrap) {
       wrap.classList.remove('hidden');
@@ -297,10 +298,10 @@
 
   HP.exit3D = function () {
     HP.in3D = false;
-    document.body.classList.remove('in-3d');
-    document.documentElement.classList.remove('in-3d');
+    if (document.body) document.body.classList.remove('in-3d');
+    if (document.documentElement) document.documentElement.classList.remove('in-3d');
     if (HP.walk3d && HP.walk3d.pause) HP.walk3d.pause();
-    if (HP.sound3d && HP.sound3d.suspend) HP.sound3d.suspend();
+    if (HP.sound3d && HP.sound3d.stop) HP.sound3d.stop();
 
     const name = (HP.sync && HP.sync.myName) || (HP.sync3d && HP.sync3d.myName) || 'Player';
     if (HP.sync && HP.sync.sendAll) {

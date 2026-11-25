@@ -33,7 +33,7 @@ function glowMat(color) {
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
 
 /* ---------- per-item working parts ---------- */
-function addFan(cx, cz) {
+function addFan(cx, cz, baseY) {
   const g = new THREE.Group();
   const m = std('#1e293b', { roughness: 0.4, metalness: 0.3 });
   const wood = std('#8a6844', { roughness: 0.6 });
@@ -70,11 +70,11 @@ function addFan(cx, cz) {
   blades.position.y = -6.5;
   g.add(blades);
 
-  g.position.set(cx, HP.geom3d.WALL_H - 2, cz);
+  g.position.set(cx, (baseY || 0) + HP.geom3d.WALL_H - 2, cz);
   group.add(g);
   spinners.push({ obj: blades, speed: 7 });
 }
-function addClock(cx, cz, rot, w, off, isHung, customR) {
+function addClock(cx, cz, rot, w, off, isHung, customR, baseY) {
   const g = new THREE.Group();
   const r = customR !== undefined ? customR : Math.min(w, 26) * 0.42;
   const darkCase = std('#2c221e');
@@ -129,7 +129,7 @@ function addClock(cx, cz, rot, w, off, isHung, customR) {
   second.geometry.translate(r * 0.38, 0, 0); second.position.z = isHung ? 1.8 : 0.4;
 
   g.add(face, rim, hour, minute, second);
-  g.position.set(cx, isHung ? 46 : 44, cz);
+  g.position.set(cx, (baseY || 0) + (isHung ? 46 : 44), cz);
   g.rotation.y = -rot * Math.PI / 2;
 
   const fwd = new THREE.Vector3(0, 0, off === undefined ? 2.6 : off).applyEuler(g.rotation);
@@ -219,11 +219,11 @@ function addFish(cx, cz, w, dep, tankY) {
   }
 }
 /* flames sit at the firebox mouth — offset toward the facing side  */
-function addFire(cx, cz, rot, dep, h) {
+function addFire(cx, cz, rot, dep, h, baseY, it) {
   const a = -rot * Math.PI / 2;
   // Place flames right over the grate logs at center of open firebox (z = +0.06 * dep)
   const ox = Math.sin(a) * dep * 0.06, oz = Math.cos(a) * dep * 0.06;
-  const fy = Math.max(4, h * 0.24);
+  const fy = (baseY || 0) + Math.max(4, h * 0.24);
   const cones = [];
   const cols = ['#ff5a1f', '#ffa03d', '#ffe08a'];
   for (let i = 0; i < 3; i++) {
@@ -232,26 +232,36 @@ function addFire(cx, cz, rot, dep, h) {
                    cz + oz - (i - 1) * 1.6 * Math.sin(a));
     group.add(c); cones.push(c);
   }
-  // Calibrated warm hearth light: distance 70, decay 1.5, offset forward into room so light doesn't penetrate rear wall
-  const light = new THREE.PointLight(0xff8a3d, 0.75, 70, 1.5);
-  light.position.set(cx + Math.sin(a) * dep * 0.35, fy + 6, cz + Math.cos(a) * dep * 0.35);
-  group.add(light);
-  const f = { cones, light, on: true, x: cx, z: cz };
+  // Use the fixed PointLight pool instead of adding extra dynamic PointLights (avoids shader recompilation)
+  const lightSrc = {
+    id: (it && it.id !== undefined) ? 'fire_' + it.id : undefined,
+    it: null,
+    x: cx + Math.sin(a) * dep * 0.35,
+    y: fy + 6,
+    z: cz + Math.cos(a) * dep * 0.35,
+    power: 0.9,
+    on: true,
+    isFire: true
+  };
+  if (HP.world3d && Array.isArray(HP.world3d.lamps)) {
+    HP.world3d.lamps.push(lightSrc);
+  }
+  const f = { cones, lightSrc, on: true, x: cx, z: cz, y: fy };
   fires.push(f);
   // Interaction prompt placed cleanly in front of the hearth opening
-  L.interactables.push({ x: cx + Math.sin(a) * dep * 0.45, z: cz + Math.cos(a) * dep * 0.45, kind: 'fire', ref: f });
+  L.interactables.push({ x: cx + Math.sin(a) * dep * 0.45, y: baseY || 0, z: cz + Math.cos(a) * dep * 0.45, kind: 'fire', ref: f });
 }
-function addScreen(cx, cz, rot, screenW, screenH, offZ, iy) {
+function addScreen(cx, cz, rot, screenW, screenH, offZ, iy, baseY) {
   const m = glowMat('#08090b');
   const s = new THREE.Mesh(new THREE.PlaneGeometry(screenW, screenH), m);
-  s.position.set(cx, iy !== undefined ? iy : 25, cz);
+  s.position.set(cx, (baseY || 0) + (iy !== undefined ? iy : 25), cz);
   s.rotation.y = -rot * Math.PI / 2;
   const fwd = new THREE.Vector3(0, 0, offZ !== undefined ? offZ : 0.8).applyEuler(s.rotation);
   s.position.add(fwd);
   group.add(s);
   const sc = { mat: m, on: false, mesh: s, x: cx, z: cz };
   screens.push(sc);
-  L.interactables.push({ x: cx, z: cz, kind: 'tv', ref: sc });
+  L.interactables.push({ x: cx, y: baseY || 0, z: cz, kind: 'tv', ref: sc });
 }
 function addLampBulb(cx, cy, cz, it, cfg) {
   /* nearest world light source → this lamp's switch controls it */
@@ -260,8 +270,9 @@ function addLampBulb(cx, cy, cz, it, cfg) {
     src = (HP.world3d.lamps || []).find(s => s.id === it.id);
   }
   if (!src) {
-    let bd = 20 * 20;
+    let bd = 10 * 10;
     for (const s of (HP.world3d.lamps || [])) {
+      if (Math.abs((s.y || 0) - cy) > 40) continue;
       const d = (s.x - cx) ** 2 + (s.z - cz) ** 2;
       if (d < bd) { bd = d; src = s; }
     }
@@ -578,8 +589,9 @@ function dogTick(dt, t, s, cam) {
 function addFireflies() {
   const n = 22, pos = new Float32Array(n * 3);
   fireflySeed = [];
+  const gw = (HP.GRID_W || 62) * C(), gh = (HP.GRID_H || 40) * C();
   for (let i = 0; i < n; i++) {
-    const x = (8 + Math.random() * 45) * C(), z = (2 + Math.random() * 38) * C();
+    const x = (0.05 + Math.random() * 0.90) * gw, z = (0.05 + Math.random() * 0.90) * gh;
     fireflySeed.push({ x, z, ph: Math.random() * 9, sp: 0.3 + Math.random() * 0.5 });
     pos[i * 3] = x; pos[i * 3 + 1] = 10 + Math.random() * 14; pos[i * 3 + 2] = z;
   }
@@ -617,54 +629,54 @@ L.build = function (g, entries) {
   const spots = [];
   L.ambience = { water: [], fire: [], fan: [] };
   let dogHome = null;
-  const lvl = (HP.state && HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
-  const lvlWalls = (lvl && lvl.walls) || {};
-  let geomEnv = null;
-  if (HP.state && HP.computeRegions) {
-    try {
-      const cr = HP.computeRegions();
-      if (cr && cr.regionOf && cr.regions) {
-        geomEnv = {
-          C: C(),
-          rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : cr.regionOf[y * HP.GRID_W + x],
-          rsz: id => id >= 0 && cr.regions[id] ? cr.regions[id].cells.length : 1e9
-        };
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
+  const envCache = new Map();
+  const getLvlInfo = (it) => {
+    const lIdx = (it && it._levelIdx !== undefined) ? it._levelIdx : ((HP.state && HP.state.level) || 0);
+    const itemLvl = (allLevels && allLevels[lIdx]) || (HP.cur && HP.cur()) || null;
+    const itemWalls = (itemLvl && itemLvl.walls) || {};
+    if (!envCache.has(lIdx)) {
+      let ge = null;
+      if (HP.state && HP.computeRegions && itemLvl) {
+        try {
+          const cr = HP.computeRegions(itemLvl);
+          if (cr && cr.regionOf && cr.regions) {
+            ge = {
+              C: C(),
+              rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : cr.regionOf[y * HP.GRID_W + x],
+              rsz: id => id >= 0 && cr.regions[id] ? cr.regions[id].cells.length : 1e9
+            };
+          }
+        } catch (err) {}
       }
-    } catch (err) {}
-  }
+      envCache.set(lIdx, ge);
+    }
+    return { itemLvl, itemWalls, geomEnv: envCache.get(lIdx) };
+  };
   for (const e of entries) {
     const it = e.it, f = e.f;
+    const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
+    const { itemWalls: lvlWalls, geomEnv } = getLvlInfo(it);
     const cx = (f.x + f.w / 2) * C(), cz = (f.y + f.h / 2) * C();
     const t = it.type.toLowerCase();
     const w = Math.max(3, f.w * C() - 3);
     const dep = Math.max(3, f.h * C() - 3);
-    if (/ceilingfan/.test(t)) { addFan(cx, cz); L.ambience.fan.push({ x: cx, z: cz }); }
+    if (/ceilingfan/.test(t)) { addFan(cx, cz, bY); L.ambience.fan.push({ x: cx, y: bY, z: cz }); }
     else if (/clock|^clk/.test(t)) {
       /* hung clocks face out of the wall they hang on */
       const isHung = (HP.state && HP.itemDef(it.type).hangs) || it.hang;
       const hang = it.hang || (HP.state && isHung &&
-        HP.hangSide(it.type, it.x, it.y, it.rot || 0, { w: it.w || f.w, h: it.h || f.h }));
+        HP.hangSide(it.type, it.x, it.y, it.rot || 0, { w: it.w || f.w, h: it.h || f.h }, lvlWalls));
       const rot = hang === 'n' ? 0 : hang === 's' ? 2 :
         hang === 'w' ? 3 : hang === 'e' ? 1 : it.rot || 0;
       if (hang) {
-        const lvl = (HP.state && HP.cur && HP.cur()) || null;
-        const lvlWalls = (lvl && lvl.walls) || {};
-        let geomEnv = null;
-        if (HP.state && HP.computeRegions) {
-          try {
-            const cr = HP.computeRegions();
-            if (cr && cr.regionOf && cr.regions) {
-              geomEnv = { C: C(), rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : cr.regionOf[y * HP.GRID_W + x], rsz: id => id >= 0 && cr.regions[id] ? cr.regions[id].cells.length : 1e9 };
-            }
-          } catch (err) {}
-        }
         const IN = HP.geom3d && HP.geom3d.wallInset ? HP.geom3d.wallInset(hang, f, lvlWalls, geomEnv) : 7.0;
         let mx = cx, mz = cz;
         if (hang === 'n') mz = f.y * C() + IN;
         else if (hang === 's') mz = (f.y + f.h) * C() - IN;
         else if (hang === 'w') mx = f.x * C() + IN;
         else if (hang === 'e') mx = (f.x + f.w) * C() - IN;
-        addClock(mx, mz, rot, w, 0.4, true);
+        addClock(mx, mz, rot, w, 0.4, true, undefined, bY);
       } else {
         const def = HP.itemDef ? HP.itemDef(it.type) : null;
         const unrotW = Math.max(3, ((it.w || (def && def.w) || 1)) * C() - 3);
@@ -672,56 +684,44 @@ L.build = function (g, entries) {
         const isGrand = /^clock$|clkgrand|grandfather/i.test(t);
         const dialRadius = isGrand ? unrotW * 0.28 : Math.min(unrotW, 26) * 0.42;
         const dialOffset = isGrand ? unrotH * 0.26 + 0.3 : unrotH * 0.275 + 0.3;
-        addClock(cx, cz, it.rot || 0, unrotW, dialOffset, false, dialRadius);
+        addClock(cx, cz, it.rot || 0, unrotW, dialOffset, false, dialRadius, bY);
       }
     }
     else if (/walltv|sconce/.test(t)) {
       /* wall-mounted screen / sconce — mount on the wall face          */
       const hang = it.hang || (HP.state && HP.hangSide(it.type, it.x, it.y,
-        it.rot || 0, { w: it.w || f.w, h: it.h || f.h }));
+        it.rot || 0, { w: it.w || f.w, h: it.h || f.h }, lvlWalls));
       const rot = hang === 'n' ? 0 : hang === 's' ? 2 :
         hang === 'w' ? 3 : hang === 'e' ? 1 : it.rot || 0;
-      const lvl = (HP.state && HP.cur && HP.cur()) || null;
-      const lvlWalls = (lvl && lvl.walls) || {};
-      let geomEnv = null;
-      if (HP.state && HP.computeRegions) {
-        try {
-          const cr = HP.computeRegions();
-          if (cr && cr.regionOf && cr.regions) {
-            geomEnv = { C: C(), rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : cr.regionOf[y * HP.GRID_W + x], rsz: id => id >= 0 && cr.regions[id] ? cr.regions[id].cells.length : 1e9 };
-          }
-        } catch (err) {}
-      }
       const IN = HP.geom3d && HP.geom3d.wallInset ? HP.geom3d.wallInset(hang, f, lvlWalls, geomEnv) : 7.0;
       let mx = cx, mz = cz;
       if (hang === 'n') mz = f.y * C() + IN;
       else if (hang === 's') mz = (f.y + f.h) * C() - IN;
       else if (hang === 'w') mx = f.x * C() + IN;
       else if (hang === 'e') mx = (f.x + f.w) * C() - IN;
-      if (/walltv/.test(t)) addScreen(mx, mz, rot, 47.6, 26.4, 2.52, 42.0);
+      if (/walltv/.test(t)) addScreen(mx, mz, rot, 47.6, 26.4, 2.52, 42.0, bY);
       else {
         const def = HP.itemDef ? HP.itemDef(it.type) : null;
         const lt = HP.getLampLightTransform ? HP.getLampLightTransform(it, def, f, C(), lvlWalls, geomEnv) : null;
         if (lt) addLampBulb(lt.x, lt.y, lt.z, it, lt);
-        else addLampBulb(mx, 38, mz, it);
+        else addLampBulb(mx, bY + 38, mz, it);
       }
     }
-    else if (/aquarium/.test(t)) addFish(cx, cz, w, dep, e.h * 0.73);
-    else if (/fireplace/.test(t)) { addFire(cx, cz, it.rot || 0, dep, e.h); L.ambience.fire.push({ x: cx, z: cz }); }
-    else if (/pool$|pond|jacuzzi|hottub/.test(t)) L.ambience.water.push({ x: cx, z: cz });
+    else if (/aquarium/.test(t)) addFish(cx, cz, w, dep, bY + e.h * 0.73);
+    else if (/fireplace/.test(t)) { addFire(cx, cz, it.rot || 0, dep, e.h, bY, it); L.ambience.fire.push({ x: cx, y: bY, z: cz }); }
+    else if (/pool$|pond|jacuzzi|hottub/.test(t)) L.ambience.water.push({ x: cx, y: bY, z: cz });
     else if (/tvwall/.test(t)) {
       // 85" 4K OLED screen centered on slatted feature wall: exact bezel width=105.0, height=24.0, y=33.28
-      addScreen(cx, cz, it.rot || 0, 105.0, 24.0, -0.355 * dep + 0.05, 33.28);
+      addScreen(cx, cz, it.rot || 0, 105.0, 24.0, -0.355 * dep + 0.05, 33.28, bY);
     }
     else if (/tvstand|media.*console/.test(t)) {
       // 65" 16:9 OLED TV screen on lowline credenza: exact bezel width=32.8, height=18.4, y=25.2
-      addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep - 0.65, 25.2);
+      addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep - 0.65, 25.2, bY);
     }
     else if (/^shoecab$/i.test(t)) {
       const def = HP.itemDef ? HP.itemDef(it.type) : null;
       const unrotW = Math.max(3, (it.w || (def && def.w) || 2) * C() - 3);
       const unrotDep = Math.max(3, (it.h || (def && def.h) || 1) * C() - 3);
-      const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
       const col = (it.colors && it.colors[0]) || (def && def.colors && def.colors[0]) || '#8a6844';
       addShoeCabinet(cx, cz, it.rot || 0, unrotW, unrotDep, e.h || 32, col, it, bY);
     }
@@ -731,13 +731,12 @@ L.build = function (g, entries) {
       if (lt) {
         addLampBulb(lt.x, lt.y, lt.z, it, lt);
       } else {
-        const bY = e.baseY !== undefined ? e.baseY : (it._baseY || 0);
         const bulbY = bY + (/torch/i.test(t) ? 30 : (/nightlight/i.test(t) ? 6 : Math.max(12, e.h * 0.8)));
         addLampBulb(cx, bulbY, cz, it);
       }
     }
     if (hi && /flower|veggie|tomato|seedling|rose/i.test(t)) spots.push({ x: cx, z: cz });
-    if (/doghouse|petbed|kennel/.test(t)) dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };
+    if (bY < 20 && /doghouse|petbed|kennel/.test(t)) dogHome = { x: cx, z: cz + (f.h * C()) / 2 + 14 };
   }
   if (hi) {
     addBirds();
@@ -778,7 +777,11 @@ L.tick = function (dt, t, s, cam) {
     if (f.tail) f.tail.rotation.y = Math.sin(t * 9 * f.sp + f.ph) * 0.45;
   }
   for (const f of fires) {
-    f.light.intensity = f.on ? 0.65 + Math.sin(t * 11 + f.x) * 0.15 + Math.sin(t * 23) * 0.08 : 0;
+    if (f.light) f.light.intensity = f.on ? 0.65 + Math.sin(t * 11 + f.x) * 0.15 + Math.sin(t * 23) * 0.08 : 0;
+    if (f.lightSrc) {
+      f.lightSrc.on = f.on;
+      f.lightSrc.power = f.on ? 0.85 + Math.sin(t * 11 + f.x) * 0.12 : 0;
+    }
     for (let i = 0; i < f.cones.length; i++) {
       const c = f.cones[i];
       c.visible = f.on;
@@ -867,7 +870,9 @@ L.toggle = function (g2) {
   r.on = !r.on;
   if (g2.kind === 'fire') {
     if (r.light) r.light.intensity = r.on ? 1 : 0;
+    if (r.lightSrc) r.lightSrc.on = r.on;
     if (r.cones) for (const c of r.cones) c.visible = r.on;
+    if (HP.world3d && HP.world3d.syncLamps) HP.world3d.syncLamps();
   } else if (g2.kind === 'lamp') {
     if (r.it) r.it.on = r.on;
     if (r.src) {
@@ -876,13 +881,13 @@ L.toggle = function (g2) {
     }
     if (r.mesh) r.mesh.visible = r.on;
     for (const s of (HP.world3d.lamps || [])) {
-      if (s === r.src || (r.it && s.id === r.it.id) || Math.hypot(s.x - r.x, s.z - r.z) < 20) {
+      if (s === r.src || (r.it && r.it.id !== undefined && s.id === r.it.id)) {
         s.on = r.on;
         if (s.it) s.it.on = r.on;
       }
     }
     for (const lb of lampBulbs) {
-      if (lb === r || (r.it && lb.it && lb.it.id === r.it.id) || Math.hypot(lb.x - r.x, lb.z - r.z) < 20) {
+      if (lb === r || (r.it && r.it.id !== undefined && lb.it && lb.it.id === r.it.id)) {
         lb.on = r.on;
         if (lb.mesh) lb.mesh.visible = r.on;
         if (lb.src) lb.src.on = r.on;

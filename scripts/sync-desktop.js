@@ -58,6 +58,7 @@ function copyDir(src, dest) {
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.isDirectory() && entry.name === 'floor_references') continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
@@ -78,21 +79,31 @@ const requiredTracked = [
   'version.json',
   'index.html',
   'play3d.html',
+  '3d.html',
   'style.css',
   'manifest.json',
   'sw.js',
   'preload.js',
   'electron-main.js'
 ];
-// Exclude local-only gitignored files from remote update manifest
+// Exclude local-only / bulky assets from remote update manifest
 const excludeRemote = new Set(['my-house.house.json']);
-const fileSet = new Set((Array.isArray(vData.files) ? vData.files : []).filter(f => !excludeRemote.has(f)));
+const fileSet = new Set((Array.isArray(vData.files) ? vData.files : []).filter(f => !excludeRemote.has(f) && !f.startsWith('assets/floor_references/')));
 for (const rf of requiredTracked) fileSet.add(rf);
-const srcDir = path.join(root, 'src');
-if (fs.existsSync(srcDir)) {
-  for (const name of fs.readdirSync(srcDir)) {
-    if (name.endsWith('.js')) fileSet.add(`src/${name}`);
-  }
+for (const dirName of ['src', 'lib', 'assets', 'textures']) {
+  const dirPath = path.join(root, dirName);
+  if (!fs.existsSync(dirPath)) continue;
+  const walk = (d, relBase) => {
+    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (entry.name === 'floor_references') continue;
+        walk(path.join(d, entry.name), `${relBase}/${entry.name}`);
+      } else if (dirName !== 'src' || entry.name.endsWith('.js')) {
+        fileSet.add(`${relBase}/${entry.name}`);
+      }
+    }
+  };
+  walk(dirPath, dirName);
 }
 vData.files = Array.from(fileSet).filter(f => f === 'version.json' || fs.existsSync(path.join(root, f)));
 
@@ -196,13 +207,13 @@ const targets = [
 const copyFiles = [
   'index.html',
   'play3d.html',
+  '3d.html',
   'style.css',
   'manifest.json',
   'version.json',
   'sw.js',
   'preload.js',
-  'electron-main.js',
-  'my-house.house.json'
+  'electron-main.js'
 ];
 
 const runtimePkg = {

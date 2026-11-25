@@ -259,7 +259,7 @@ function outdoorUI(cx, cy) {
   s.className = 'insp-section';
   s.innerHTML = `
     <div class="field"><label>Location</label>
-      <div style="font-size:12px;color:var(--text-sub)">Cell (${cx}, ${cy})${cellFloor ? ' · ' + cellFloor : ''}</div>
+      <div style="font-size:12px;color:var(--text-dim)">Cell (${cx}, ${cy})${cellFloor ? ' · ' + cellFloor : ''}</div>
     </div>
     <div class="field"><label>Outdoor Flooring — click to apply</label><div class="fam-list" id="room-sw"></div></div>
     <div class="field"><label>Outdoor Canopy / Ceiling Style</label>
@@ -278,12 +278,13 @@ function outdoorUI(cx, cy) {
   top.appendChild(s);
 
   // Hook up outdoor flooring picker:
-  familyList($('#room-sw'), cellFloor, fam => {
+  floorSwatches($('#room-sw'), cellFloor, fam => {
     HP.pushUndo();
     curLvl.floors = curLvl.floors || {};
     curLvl.floors[cellKey] = fam;
     if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
     HP.saveState(); HP.markDirty();
+    if (HP.in3D && HP.world3d && HP.world3d.updateFloors) HP.world3d.updateFloors();
     outdoorUI(cx, cy);
     HP.status('Outdoor flooring set to ' + fam);
   });
@@ -299,7 +300,7 @@ function outdoorUI(cx, cy) {
         curLvl.ceilings[cellKey] = { style: st, color: curCeilColor || null };
       }
       HP.saveState(); HP.markDirty();
-      if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+      if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
       outdoorUI(cx, cy);
       HP.status('Canopy style set to ' + st);
     };
@@ -311,7 +312,7 @@ function outdoorUI(cx, cy) {
     if (curCeilStyle === 'none') curCeilStyle = 'pergola';
     curLvl.ceilings[cellKey] = { style: curCeilStyle, color: col };
     HP.saveState(); HP.markDirty();
-    if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+    if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
     outdoorUI(cx, cy);
     HP.status(col ? 'Canopy painted: ' + col : 'Canopy color reset');
   });
@@ -536,14 +537,15 @@ function settingsUI() {
   mkTog('Photo floor textures', HP.state.photoFloors !== false,
     () => {
       HP.state.photoFloors = !(HP.state.photoFloors !== false);
-      HP.invalidateRegions(); HP.saveState(); settingsUI();
+      if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
+      HP.saveState(); settingsUI();
     });
 
   const fStyle = document.createElement('div'); fStyle.className = 'field';
   const curFloorStyle = (HP.graphics3d && HP.graphics3d.getFloorStyle) ? HP.graphics3d.getFloorStyle() : (localStorage.getItem('hp_floor_style') || '3d');
   fStyle.innerHTML = `
     <label>Floor material style</label>
-    <select id="ui-floor-style" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:12px">
+    <select id="ui-floor-style" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:12px">
       <option value="3d"${curFloorStyle === '3d' ? ' selected' : ''}>✨ 3D Relief (Beveled Pavers & Planks)</option>
       <option value="photo"${curFloorStyle === 'photo' ? ' selected' : ''}>📷 Photographic (Smooth Slabs)</option>
     </select>
@@ -696,7 +698,7 @@ HP.setRoomCeilingStyle = function (r, style) {
   const conf = { style, color: col };
   if (r.id !== undefined) lvl.roomCeilings[r.id] = conf;
   for (const [x, y] of r.cells) lvl.ceilings[HP.cellKey(x, y)] = conf;
-  if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
 };
 
 HP.paintRoomCeiling = function (r, color) {
@@ -710,7 +712,7 @@ HP.paintRoomCeiling = function (r, color) {
   const conf = { style: st, color };
   if (r.id !== undefined) lvl.roomCeilings[r.id] = conf;
   for (const [x, y] of r.cells) lvl.ceilings[HP.cellKey(x, y)] = conf;
-  if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
 };
 
 /* Wall and Door style definitions with rich visual preview cards */
@@ -1015,7 +1017,8 @@ function wallSelectedUI(selWall) {
       HP.pushUndo();
       w.style = st;
       HP.wallStyle = st;
-      const s = HP.parseWallKey(selWall);
+      const wk = typeof selWall === 'string' ? selWall : selWall.k;
+      const s = HP.parseWallKey(wk);
       const isH = s.d === 'h';
       for (const dir of [-1, 1]) {
         for (let step = 1; step <= 25; step++) {
@@ -1031,7 +1034,7 @@ function wallSelectedUI(selWall) {
       }
       HP.saveState();
       HP.markDirty();
-      if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+      if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
       wallSelectedUI(selWall);
       HP.status('Wall style set to: ' + st);
     });
@@ -1044,7 +1047,7 @@ function wallSelectedUI(selWall) {
     w.cb = col;
     HP.saveState();
     HP.markDirty();
-    if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+    if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
     wallSelectedUI(selWall);
     HP.status('Wall painted: ' + col);
   });
@@ -1052,7 +1055,7 @@ function wallSelectedUI(selWall) {
   const roomBtn = $('#selwall-room-btn');
   if (roomBtn) {
     roomBtn.onclick = () => {
-      const seg = HP.parseWallKey(selWall.k);
+      const seg = HP.parseWallKey(typeof selWall === 'string' ? selWall : selWall.k);
       const isH = seg.d === 'h';
       const rA = isH ? HP.regionAt(seg.x, seg.y - 1) : HP.regionAt(seg.x - 1, seg.y);
       const rB = HP.regionAt(seg.x, seg.y);
@@ -1062,7 +1065,7 @@ function wallSelectedUI(selWall) {
         HP.setRoomWallStyle(targetRoom, w.style || 'plaster');
         HP.saveState();
         HP.markDirty();
-        if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+        if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
         HP.status('Applied ' + (w.style || 'plaster') + ' to all walls in ' + (targetRoom.name || 'room'));
       } else {
         HP.status('No adjacent room found to style.');
@@ -1079,7 +1082,7 @@ function wallSelectedUI(selWall) {
       HP.invalidateRegions();
       HP.saveState();
       HP.markDirty();
-      if (HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+      if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
       HP.refreshContext();
       HP.status('Wall deleted.');
     };
@@ -1111,7 +1114,8 @@ function floorUI() {
     b.classList.toggle('on', (b.dataset.v === '1') === (HP.state.photoFloors !== false)));
   seg.querySelectorAll('.seg-btn').forEach(b => b.onclick = () => {
     HP.state.photoFloors = b.dataset.v === '1';
-    HP.invalidateRegions(); HP.saveState();
+    if (HP.invalidateFloors) HP.invalidateFloors(); else HP.invalidateRegions();
+    HP.saveState();
     mark(); floorSwatches($('#mat-sw'), HP.floorMat, id => { HP.floorMat = id; });  // repaint swatches
   });
   mark();
@@ -1791,8 +1795,8 @@ HP.initUI = function () {
       const fit = Math.min(HP.canvas.clientWidth / (HP.GRID_W * HP.CELL + 120),
                            HP.canvas.clientHeight / (HP.GRID_H * HP.CELL + 160));
       HP.camera.zoom = Math.max(HP.MIN_ZOOM, Math.min(1.2, fit));
-      HP.camera.x = 0;
-      HP.camera.y = 0;
+      HP.camera.x = HP.GRID_W * HP.CELL / 2;
+      HP.camera.y = HP.GRID_H * HP.CELL / 2;
       HP.markDirty();
       HP.updateZoomUI();
       HP.status('Centered house');
@@ -1820,7 +1824,11 @@ HP.initUI = function () {
   /* floating edit panel: close button + drag by header */
   $('#edit-close').onclick = () => {
     if (HP.pending) HP.cancelPending();
-    else { HP.selected = null; HP.selectedRoom = null; HP.selectedFeature = null; HP.markDirty(); }
+    else {
+      HP.selected = null; HP.selectedSet = []; HP.selectedRoom = null;
+      HP.selectedFeature = null; HP.selectedWall = null;
+      HP.markDirty();
+    }
     refreshInspector();
   };
   const ep = $('#edit-panel'), eh = $('#edit-head');
@@ -1828,13 +1836,13 @@ HP.initUI = function () {
   eh.addEventListener('pointerdown', e => {
     if (e.target.closest('#edit-close')) return;
     const r = ep.getBoundingClientRect(), w = ep.parentElement.getBoundingClientRect();
-    epd = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: w.width, h: w.height };
+    epd = { dx: e.clientX - r.left, dy: e.clientY - r.top, left: w.left, top: w.top, w: w.width, h: w.height };
     eh.setPointerCapture(e.pointerId);
   });
   eh.addEventListener('pointermove', e => {
     if (!epd) return;
-    const x = Math.max(0, Math.min(e.clientX - epd.dx, epd.w - ep.offsetWidth));
-    const y = Math.max(0, Math.min(e.clientY - epd.dy, epd.h - ep.offsetHeight));
+    const x = Math.max(0, Math.min(e.clientX - epd.dx - epd.left, epd.w - ep.offsetWidth));
+    const y = Math.max(0, Math.min(e.clientY - epd.dy - epd.top, epd.h - ep.offsetHeight));
     ep.style.left = x + 'px'; ep.style.top = y + 'px'; ep.style.right = 'auto';
   });
   eh.addEventListener('pointerup', () => { epd = null; });

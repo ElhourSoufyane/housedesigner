@@ -61,7 +61,7 @@ function sitDown(target) {
   yaw = sitYaw;
   pitch = 0;
   clearMotion();
-  feetY = seatOffset;
+  feetY = groundY;
 }
 
 function standUp() {
@@ -184,6 +184,7 @@ K.enter = function (start) {
   if (el.fps) { el.fps.textContent = '60 fps'; el.fps.style.color = '#7fe08a'; }
   el.overlay.style.display = 'none';
   requestLock();
+  scheduleTick();
 };
 
 K.syncCamera = function () {
@@ -191,7 +192,8 @@ K.syncCamera = function () {
   const cam = HP.world3d.camera;
   if (!K.fly) {
     const elev = K.camElevate || 0;
-    cam.position.set(px, (sitting ? (HP.world3d.EYE + feetY + groundY) : (HP.world3d.EYE + feetY)) + elev, pz);
+    const seatOff = sitting ? (sitting.seatOffset || -12) : 0;
+    cam.position.set(px, HP.world3d.EYE + feetY + seatOff + elev, pz);
     cam.rotation.y = yaw; cam.rotation.x = pitch;
     cam.rotation.z = 0;
     cam.rotation.order = 'YXZ';
@@ -234,7 +236,7 @@ K.playerPos = function () {
 };
 
 function clearMotion() {
-  keys = {}; moveT.x = moveT.y = 0; lookT.id = -1;
+  keys = {}; moveT.x = moveT.y = 0; lookT.id = -1; moveTouchId = -1;
   velX = velZ = 0;
   if (el.stickLn) el.stickLn.style.transform = '';
 }
@@ -257,7 +259,11 @@ K.resume = function (spawn) {
   if (el.fps) { el.fps.textContent = '60 fps'; el.fps.style.color = '#7fe08a'; }
   el.overlay.style.display = 'none';
   requestLock();
-  if (HP.sound3d) HP.sound3d.start();
+  if (HP.sound3d) {
+    if (HP.sound3d.resume) HP.sound3d.resume();
+    HP.sound3d.start();
+  }
+  scheduleTick();
 };
 K.isPaused = () => paused;
 Object.defineProperty(K, 'started', {
@@ -321,6 +327,8 @@ K.boot = function (initialSpawn) {
   });
   document.addEventListener('keydown', e => {
     if (!HP.in3D && !started) return;
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable)) return;
     if (e.code === 'KeyP' && started && (typeof location === 'undefined' || !location.search.includes('showroom'))) { if (!e.repeat) K.pause(); return; }
     if (paused) return;
     keys[e.code] = true;
@@ -346,13 +354,17 @@ K.boot = function (initialSpawn) {
   /* touch: left half = move stick, right half = look drag            */
   const T = e => {
     if (paused) return;
+    const stickHit = e.target && el.stickL && (e.target === el.stickL || (el.stickL.contains && el.stickL.contains(e.target)));
     for (const t of e.changedTouches) {
-      if (t.clientX < innerWidth / 2) {
-        const r = el.stickL.getBoundingClientRect();
-        moveT.x = clamp((t.clientX - (r.left + r.width / 2)) / (r.width / 2), -1, 1);
-        moveT.y = clamp((t.clientY - (r.top + r.height / 2)) / (r.height / 2), -1, 1);
-        el.stickLn.style.transform = `translate(${moveT.x * 22}px,${moveT.y * 22}px)`;
-      } else if (lookT.id === t.identifier || lookT.id < 0) {
+      if ((e.type === 'touchstart' && (stickHit || (t.clientX < innerWidth / 2 && moveTouchId < 0))) || t.identifier === moveTouchId) {
+        if (e.type === 'touchstart' && moveTouchId < 0) moveTouchId = t.identifier;
+        if (t.identifier === moveTouchId) {
+          const r = el.stickL.getBoundingClientRect();
+          moveT.x = clamp((t.clientX - (r.left + r.width / 2)) / (r.width / 2), -1, 1);
+          moveT.y = clamp((t.clientY - (r.top + r.height / 2)) / (r.height / 2), -1, 1);
+          el.stickLn.style.transform = `translate(${moveT.x * 22}px,${moveT.y * 22}px)`;
+        }
+      } else if (lookT.id === t.identifier || (e.type === 'touchstart' && lookT.id < 0)) {
         if (e.type === 'touchstart') { lookT.id = t.identifier; lookT.lx = t.clientX; lookT.ly = t.clientY; }
         else {
           yaw   -= (t.clientX - lookT.lx) * 0.0045;
@@ -368,7 +380,7 @@ K.boot = function (initialSpawn) {
   };
   const TE = e => {
     for (const t of e.changedTouches) {
-      if (t.clientX < innerWidth / 2) { moveT.x = moveT.y = 0; el.stickLn.style.transform = ''; }
+      if (t.identifier === moveTouchId) { moveTouchId = -1; moveT.x = moveT.y = 0; el.stickLn.style.transform = ''; }
       if (t.identifier === lookT.id) lookT.id = -1;
     }
   };
@@ -387,7 +399,7 @@ K.boot = function (initialSpawn) {
   addEventListener('blur', () => { keys = {}; moveT.x = moveT.y = 0; });
 
   lastFps = performance.now();
-  requestAnimationFrame(tick);
+  scheduleTick();
 };
 
 const GRAV = 320, JUMP = 124;                    // ~24px apex ≈ 0.85m hop
@@ -861,15 +873,33 @@ function nearestThing() {
     considerCandidate(g2.x, gy, g2.z, 60, () => g2);
   }
 
-  // 2. Seats (chairs, sofas, beds)
-  for (const it of (HP.cur().furniture || [])) {
+  // 2. Seats (chairs, sofas, beds across all levels & interiors)
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
+  const seatCandidates = [];
+  allLevels.forEach((curLvl, lIdx) => {
+    const lvlBaseY = lIdx * WALL_H;
+    for (const it of (curLvl && curLvl.furniture) || []) {
+      seatCandidates.push({ it, baseY: it._baseY !== undefined ? it._baseY : lvlBaseY });
+      if (it.interior && it.interior.customized && it.interior.furniture && HP.interiorToWorld) {
+        for (const sub of it.interior.furniture) {
+          const wSub = HP.interiorToWorld(it, sub);
+          if (wSub) seatCandidates.push({ it: wSub, baseY: wSub._baseY !== undefined ? wSub._baseY : lvlBaseY });
+        }
+      }
+    }
+  });
+  for (const sc of seatCandidates) {
+    const it = sc.it;
+    const itemBaseY = sc.baseY;
+    if (Math.abs(itemBaseY - feetY) > 60) continue;
     const sk = HP.seatKind ? HP.seatKind(it.type) : null;
     if (!sk) continue;
     const def = HP.itemDef(it.type);
     if (!def) continue;
     const spots = HP.itemSeatSpots ? HP.itemSeatSpots(it, def) : [];
     for (const sp of spots) {
-      const sy = groundAt(sp.x, sp.z) + 12;
+      const sy = (/^treehouse$/i.test(it.type) ? Math.max(groundAt(sp.x, sp.z), 54) : itemBaseY) + 12;
       considerCandidate(sp.x, sy, sp.z, 50, () => ({
         kind: 'seat', it, def, sk, spot: sp,
         label: (sk === 'lie' ? 'Lie down' : 'Sit') + ' — ' + (def.name || it.type)
@@ -1001,8 +1031,15 @@ function interact() {
 
 /* ---------- main loop ---------- */
 let last = 0;
+let rafId = 0;
+let moveTouchId = -1;
+function scheduleTick() {
+  if (!rafId) rafId = requestAnimationFrame(tick);
+}
 function tick(t) {
-  requestAnimationFrame(tick);
+  rafId = 0;
+  if (paused && HP.in3D === false) return;
+  scheduleTick();
   if (!last) last = t;
   const dt = Math.min(0.05, (t - last) / 1000 || 0.016); last = t;
   if (paused) { HP.world3d.render(); return; }
@@ -1078,7 +1115,8 @@ function tick(t) {
     const cam = HP.world3d.camera;
     if (!K.fly) {                                        /* debug: free camera */
       const elev = K.camElevate || 0;
-      cam.position.set(px, (sitting ? (HP.world3d.EYE + feetY + groundY) : (HP.world3d.EYE + feetY + bobY)) + elev, pz);
+      const vert = sitting ? (sitting.seatOffset || -12) : bobY;
+      cam.position.set(px, HP.world3d.EYE + feetY + vert + elev, pz);
       cam.rotation.y = yaw; cam.rotation.x = pitch;
       cam.rotation.z = Math.sin(stride) * 0.011 * Math.min(1, speed / RUN);  // sprint sway
       cam.rotation.order = 'YXZ';

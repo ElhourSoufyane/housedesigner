@@ -427,13 +427,14 @@ HP.rotateActive = function () {
       x1 = Math.max(x1, f.x + f.w); y1 = Math.max(y1, f.y + f.h);
     }
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, snap = HP.snap();
-    const backup = membersAll.map(m => ({ m, x: m.x, y: m.y, rot: m.rot }));
+    const backup = membersAll.map(m => ({ m, x: m.x, y: m.y, rot: m.rot, hang: m.hang }));
     for (const m of membersAll) {
       const f = HP.footprint(m);
       const mx = f.x + f.w / 2, my = f.y + f.h / 2;
       m.rot = (m.rot + 1) % 4;
-      m.x = Math.round(cx - (my - cy) - f.h / 2);
-      m.y = Math.round(cy + (mx - cx) - f.w / 2);
+      const step = HP.itemDef(m.type).hangs ? 1 : 0.5;
+      m.x = Math.round((cx - (my - cy) - f.h / 2) / step) * step;
+      m.y = Math.round((cy + (mx - cx) - f.w / 2) / step) * step;
     }
     let bx = 0, by = 0;
     for (const m of membersAll) {
@@ -455,20 +456,27 @@ HP.rotateActive = function () {
     const ok = !clash && membersAll.every(m =>
       HP.canPlace(m.type, m.x, m.y, m.rot, membersAll, m.w ? { w: m.w, h: m.h } : null));
     if (!ok) {
-      for (const b of backup) { b.m.x = b.x; b.m.y = b.y; b.m.rot = b.rot; }
+      for (const b of backup) { b.m.x = b.x; b.m.y = b.y; b.m.rot = b.rot; b.m.hang = b.hang; }
       HP.status('No room to rotate the selection');
-    } else HP.pushUndoSnap(snap);
+    } else {
+      for (const m of membersAll) {
+        if (HP.itemDef(m.type).hangs) m.hang = HP.hangSide(m.type, m.x, m.y, m.rot, m.w ? { w: m.w, h: m.h } : null);
+      }
+      HP.pushUndoSnap(snap);
+    }
     HP.saveState(); HP.markDirty(); HP.refreshContext();
     return;
   }
-  const it = HP.selected, oldRot = it.rot, snap = HP.snap();
+  const it = HP.selected, oldRot = it.rot, ox = it.x, oy = it.y, snap = HP.snap();
   it.rot = (it.rot + 1) % 4;
   // keep inside grid: nudge position if rotated footprint overflows
   const f = HP.footprint(it);
   if (f.x + f.w > HP.GRID_W) it.x = HP.GRID_W - f.w;
   if (f.y + f.h > HP.GRID_H) it.y = HP.GRID_H - f.h;
-  if (!HP.canPlace(it.type, it.x, it.y, it.rot, it)) { it.rot = oldRot; HP.status('No room to rotate here'); }
-  else {
+  if (!HP.canPlace(it.type, it.x, it.y, it.rot, it)) {
+    it.rot = oldRot; it.x = ox; it.y = oy;
+    HP.status('No room to rotate here');
+  } else {
     HP.pushUndoSnap(snap);
     if (HP.itemDef(it.type).hangs) it.hang = HP.hangSide(it.type, it.x, it.y, it.rot);
   }
@@ -558,11 +566,12 @@ HP.deleteSelected = function () {
 HP.cycleVariant = function () {
   const target = HP.pending || HP.selected; if (!target) return;
   if (HP.pending) { HP.pending.v = (HP.pending.v + 1) % HP.pending.def.colors.length; HP.markDirty(); return; }
+  HP.pushUndo();
   for (const m of HP.groupOf(HP.selected)) {       // recolour the whole connected piece
     const def = HP.itemDef(m.type);
     m.v = ((m.v || 0) + 1) % def.colors.length;
   }
-  HP.pushUndo(); HP.saveState(); HP.markDirty();
+  HP.saveState(); HP.markDirty();
 };
 
 HP.cancelPending = function () {

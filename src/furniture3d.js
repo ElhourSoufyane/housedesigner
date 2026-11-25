@@ -505,9 +505,11 @@ F.builder = function (group) {
     add(it, def, f, h, inst, baseY) {
       index = inst;
       const rot = it.rot || 0;
+      const itemLvl = () => (HP.state && HP.state.levels && it._levelIdx !== undefined ? HP.state.levels[it._levelIdx] : null)
+        || (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
       function getScreenNeighbors() {
         try {
-          const cur = HP.cur && HP.cur();
+          const cur = itemLvl();
           if (!cur || !cur.furniture) return { left: false, right: false };
           const r = (it.rot || 0) % 4;
           let left = false, right = false;
@@ -550,9 +552,9 @@ F.builder = function (group) {
       pos.set((f.x + f.w / 2) * HP.CELL, baseY || 0, (f.y + f.h / 2) * HP.CELL);
       fp = { x0: f.x * HP.CELL, z0: f.y * HP.CELL, x1: (f.x + f.w) * HP.CELL, z1: (f.y + f.h) * HP.CELL };
       if (!def.hangs && !isScreen && HP.geom3d && HP.geom3d.floorClearance) {
-        const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+        const lvl = itemLvl();
         const lvlWalls = (lvl && lvl.walls) || {};
-        const cl = HP.geom3d.floorClearance(f, lvlWalls, getGeomEnv(), width, depth, rot);
+        const cl = HP.geom3d.floorClearance(f, lvlWalls, getGeomEnv(lvl), width, depth, rot);
         if (cl.dx || cl.dz || cl.w !== width || cl.d !== depth) {
           pos.x += cl.dx;
           pos.z += cl.dz;
@@ -562,7 +564,7 @@ F.builder = function (group) {
         }
       }
       if (/^archway/i.test(it.type)) {
-        const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+        const lvl = itemLvl();
         const lvlWalls = (lvl && lvl.walls) || {};
         const env = getGeomEnv(lvl);
         const C = (env && env.C) || (HP && HP.CELL) || 28;
@@ -570,7 +572,9 @@ F.builder = function (group) {
         let neighborWall = null;
         let wallThickPx = 0.30 * C;
 
-        const geo = (HP.world3d && HP.world3d.geom) || (HP.geom3d && HP.geom3d.build(lvlWalls, env));
+        const useWorldGeom = (it._levelIdx === undefined || it._levelIdx === (HP.state && HP.state.level || 0))
+          && HP.world3d && HP.world3d.geom && (!HP.state || !HP.state.levels || HP.state.levels.length <= 1);
+        const geo = useWorldGeom ? HP.world3d.geom : (HP.geom3d && HP.geom3d.build(lvlWalls, env));
         const allBoxes = (geo && geo.boxes) ? geo.boxes.filter(b => b.tag === 'wall') : [];
 
         if (isHoriz) {
@@ -730,17 +734,17 @@ F.builder = function (group) {
         const ry = hang === 'n' ? 0 : hang === 's' ? Math.PI :
           hang === 'w' ? Math.PI / 2 : hang === 'e' ? -Math.PI / 2 :
           -(it.rot || 0) * Math.PI / 2;
-        const lvl = (HP.state && HP.cur && HP.cur()) || null;
+        const lvl = itemLvl();
         const lvlWalls = (lvl && lvl.walls) || {};
         const IN = HP.geom3d && HP.geom3d.wallInset
-          ? HP.geom3d.wallInset(hang, f, lvlWalls, getGeomEnv())
+          ? HP.geom3d.wallInset(hang, f, lvlWalls, getGeomEnv(lvl))
           : 7.0;                                        // dynamic wall-face inset
         let mx = (f.x + f.w / 2) * HP.CELL, mz = (f.y + f.h / 2) * HP.CELL;
         if (hang === 'n') mz = f.y * HP.CELL + IN;
         else if (hang === 's') mz = (f.y + f.h) * HP.CELL - IN;
         else if (hang === 'w') mx = f.x * HP.CELL + IN;
         else if (hang === 'e') mx = (f.x + f.w) * HP.CELL - IN;
-        pos.set(mx, 0, mz);
+        pos.set(mx, baseY || 0, mz);
         q.setFromAxisAngle(axis, ry);
         root.compose(pos, q, ONE);
         const W = Math.max(4, (hang === 'w' || hang === 'e' ? f.h : f.w) * HP.CELL - 3);
@@ -5050,7 +5054,7 @@ F.builder = function (group) {
           const ang = (r / 8) * Math.PI * 2 + 0.25;
           const rLen = trD * (1.05 + (r % 2) * 0.28);
           pCylSlope('wood', tx + Math.cos(ang) * trD * 0.34, 17 - (r % 2) * 3, tz + Math.sin(ang) * trD * 0.34,
-            tx + Math.cos(ang + 0.08) * rLen, -2, tz + Math.sin(ang + 0.08) * rLen, 8.2, barkDark);
+            tx + Math.cos(ang + 0.08) * rLen, 2.0, tz + Math.sin(ang + 0.08) * rLen, 8.2, barkDark);
         }
 
         // Major Smoothly Curved Gnarled Oak Boughs:
@@ -9745,7 +9749,7 @@ F.builder = function (group) {
         }
       } else if (/^archway/.test(t)) {
         // Architectural Cased Walkthrough Archway (Matches the connecting wall's material & color: plaster, brick, tile, stone, concrete, etc.)
-        const lvl = (HP.cur && HP.cur()) || (HP.state && HP.state.levels && HP.state.levels[HP.state.level || 0]) || null;
+        const lvl = itemLvl();
         const lvlWalls = (lvl && lvl.walls) || {};
 
         // If an archway item is placed directly over an existing door opening, world3d builds the unified

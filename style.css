@@ -9,6 +9,9 @@
   --border-soft: #cfc9ba;
   --text: #1d2530;
   --text-dim: #6b7180;
+  --text-sub: #6b7180;
+  --muted: #6b7180;
+  --bg-card: #ffffff;
   --accent: #2e5fe8;
   --accent-soft: rgba(46,95,232,.12);
   --accent-ink: #ffffff;
@@ -1096,7 +1099,7 @@ html.in-3d, body.in-3d {
 #view3d-wrap.touch-controls #runBtn { display: flex; }
 #view3d-wrap #coop-emotes {
   position: absolute;
-  bottom: 14px;
+  bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
@@ -1260,6 +1263,11 @@ html.in-3d, body.in-3d {
   backdrop-filter: blur(16px);
   display: none;
 }
+#view3d-wrap #audit h3 { margin: 0 0 8px; font-size: 14px; }
+#view3d-wrap #audit .chk { display: flex; gap: 8px; margin: 7px 0; align-items: flex-start; }
+#view3d-wrap #audit .ok { color: #7fe08a; }
+#view3d-wrap #audit .bad { color: #ff7a6a; }
+#view3d-wrap #audit .det { opacity: .7; font-size: 11.5px; margin-top: 2px; }
 #view3d-wrap #gpu-warn {
   position: absolute;
   z-index: 50;

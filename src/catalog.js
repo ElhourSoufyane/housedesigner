@@ -941,7 +941,7 @@ HP.CATALOG = [
       g.font = 'bold 9px sans-serif'; g.textAlign = 'center';
       g.fillText('UP', W / 2, 16);
     } },
-  { id: 'pergola', name: 'Pergola Canopy', cat: 'Build', w: 4, h: 3, colors: ['#6d4c33', '#4a3322', '#8c6243', '#2d2e30', '#f4efe4'], walkable: true,
+  { id: 'pergolacanopy', name: 'Pergola Canopy', cat: 'Build', w: 4, h: 3, colors: ['#6d4c33', '#4a3322', '#8c6243', '#2d2e30', '#f4efe4'], walkable: true,
     draw(g, W, H, v) {
       const c = this.colors[v] || '#6d4c33';
       g.fillStyle = HP.shade(c, 0.7);

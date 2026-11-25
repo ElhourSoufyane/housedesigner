@@ -4,17 +4,15 @@
   "webDir": "www",
   "server": {
     "url": "https://elhoursoufyane.github.io/housedesigner",
-    "cleartext": true,
     "androidScheme": "https",
     "iosScheme": "https"
   },
   "android": {
-    "allowMixedContent": true,
     "captureInput": true,
     "backgroundColor": "#1e1b4b"
   },
   "ios": {
-    "backgroundColor": "#0e1216",
+    "backgroundColor": "#1e1b4b",
     "contentInset": "never"
   },
   "plugins": {

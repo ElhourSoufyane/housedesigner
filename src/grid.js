@@ -674,7 +674,7 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
       { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 44, y1: H }
     ];
   }
-  if (/^pergola$/i.test(t)) {
+  if (/^(pergola|pergolacanopy)$/i.test(t)) {
     return [
       // 4 corner posts
       { x0: -W / 2, x1: -W / 2 + 0.35 * C, z0: -D / 2, z1: -D / 2 + 0.35 * C, y0: 0, y1: H },
@@ -832,7 +832,8 @@ HP.itemColliders = function (it, def, f, H) {
 HP.itemBlockedCells = function (it, def, f, H = 24) {
   const C = HP.CELL;
   const colliders = HP.itemColliders(it, def, f, H);
-  const groundColliders = colliders.filter(b => b.y0 < 30);
+  const bY = (it && it._baseY !== undefined) ? it._baseY : 0;
+  const groundColliders = colliders.filter(b => (b.y0 - bY) < 30);
   const blocked = [];
   for (let cy = f.y; cy < f.y + f.h; cy++) {
     for (let cx = f.x; cx < f.x + f.w; cx++) {

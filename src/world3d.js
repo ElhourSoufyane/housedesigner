@@ -282,12 +282,12 @@ function tickTime(dt, now) {
 
 /* ---------- geometry env for geom3d ---------- */
 const geomEnv = W3.geomEnv = function (targetLvl) {
-  const lvl = targetLvl || HP.cur();
-  const { regionOf, regions } = HP.computeRegions ? HP.computeRegions(lvl) : { regionOf: null, regions: [] };
+  const lvl = targetLvl || (HP.cur && HP.cur());
+  const { regionOf, regions } = (lvl && HP.computeRegions) ? HP.computeRegions(lvl) : { regionOf: null, regions: [] };
   return {
     C: HP.CELL,
-    fences: lvl.fences,
-    garageDoors: (lvl.furniture || []).filter(it => /garagedoor/i.test(it.type)),
+    fences: (lvl && lvl.fences) || {},
+    garageDoors: (lvl && lvl.furniture || []).filter(it => /garagedoor/i.test(it.type)),
     rAt: (x, y) => (x < 0 || y < 0 || x >= HP.GRID_W || y >= HP.GRID_H) ? -1 : (regionOf ? regionOf[y * HP.GRID_W + x] : -1),
     rsz: id => (id >= 0 && regions && regions[id]) ? regions[id].cells.length : 1e9,
   };
@@ -1326,9 +1326,9 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   const wMid = isH ? (a.z0 + a.z1) / 2 : (a.x0 + a.x1) / 2;
   const dh = HP.geom3d.DOOR_H; // 58
 
-  const lvl = HP.cur();
+  const lvl = (a && a.lvl) || HP.cur();
   const rec = lvl && lvl.walls && lvl.walls[a.k];
-  const doorStyle = (rec && rec.doorStyle) || 'panel';
+  const doorStyle = (a && a.forcedStyle) || (rec && rec.doorStyle) || 'panel';
   const isModern = doorStyle === 'modern' || doorStyle === 'slideglass';
   const isSlide = doorStyle === 'slide';
   const isGlass = doorStyle === 'glass';
@@ -1625,9 +1625,9 @@ W3.buildDoorFrame = buildDoorFrame;
 W3.populateDoorLeaf = populateDoorLeaf;
 
 function populateDoorLeaf(dp, a, leaves, li, span, s0, s1, post0, post1, leafMat, knobMat, knobGeo) {
-  const lvl = HP.cur();
+  const lvl = (a && a.lvl) || HP.cur();
   const rec = lvl && lvl.walls && lvl.walls[a.k];
-  const doorStyle = (rec && rec.doorStyle) || 'panel';
+  const doorStyle = (a && a.forcedStyle) || (rec && rec.doorStyle) || 'panel';
   const isSlide = doorStyle === 'slide' || doorStyle === 'slideglass';
   const isGlass = doorStyle === 'glass' || doorStyle === 'slideglass';
   const isModern = doorStyle === 'modern';
@@ -2597,7 +2597,7 @@ W3.buildLevel = function () {
   const boxPart = (b, c) => {
     const m = new THREE.Matrix4().makeScale(b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0);
     m.setPosition((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2);
-    return { m, c, x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 };
+    return { m, c, x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, y0: b.y0, y1: b.y1 };
   };
 
   const getWallMat = (style) => {
@@ -2636,6 +2636,7 @@ W3.buildLevel = function () {
   allLevels.forEach((curLvl, lIdx) => {
     const bY = lIdx * WALL_H;
     const targetY = (lIdx + 1) * WALL_H;
+    if (lIdx + 1 >= allLevels.length) return;
     for (const it of (curLvl.furniture || [])) {
       if (!HP.itemDef(it.type) || !/stairs/i.test(it.type)) continue;
       const f = HP.footprint(it);
@@ -2644,14 +2645,12 @@ W3.buildLevel = function () {
         for (let fx = f.x; fx < f.x + f.w; fx++) {
           const k = fx + ',' + fy;
           stairCeilingOpenings[lIdx].add(k);
-          if (lIdx + 1 < allLevels.length) {
-            const isTopLanding = (rot === 0 && fy === f.y + f.h - 1) ||
-                                (rot === 2 && fy === f.y) ||
-                                (rot === 1 && fx === f.x + f.w - 1) ||
-                                (rot === 3 && fx === f.x);
-            if (!isTopLanding) {
-              stairFloorOpenings[lIdx + 1].add(k);
-            }
+          const isTopLanding = (rot === 0 && fy === f.y + f.h - 1) ||
+                              (rot === 2 && fy === f.y) ||
+                              (rot === 1 && fx === f.x + f.w - 1) ||
+                              (rot === 3 && fx === f.x);
+          if (!isTopLanding) {
+            stairFloorOpenings[lIdx + 1].add(k);
           }
         }
       }
@@ -2775,6 +2774,15 @@ W3.buildLevel = function () {
       const water = new THREE.Mesh(new THREE.CircleGeometry(r + 0.5, 40).rotateX(-Math.PI / 2), mats.surf);
       water.position.set(pcx, WY, pcz); water.renderOrder = 2;
       g2.add(floor, wall, rim, water);
+      if (r >= 16) {
+        const sw = Math.min(18, r * 0.65);
+        for (const [si, sy, sd] of [[0, -DEPTH * 0.42, 7], [1, -DEPTH * 0.72, 12]]) {
+          const step = new THREE.Mesh(new THREE.BoxGeometry(sw, 2.2, sd), mats.basin);
+          step.position.set(pcx, sy, pcz + Math.max(0, r - 2 - sd / 2 - si * 4.5));
+          step.receiveShadow = true;
+          g2.add(step);
+        }
+      }
       if (mats.caustic) {
         const ca = new THREE.Mesh(new THREE.CircleGeometry(r - 1, 36).rotateX(-Math.PI / 2), causticMat([r * 2, r * 2]));
         ca.position.set(pcx, -DEPTH + 0.9, pcz); ca.renderOrder = 1;
@@ -2980,11 +2988,16 @@ W3.buildLevel = function () {
         const frameMat = HP.graphics3d.material('metal', '#1e2023');
         const channelParts = [];
         for (const p of parts) {
-          const bBot = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY, y1: bY + 1.8 };
-          const bTop = { x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY + 72.2, y1: bY + 74 };
-          channelParts.push(boxPart(bBot, '#1e2023'), boxPart(bTop, '#1e2023'));
+          if (p.y0 <= bY + 2) {
+            channelParts.push(boxPart({ x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY, y1: bY + 1.8 }, '#1e2023'));
+          }
+          if (p.y1 >= bY + WALL_H - 2) {
+            channelParts.push(boxPart({ x0: p.x0, x1: p.x1, z0: p.z0, z1: p.z1, y0: bY + 72.2, y1: bY + 74 }, '#1e2023'));
+          }
         }
-        V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true, lvlIdx: lIdx });
+        if (channelParts.length) {
+          V.instanced(sg, unitBox(), frameMat, channelParts, { cast: true, receive: true, lvlIdx: lIdx });
+        }
       }
     }
     mark('instancedWalls_' + lIdx);
@@ -3037,7 +3050,7 @@ W3.buildLevel = function () {
         const wallSeg = curLvl.walls && curLvl.walls[w.k];
         const winStyle = (wallSeg && (wallSeg.winStyle || (wallSeg.style === 'awning' || wallSeg.style === 'hopper' || wallSeg.style === 'slider' || wallSeg.style === 'single_hung' ? wallSeg.style : null))) || w.winStyle || (n === 1 ? 'single-hung' : 'casement');
         const assembly = { a, root, panels: [], inward, style: winStyle === 'single_hung' ? 'single-hung' : winStyle, winStyle,
-          w, span, height, rim, rail, width, insideH, wallDepth, n, isH };
+          w, span, height, rim, rail, width, insideH, wallDepth, n, isH, lvlIdx: lIdx };
         W3.windows.push(assembly);
         populateWindowAssembly(assembly, sashMat, paneMat, doorPivots);
       }
@@ -3137,7 +3150,7 @@ W3.buildLevel = function () {
     const archwayItems = (curLvl && curLvl.furniture) ? curLvl.furniture.filter(it => /^archway/i.test(it.type)) : [];
 
     for (const a of geo.doors) {
-      const da = { ...a, y0: a.y0 + bY, y1: a.y1 + bY };
+      const da = { ...a, y0: a.y0 + bY, y1: a.y1 + bY, baseY: bY, lvl: curLvl, lvlIdx: lIdx };
       let s0 = da.d === 'h' ? da.x0 : da.z0, s1 = da.d === 'h' ? da.x1 : da.z1;
       let post0 = false, post1 = false;
       for (const c of cornerBoxes) {
@@ -3161,7 +3174,7 @@ W3.buildLevel = function () {
       if (da.swing === 'out') da.flip = outsideFlip;
       else if (da.swing === 'in') da.flip = insideFlip;
 
-      // Check if an archway catalog item is placed over this doorway: adapt panel doors to authentic arched craftsmanship
+      // Check if an archway catalog item is placed over this doorway: adapt panel doors visually without mutating saved walls
       const hasArchwayItem = archwayItems.length > 0 && archwayItems.some(it => {
         const f = HP.footprint(it);
         const fx0 = f.x * C, fx1 = (f.x + f.w) * C, fz0 = f.y * C, fz1 = (f.y + f.h) * C;
@@ -3171,13 +3184,7 @@ W3.buildLevel = function () {
       });
       if (hasArchwayItem && curLvl && curLvl.walls && curLvl.walls[da.k]) {
         const curStyle = curLvl.walls[da.k].doorStyle || 'panel';
-        if (curStyle === 'panel') {
-          curLvl.walls[da.k].doorStyle = 'arched';
-          if (da.dbl) {
-            const nk = da.d === 'h' ? 'h,' + (seg.x + 1) + ',' + seg.y : 'v,' + seg.x + ',' + (seg.y + 1);
-            if (curLvl.walls[nk]) curLvl.walls[nk].doorStyle = 'arched';
-          }
-        }
+        if (curStyle === 'panel') da.forcedStyle = 'arched';
       }
 
       for (let li = 0; li < leaves; li++) {
@@ -3185,7 +3192,7 @@ W3.buildLevel = function () {
         sg.add(pivot);
         V.add(pivot, da.x0 - C, da.z0 - C, da.x1 + C, da.z1 + C);
         const dp = { pivot, a: da, open: 0, target: 0, vel: 0, holdT: 0, latched: false,
-                     flip: da.flip, s0, s1, post0, post1, ly0: bY, ly1: bY + 70 };
+                     flip: da.flip, s0, s1, post0, post1, ly0: bY, ly1: bY + 70, lvlIdx: lIdx };
         populateDoorLeaf(dp, da, leaves, li, span, s0, s1, post0, post1, leafMat, knobMat, knobGeo, bY);
         if (li === 0) {
           dp.frameMesh = buildDoorFrame(da, s0, s1, sg, bY);
@@ -3344,24 +3351,27 @@ function buildSingleFurnitureItem(it, i, ctx) {
     const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
     for (const sm of surfaceMeta) {
       if (sm.it === it) continue;
+      if ((sm.it._levelIdx || 0) !== (it._levelIdx || 0)) continue;
       const of = sm.f;
       if (cx >= of.x && cx < of.x + of.w && cy >= of.y && cy < of.y + of.h)
-        baseY = Math.max(baseY, sm.h);
+        baseY = Math.max(baseY, (sm.it._baseY || 0) + sm.h);
     }
   }
   if (it.type !== 'treehouse' && it.type !== 'greenhouse' && hostStructures.length > 0) {
     const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
     for (const hm of hostStructures) {
       if (hm.it === it) continue;
+      if ((hm.it._levelIdx || 0) !== (it._levelIdx || 0)) continue;
       const of = hm.f;
       if (cx >= of.x && cx < of.x + of.w && cy >= of.y && cy < of.y + of.h) {
+        const hBase = hm.it._baseY || 0;
         if (/treehouse/i.test(hm.it.type)) {
-          baseY = Math.max(baseY, 54.0);
+          baseY = Math.max(baseY, hBase + 54.0);
         } else if (/greenhouse/i.test(hm.it.type)) {
           if (d.onTop && (!hm.it.interior || !hm.it.interior.customized)) {
             const relX = (cx - (of.x + of.w / 2)) / of.w;
             const ghH = hm.h;
-            if (Math.abs(relX) > 0.20) baseY = Math.max(baseY, Math.round(ghH * 0.22));
+            if (Math.abs(relX) > 0.20) baseY = Math.max(baseY, hBase + Math.round(ghH * 0.22));
           }
         }
       }
@@ -3383,7 +3393,7 @@ function buildSingleFurnitureItem(it, i, ctx) {
   fit2.setColorAt(i, col.set(c));
   if (models) models.add(it, d, f, h, i, baseY);
   if (h > 10 && !FLAT(it.type) && !d.onTop && (!d.walkable || /^archway/i.test(it.type)) && it.type !== 'rangehood') {
-    const colliders = HP.itemColliders ? HP.itemColliders(it, d, f, h) : [{ x0: f.x * C, x1: (f.x + f.w) * C, z0: f.y * C, z1: (f.y + f.h) * C, y0: 0, y1: h }];
+    const colliders = HP.itemColliders ? HP.itemColliders(it, d, f, h) : [{ x0: f.x * C, x1: (f.x + f.w) * C, z0: f.y * C, z1: (f.y + f.h) * C, y0: baseY, y1: baseY + h }];
     for (const box of colliders) {
       furnColliders.push(box);
       if (colliders.length === 1 && pushable(it, d, f, h)) {
@@ -3401,15 +3411,16 @@ function buildSingleHangItem(it, i2, ctx) {
   const { targetGroup, items, fit2, models, lifeItems, furnMetaById, m4, col, C } = ctx;
   const i = items.length + i2;
   const d = HP.itemDef(it.type), f = HP.footprint(it);
-  lifeItems.push({ it, f, h: 0 });
+  const bY = it._baseY !== undefined ? it._baseY : 0;
+  lifeItems.push({ it, f, h: 0, baseY: bY });
   furnMetaById.set(it.id, { inst: i, origX: it.x, origY: it.y, it });
   const c = (it.colors && it.colors[0]) || (d.colors && d.colors[0]) || '#999';
   const w = f.w * C, dep = 4, hy = 52;
   m4.makeScale(it.rot % 2 ? dep : w, Math.max(10, f.h * C * 0.5), it.rot % 2 ? w : dep);
-  m4.setPosition((f.x + f.w / 2) * C, hy, (f.y + f.h / 2) * C);
+  m4.setPosition((f.x + f.w / 2) * C, bY + hy, (f.y + f.h / 2) * C);
   fit2.setMatrixAt(i, m4);
   fit2.setColorAt(i, col.set(c));
-  if (models) models.add(it, d, f, 0, i);
+  if (models) models.add(it, d, f, 0, i, bY);
 }
 
 HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
@@ -3584,18 +3595,27 @@ HP.getLampLightTransform = function (it, def, f, C, lvlWalls, geomEnv) {
 function buildFurnitureLamps(ctx) {
   const { items, hangs, furnLamps, C, env } = ctx;
   const seenPos = new Set();
-  const getRoom = (wx, wz) => (env && env.rAt ? env.rAt(Math.floor(wx / C), Math.floor(wz / C)) : -1);
-  const lvl = (HP.cur && HP.cur()) || null;
-  const lvlWalls = (lvl && lvl.walls) || {};
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
+  const envCache = new Map();
+  const getLvlInfo = (it) => {
+    const lIdx = it._levelIdx !== undefined ? it._levelIdx : ((HP.state && HP.state.level) || 0);
+    const lObj = allLevels[lIdx] || HP.cur() || null;
+    if (!envCache.has(lIdx)) envCache.set(lIdx, lObj ? geomEnv(lObj) : env);
+    const lEnv = envCache.get(lIdx);
+    const lWalls = (lObj && lObj.walls) || {};
+    const getRoom = (wx, wz) => (lEnv && lEnv.rAt ? lEnv.rAt(Math.floor(wx / C), Math.floor(wz / C)) : -1);
+    return { lIdx, lWalls, lEnv, getRoom };
+  };
 
   for (const it of items) {
     if (!/lamp|torch|candle|lantern|light|sconce/i.test(it.type) || /fireplace/i.test(it.type)) continue;
-    const posKey = it.type + '@' + it.x + ',' + it.y;
+    const { lIdx, lWalls, lEnv, getRoom } = getLvlInfo(it);
+    const posKey = lIdx + ':' + it.type + '@' + it.x + ',' + it.y;
     if (seenPos.has(posKey)) continue;
     seenPos.add(posKey);
     const def = HP.itemDef ? HP.itemDef(it.type) : {};
     const f = HP.footprint ? HP.footprint(it) : { x: it.x, y: it.y, w: it.w || def.w || 1, h: it.h || def.h || 1 };
-    const lt = HP.getLampLightTransform(it, def, f, C, lvlWalls, env);
+    const lt = HP.getLampLightTransform(it, def, f, C, lWalls, lEnv);
     furnLamps.push({
       id: it.id,
       it,
@@ -3609,6 +3629,7 @@ function buildFurnitureLamps(ctx) {
   }
   for (const it of items) {
     if (/^greenhouse/i.test(it.type)) {
+      const { getRoom } = getLvlInfo(it);
       const f = HP.footprint(it), h = itemH3D(HP.itemDef(it.type), it);
       const bY = it._baseY !== undefined ? it._baseY : 0;
       const lx = (f.x + f.w / 2) * C, lz = (f.y + f.h / 2) * C;
@@ -3617,7 +3638,9 @@ function buildFurnitureLamps(ctx) {
   }
   for (const it of items) {
     if (/^treehouse/i.test(it.type)) {
+      const { getRoom } = getLvlInfo(it);
       const f = HP.footprint(it), rot = it.rot || 0;
+      const bY = it._baseY !== undefined ? it._baseY : 0;
       const W = f.w * C, D = f.h * C;
       const tcx = (f.x + f.w / 2) * C, tcz = (f.y + f.h / 2) * C;
       let lx = -0.15 * W, lz = -0.15 * D;
@@ -3625,17 +3648,18 @@ function buildFurnitureLamps(ctx) {
       else if (rot === 2) { lx = -lx; lz = -lz; }
       else if (rot === 3) { const rx = lz; lz = -lx; lx = rx; }
       const wx = tcx + lx, wz = tcz + lz;
-      furnLamps.push({ id: it.id, it, x: wx, z: wz, y: 98, power: 1.2, room: getRoom(wx, wz), on: it.on !== false });
+      furnLamps.push({ id: it.id, it, x: wx, z: wz, y: bY + 98, power: 1.2, room: getRoom(wx, wz), on: it.on !== false });
     }
   }
   for (const it of hangs) {
     if (!/sconce/i.test(it.type)) continue;
-    const posKey = it.type + '@' + it.x + ',' + it.y;
+    const { lIdx, lWalls, lEnv, getRoom } = getLvlInfo(it);
+    const posKey = lIdx + ':' + it.type + '@' + it.x + ',' + it.y;
     if (seenPos.has(posKey)) continue;
     seenPos.add(posKey);
     const def = HP.itemDef ? HP.itemDef(it.type) : {};
     const f = HP.footprint ? HP.footprint(it) : { x: it.x, y: it.y, w: it.w || def.w || 1, h: it.h || def.h || 1 };
-    const lt = HP.getLampLightTransform(it, def, f, C, lvlWalls, env);
+    const lt = HP.getLampLightTransform(it, def, f, C, lWalls, lEnv);
     furnLamps.push({
       id: it.id,
       it,
@@ -4184,16 +4208,23 @@ W3.onRemoteDrag = function (items) {
 
 W3.updateApertures = function () {
   if (!W3.levelGroup) return;
-  const lvl = HP.cur();
-  if (!lvl || !lvl.walls) return;
-  const env = geomEnv();
-  const C = HP.CELL, V = HP.cull3d;
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+  const envCache = new Map();
+  const getLvlEnv = (idx, lObj) => {
+    if (!envCache.has(idx)) envCache.set(idx, geomEnv(lObj));
+    return envCache.get(idx);
+  };
 
   // 1. Update doors
   for (const dp of (W3.doorPivots || [])) {
     if (!dp.a || dp.gate || dp.window) continue;
+    const lIdx = dp.lvlIdx !== undefined ? dp.lvlIdx : Math.max(0, Math.round((dp.ly0 || 0) / WALL_H));
+    const lvl = allLevels[lIdx] || HP.cur();
+    if (!lvl || !lvl.walls) continue;
     const w = lvl.walls[dp.a.k];
     if (!w) continue;
+    const env = getLvlEnv(lIdx, lvl);
     const seg = HP.parseWallKey(dp.a.k);
     const minusRoom = dp.a.d === 'h' ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
     const plusRoom = env.rAt(seg.x, seg.y);
@@ -4204,13 +4235,15 @@ W3.updateApertures = function () {
     if (w.swing === 'out') targetFlip = outsideFlip;
     else if (w.swing === 'in') targetFlip = insideFlip;
 
-    const curDoorStyle = w.doorStyle || 'panel';
+    const curDoorStyle = (dp.a && dp.a.forcedStyle) || w.doorStyle || 'panel';
     const styleChanged = dp.doorStyle !== curDoorStyle;
     const flipChanged = targetFlip !== undefined && (targetFlip !== dp.flip || w.swing !== dp.a.swing);
 
     if (styleChanged || flipChanged) {
       dp.a.swing = w.swing;
       dp.a.flip = targetFlip;
+      dp.a.baseY = lIdx * WALL_H;
+      dp.a.lvl = lvl;
       dp.flip = targetFlip;
       const s0 = dp.s0 !== undefined ? dp.s0 : (dp.a.d === 'h' ? dp.a.x0 : dp.a.z0);
       const s1 = dp.s1 !== undefined ? dp.s1 : (dp.a.d === 'h' ? dp.a.x1 : dp.a.z1);
@@ -4245,8 +4278,12 @@ W3.updateApertures = function () {
 
   for (const assembly of (W3.windows || [])) {
     if (!assembly || !assembly.a) continue;
+    const lIdx = assembly.lvlIdx !== undefined ? assembly.lvlIdx : Math.max(0, Math.floor(((assembly.w && assembly.w.y0) || 0) / WALL_H));
+    const lvl = allLevels[lIdx] || HP.cur();
+    if (!lvl || !lvl.walls) continue;
     const wRec = lvl.walls[assembly.a.k];
     if (!wRec) continue;
+    const env = getLvlEnv(lIdx, lvl);
     const seg = HP.parseWallKey(assembly.a.k);
     const minusRoom = assembly.isH ? env.rAt(seg.x, seg.y - 1) : env.rAt(seg.x - 1, seg.y);
     const plusRoom = env.rAt(seg.x, seg.y);
@@ -4276,8 +4313,7 @@ W3.updateApertures = function () {
   }
 
   if (HP.cull3d) {
-    const all = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [lvl];
-    HP.cull3d.setWalls(all, W3.doorPivots);
+    HP.cull3d.setWalls(allLevels, W3.doorPivots);
   }
 };
 
@@ -4621,11 +4657,14 @@ W3.updateFloors = function () {
     W3.buildLevel();
     return;
   }
-  const lvl = HP.cur();
-  if (!lvl) return;
+  const allLevels = (HP.state && HP.state.levels && HP.state.levels.length) ? HP.state.levels : [HP.cur()];
+  if (!allLevels[0]) return;
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
   const V = HP.cull3d;
   const nextFLG = new THREE.Group();
-  W3._buildFloorMeshes(nextFLG, lvl);
+  allLevels.forEach((lv, lIdx) => {
+    if (lv) W3._buildFloorMeshes(nextFLG, lv, lIdx * WALL_H, W3.stairFloorOpenings && W3.stairFloorOpenings[lIdx]);
+  });
 
   if (W3.floorGroup) {
     if (V && V.removeGroup) V.removeGroup(W3.floorGroup);
@@ -4768,8 +4807,11 @@ W3.render = function () {
   }
   if (HP.sound3d && skyS) {
     const C2 = HP.CELL;
+    const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+    const curFloor = Math.max(0, Math.floor((p.y + 0.1) / WALL_H));
+    const curLvl = (HP.state && HP.state.levels && HP.state.levels[curFloor]) || HP.cur();
     const cx = Math.floor(p.x / C2), cy = Math.floor(p.z / C2);
-    const { regionOf } = HP.computeRegions();
+    const { regionOf } = HP.computeRegions(curLvl);
     const outside = cx < 0 || cy < 0 || cx >= HP.GRID_W || cy >= HP.GRID_H ||
                     regionOf[cy * HP.GRID_W + cx] === -1;
     const amb2 = (HP.life3d && HP.life3d.ambience) || { water: [], fire: [], fan: [] };

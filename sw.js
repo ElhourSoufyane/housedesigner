@@ -1,5 +1,5 @@
 /* sw.js — House Designer Service Worker for Complete Offline & Standalone App Support */
-const CACHE_NAME = 'housedesigner-v1.3.36';
+const CACHE_NAME = 'housedesigner-v1.3.37';
 
 // In local development (localhost / 127.0.0.1), NEVER cache assets so updates are immediate
 const isLocalhost = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
@@ -22,6 +22,7 @@ if (isLocalhost) {
     './',
     './index.html',
     './play3d.html',
+    './3d.html',
     './style.css',
     './manifest.json',
     './assets/icon-192.png',
@@ -85,7 +86,7 @@ if (isLocalhost) {
     if (event.request.url.includes('version.json')) {
       event.respondWith(
         fetch(event.request, { cache: 'no-store' }).catch(() => {
-          return new Response(JSON.stringify({ version: '1.3.36', offline: true }), {
+          return new Response(JSON.stringify({ version: '1.3.37', offline: true }), {
             headers: { 'Content-Type': 'application/json' }
           });
         })
@@ -116,7 +117,8 @@ if (isLocalhost) {
         .then(response => {
           if (response && response.status === 200 && (response.type === 'basic' || response.type === 'cors')) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+            const key = event.request.url.startsWith(self.location.origin) ? urlPath : event.request;
+            caches.open(CACHE_NAME).then(cache => cache.put(key, copy));
           }
           return response;
         })

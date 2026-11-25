@@ -266,19 +266,18 @@ window.HP = window.HP || {};
     animTime += dt;
 
     const cx = camPos.x, cz = camPos.z;
+    const roofH = HP.world3d && HP.world3d.roofHeights;
+    const fallbackCr = (!roofH && HP.computeRegions) ? HP.computeRegions() : null;
 
     const getRoofHeight = (x, z) => {
       const C = (HP && HP.CELL) || 28;
       const gw = (HP && HP.GRID_W) || 64, gh = (HP && HP.GRID_H) || 64;
       const rcx = Math.floor(x / C), rcz = Math.floor(z / C);
       if (rcx >= 0 && rcz >= 0 && rcx < gw && rcz < gh) {
-        if (HP.world3d && HP.world3d.roofHeights && HP.world3d.roofHeights[rcz * gw + rcx] > 0) {
-          return HP.world3d.roofHeights[rcz * gw + rcx];
+        if (roofH && roofH[rcz * gw + rcx] > 0) {
+          return roofH[rcz * gw + rcx];
         }
-        if (HP.computeRegions) {
-          const cr = HP.computeRegions();
-          if (cr && cr.regionOf && cr.regionOf[rcz * gw + rcx] >= 0) return 73.8;
-        }
+        if (fallbackCr && fallbackCr.regionOf && fallbackCr.regionOf[rcz * gw + rcx] >= 0) return 73.8;
       }
       return -2;
     };
@@ -371,7 +370,7 @@ window.HP = window.HP || {};
         // Speed-of-sound delay for thunderclap (1.2 to 2.4 seconds after flash)
         const thunderDelay = 1200 + Math.random() * 1200;
         setTimeout(() => {
-          if (HP.sound3d && HP.sound3d.thunder) {
+          if (HP.weather === 'storm' && HP.in3D !== false && HP.sound3d && HP.sound3d.thunder) {
             HP.sound3d.thunder();
           }
         }, thunderDelay);
@@ -469,5 +468,16 @@ window.HP = window.HP || {};
     });
 
     document.body.appendChild(menu);
+    if (!window._hpWeatherMenuDismiss) {
+      window._hpWeatherMenuDismiss = (e) => {
+        const m = document.getElementById('weather-menu');
+        if (!m || m.style.display === 'none') return;
+        const b1 = document.getElementById('btn-weather');
+        const b2 = document.getElementById('btn-weather-2d');
+        if (m.contains(e.target) || (b1 && b1.contains(e.target)) || (b2 && b2.contains(e.target))) return;
+        m.style.display = 'none';
+      };
+      document.addEventListener('pointerdown', window._hpWeatherMenuDismiss, true);
+    }
   };
 })();

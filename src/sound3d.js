@@ -244,5 +244,6 @@ S.tick = function (dt, t, env) {
   }
 };
 S.stop = function () { if (ctx && ctx.suspend) ctx.suspend(); started = false; };
+S.suspend = S.stop;
 S.resume = function () { if (ctx && ctx.state === 'suspended') ctx.resume(); if (ctx) started = true; };
 })();

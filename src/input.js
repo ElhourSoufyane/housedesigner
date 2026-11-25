@@ -150,7 +150,7 @@ HP.initInput = function () {
     if (HP.playing) { if (k === 'escape') HP.togglePlay(); return; }
     switch (k) {
       case 'r': HP.rotateActive(); break;
-      case 'g': HP.toggleSnap(); break;
+      case 'h': HP.toggleSnap(); break;
       case 'delete': case 'backspace': HP.deleteSelected(); break;
       case 'escape':
         if (HP.pending) HP.cancelPending();

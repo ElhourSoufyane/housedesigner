@@ -25,6 +25,7 @@ HP.peerCursors = cursors;
 HP.peerAvatarList = () => Object.values(avatars);   // [{x,y,a,lvl,s,name}…] for seat picking
 
 const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 /* ---------- status + panel ---------- */
 function coopStatus(txt, on) {
@@ -60,7 +61,10 @@ function showPanel() {
 function hidePanel() { $('#coop-panel').classList.add('hidden'); }
 
 function copyInvite() {
-  const url = location.origin + location.pathname + '?room=' + roomCode;
+  const base = location.protocol === 'file:'
+    ? 'https://elhoursoufyane.github.io/housedesigner/' + (/play3d\.html$/i.test(location.pathname) ? 'play3d.html' : '')
+    : (location.origin + location.pathname);
+  const url = base + '?room=' + encodeURIComponent(roomCode || '');
   if (navigator.clipboard)
     navigator.clipboard.writeText(url)
       .then(() => HP.status('Invite link copied — send it to your partner'))
@@ -77,7 +81,7 @@ function renderPanel() {
         <div class="field"><label>Send this link to your partner</label>
           <button class="panel-btn primary" id="coop-copy" style="width:100%">Copy invite link</button></div>
         <div class="field"><label>…or give them the code</label>
-          <div class="coop-code-big">${roomCode}</div></div>
+          <div class="coop-code-big">${esc(roomCode)}</div></div>
         <div class="hint">Waiting for someone to join…</div>
         <button class="panel-btn danger" id="coop-cancel" style="width:100%">Cancel hosting</button>`;
       $('#coop-copy').onclick = copyInvite;
@@ -110,10 +114,10 @@ function renderPanel() {
     if (rb) rb.onclick = restoreSolo;
     return;
   }
-  const names = conns.map(c => c.name || '…').join(', ');
+  const names = esc(conns.map(c => c.name || '…').join(', '));
   body.innerHTML = `
     <div class="field"><label>Room code — share this</label>
-      <div class="coop-code-big">${roomCode || '—'}</div></div>
+      <div class="coop-code-big">${esc(roomCode || '—')}</div></div>
     <button class="panel-btn" id="coop-copy" style="width:100%">Copy invite link</button>
     <div class="hint">Playing with: <b>${names}</b>. Every edit syncs instantly — build together!</div>
     <button class="panel-btn danger" id="coop-leave" style="width:100%">Leave co-op</button>`;
@@ -296,6 +300,26 @@ function mergeRemote(cur, base, inc, incStamps, baseStamps) {
     staticChanged = true;
     while (cur.levels.length < inc.levels.length)
       cur.levels.push({ walls: {}, floors: {}, roomNames: {}, furniture: [], fences: {} });
+  } else if (base && base.levels && inc.levels.length < base.levels.length && cur.levels.length > inc.levels.length) {
+    while (cur.levels.length > inc.levels.length && cur.levels.length > 1) {
+      const topIdx = cur.levels.length - 1;
+      const cl = cur.levels[topIdx], cS = stamps[topIdx] || {}, bS = (baseStamps && baseStamps[topIdx]) || {};
+      let localNewer = false;
+      for (const d of ['walls', 'floors', 'fences', 'roomNames']) {
+        const md = cS[d] || {}, bd = bS[d] || {};
+        for (const k in (cl[d] || {})) if (cmpStamp(md[k], bd[k]) > 0) { localNewer = true; break; }
+        if (localNewer) break;
+      }
+      if (!localNewer) {
+        const im = cS.items || {}, bi = bS.items || {};
+        for (const it of (cl.furniture || [])) if (cmpStamp(im[it.id], bi[it.id]) > 0) { localNewer = true; break; }
+      }
+      if (localNewer) break;
+      cur.levels.pop();
+      delete stamps[topIdx];
+      staticChanged = true;
+      if (cur.level >= cur.levels.length) cur.level = cur.levels.length - 1;
+    }
   }
   for (let i = 0; i < inc.levels.length; i++) {
     const cl = cur.levels[i], bl = base && base.levels[i] || {}, il = inc.levels[i];
@@ -433,7 +457,7 @@ function applyState(msg, fromConn) {
       if (it.id === selId) { HP.selected = it; break outer; }
   HP.selectedRoom = keepRoom;
   if (HP.state.w !== HP.GRID_W || HP.state.h !== HP.GRID_H) {
-    HP.applyGridSize();
+    if (!HP.editingInterior) HP.applyGridSize();
     staticChanged = true;
   }
   /* Only invalidate heavy static layer (wipes offscreen canvas) when structural elements change.
@@ -455,7 +479,7 @@ function applyState(msg, fromConn) {
   if (HP.in3D && HP.request3DRebuild) {
     HP.request3DRebuild(40, { staticChanged, aperturesChanged, floorsChanged, furnitureChanged });
   } else if (HP.in3D && HP.world3d && HP.world3d.scene && HP.world3d.levelGroup) {
-    if (staticChanged || !HP.world3d.furnitureGroup || !HP.world3d.floorGroup) {
+    if (staticChanged) {
       HP.invalidateRegions();
       HP.world3d.buildLevel();
     } else {
@@ -470,7 +494,7 @@ function applyState(msg, fromConn) {
 
   // Star topology: only relay to OTHER guests if host, NEVER echo back to sender!
   if (mode === 'host') {
-    for (const c of conns) if (c !== fromConn) { try { c.send(msg); } catch (e) {} }
+    for (const c of conns) if (c !== fromConn) sendTo(c, msg);
   }
 }
 
@@ -570,7 +594,8 @@ function setupConn(c) {
     sendTo(c, { t: 'hello', name: myName || 'Player' });
     if (mode === 'host') {
       stampOwners();
-      sendTo(c, { t: 'state', rev: Date.now(), origin: peer.id, state: HP.state, nextId: HP.nextId });
+      stampDelta();
+      sendTo(c, { t: 'state', rev: Date.now(), origin: peer.id, state: HP.state, stamps, nextId: HP.nextId });
     }
     setConnected();
     HP.status('Co-op connected — you are building together now');

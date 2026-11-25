@@ -117,14 +117,6 @@ HP.loadState = function () {
     if (raw) {
       const data = JSON.parse(raw);
       HP.state = HP.migrate(data.state);
-      // Auto-populate 145-material Floor Showroom into Floor 2 if Floor 2 exists and has 0 floors:
-      if (HP.state && HP.state.levels && HP.state.levels[1]) {
-        const l1 = HP.state.levels[1];
-        const floorCount = l1.floors ? Object.keys(l1.floors).length : 0;
-        if (floorCount === 0 && HP.DEFAULT_HOUSE && HP.DEFAULT_HOUSE.state && HP.DEFAULT_HOUSE.state.levels && HP.DEFAULT_HOUSE.state.levels[1]) {
-          HP.populateFloorShowroom(1);
-        }
-      }
       HP.applyGridSize();
       HP.nextId = Math.max(data.nextId || 0, HP.maxFurnitureId() + 1);
       return true;

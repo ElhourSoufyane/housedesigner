@@ -148,8 +148,13 @@ function buildWallEdges(walls, pivots) {
 
 /* opaque wall edges: supports single-level dictionary or multi-level array */
 V.setWalls = function (wallsOrLevels, pivots) {
+  const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
   if (Array.isArray(wallsOrLevels)) {
-    levelWalls = wallsOrLevels.map(lvl => buildWallEdges((lvl && lvl.walls) || lvl || {}, pivots));
+    levelWalls = wallsOrLevels.map((lvl, lIdx) => {
+      const bY = lIdx * WALL_H;
+      const lvlPivots = (pivots || []).filter(p => p && (p.ly0 === undefined || Math.abs(p.ly0 - bY) < WALL_H * 0.5));
+      return buildWallEdges((lvl && lvl.walls) || lvl || {}, lvlPivots);
+    });
   } else {
     levelWalls = [buildWallEdges(wallsOrLevels || {}, pivots)];
   }
@@ -302,18 +307,18 @@ V.hasLineOfSight = function (x0, z0, x1, z1, floor) {
     if (Math.abs(tx - tz) < 1e-6) {
       const edgeX = stepX > 0 ? cx + 1 : cx;
       const edgeZ = stepZ > 0 ? cz + 1 : cz;
-      if (edgeX >= 0 && edgeX <= gw && cz >= 0 && cz < gh && vEdge[cz * W + edgeX]) return false;
-      if (edgeZ >= 0 && edgeZ <= gh && cx >= 0 && cx < gw && hEdge[edgeZ * W + cx]) return false;
+      if (edgeX >= 0 && edgeX <= gw && cz >= 0 && cz < gh && v[cz * W + edgeX]) return false;
+      if (edgeZ >= 0 && edgeZ <= gh && cx >= 0 && cx < gw && h[edgeZ * W + cx]) return false;
       cx += stepX; tx += tdx;
       cz += stepZ; tz += tdz;
     } else if (tx < tz) {
       const edgeX = stepX > 0 ? cx + 1 : cx;
-      if (edgeX >= 0 && edgeX <= gw && cz >= 0 && cz < gh && vEdge[cz * W + edgeX]) return false;
+      if (edgeX >= 0 && edgeX <= gw && cz >= 0 && cz < gh && v[cz * W + edgeX]) return false;
       cx += stepX;
       tx += tdx;
     } else {
       const edgeZ = stepZ > 0 ? cz + 1 : cz;
-      if (edgeZ >= 0 && edgeZ <= gh && cx >= 0 && cx < gw && hEdge[edgeZ * W + cx]) return false;
+      if (edgeZ >= 0 && edgeZ <= gh && cx >= 0 && cx < gw && h[edgeZ * W + cx]) return false;
       cz += stepZ;
       tz += tdz;
     }

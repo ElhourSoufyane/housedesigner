@@ -1,5 +1,5 @@
 // electron-main.js — Native Desktop Host for House Designer
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -20,10 +20,25 @@ let mainWindow = null;
 const stateFile = path.join(app.getPath('userData'), 'window-state.json');
 
 function loadWindowState() {
+  const def = { width: 1280, height: 800, isMaximized: false };
   try {
-    return JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    const s = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    if (!s || typeof s !== 'object') return def;
+    const width = Math.max(900, Math.min(4096, Number(s.width) || def.width));
+    const height = Math.max(600, Math.min(4096, Number(s.height) || def.height));
+    const out = { width, height, isMaximized: !!s.isMaximized };
+    if (Number.isFinite(s.x) && Number.isFinite(s.y)) {
+      const displays = screen.getAllDisplays();
+      const visible = displays.some(d => {
+        const wa = d.workArea;
+        return s.x + width > wa.x + 40 && s.x < wa.x + wa.width - 40 &&
+               s.y + height > wa.y + 40 && s.y < wa.y + wa.height - 40;
+      });
+      if (visible) { out.x = s.x; out.y = s.y; }
+    }
+    return out;
   } catch (e) {
-    return { width: 1280, height: 800, isMaximized: false };
+    return def;
   }
 }
 
@@ -102,6 +117,7 @@ function findLocalWorkspace() {
 function listFilesRec(dir, relBase, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name === 'floor_references') continue;
     const full = path.join(dir, entry.name);
     const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
@@ -132,8 +148,8 @@ function syncFromLocalWorkspace() {
   const metaNewer = verDiff > 0 || (verDiff === 0 && wsBuild > appBuild);
 
   const rootFiles = [
-    'index.html', 'play3d.html', 'style.css', 'manifest.json',
-    'version.json', 'sw.js', 'preload.js', 'electron-main.js', 'my-house.house.json'
+    'index.html', 'play3d.html', '3d.html', 'style.css', 'manifest.json',
+    'version.json', 'sw.js', 'preload.js', 'electron-main.js'
   ];
   const relFiles = [...rootFiles];
   for (const sub of ['src', 'assets', 'lib', 'textures']) {
@@ -284,11 +300,34 @@ async function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 }
 
-function fetchJson(url) {
+const MAX_REDIRECTS = 5;
+function resolveSafeHttpsRedirect(currentUrl, location) {
+  const nextUrl = new URL(location, currentUrl).href;
+  if (!nextUrl.startsWith('https://')) {
+    throw new Error(`Refusing non-HTTPS redirect: ${nextUrl}`);
+  }
+  return nextUrl;
+}
+function safeDestPath(relPath) {
+  const root = path.resolve(__dirname);
+  const full = path.resolve(root, String(relPath || ''));
+  const rel = path.relative(root, full);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(`Unsafe update path rejected: ${relPath}`);
+  }
+  return full;
+}
+
+function fetchJson(url, redirects = 0) {
+  if (!String(url).startsWith('https://')) return Promise.reject(new Error(`Refusing non-HTTPS URL: ${url}`));
   return new Promise((resolve, reject) => {
     const req = https.get(url, { agent: httpsAgent }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchJson(res.headers.location).then(resolve).catch(reject);
+        res.resume();
+        if (redirects >= MAX_REDIRECTS) return reject(new Error(`Too many redirects for ${url}`));
+        try {
+          return fetchJson(resolveSafeHttpsRedirect(url, res.headers.location), redirects + 1).then(resolve).catch(reject);
+        } catch (e) { return reject(e); }
       }
       if (res.statusCode !== 200) {
         res.resume();
@@ -308,7 +347,8 @@ function fetchJson(url) {
   });
 }
 
-function downloadFile(url, destPath) {
+function downloadFile(url, destPath, redirects = 0) {
+  if (!String(url).startsWith('https://')) return Promise.reject(new Error(`Refusing non-HTTPS URL: ${url}`));
   return new Promise((resolve, reject) => {
     const dir = path.dirname(destPath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -317,7 +357,10 @@ function downloadFile(url, destPath) {
     const req = https.get(url, { agent: httpsAgent }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        return downloadFile(res.headers.location, destPath).then(resolve).catch(reject);
+        if (redirects >= MAX_REDIRECTS) return reject(new Error(`Too many redirects for ${url}`));
+        try {
+          return downloadFile(resolveSafeHttpsRedirect(url, res.headers.location), destPath, redirects + 1).then(resolve).catch(reject);
+        } catch (e) { return reject(e); }
       }
       if (res.statusCode !== 200) {
         res.resume();
@@ -395,7 +438,7 @@ ipcMain.handle('apply-update', async (event) => {
     const toDownload = [];
     for (const relPath of fileList) {
       if (relPath === 'version.json') continue;
-      const destPath = path.join(__dirname, relPath);
+      const destPath = safeDestPath(relPath);
       const expectedHash = remoteHashes[relPath];
       if (!fs.existsSync(destPath) || !expectedHash || getLocalHash(destPath) !== expectedHash) {
         toDownload.push(relPath);
@@ -422,7 +465,7 @@ ipcMain.handle('apply-update', async (event) => {
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const batch = toDownload.slice(i, i + BATCH_SIZE);
       await Promise.all(batch.map(async (relPath) => {
-        const destPath = path.join(__dirname, relPath);
+        const destPath = safeDestPath(relPath);
         const expectedHash = relPath === 'version.json' ? null : remoteHashes[relPath];
         await downloadFile(`${primaryBase}${relPath}?_t=${stamp}`, destPath);
         if (expectedHash && getLocalHash(destPath) !== expectedHash) {

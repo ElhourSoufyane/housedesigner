@@ -276,14 +276,15 @@ HP.PRESETS = [
 ];
 
 /* mini preview of a state into a canvas (walls+floors only, ground floor) */
-HP.presetPreview = function (canvas, st) {
-  st = st.levels ? st.levels[0] : st;
+HP.presetPreview = function (canvas, fullSt) {
+  const pw = fullSt.w || HP.GRID_W, ph = fullSt.h || HP.GRID_H;
+  const st = fullSt.levels ? fullSt.levels[0] : fullSt;
   const mats = {};
   for (const m of HP.FLOOR_MATS) mats[m.id] = m.col;
   const g = canvas.getContext('2d');
-  const sx = canvas.width / (HP.GRID_W * HP.CELL), sy = canvas.height / (HP.GRID_H * HP.CELL);
+  const sx = canvas.width / (pw * HP.CELL), sy = canvas.height / (ph * HP.CELL);
   const k = Math.min(sx, sy);
-  g.fillStyle = '#aebfa0'; g.fillRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = fullSt.bg || '#aebfa0'; g.fillRect(0, 0, canvas.width, canvas.height);
   for (const key in st.floors) {
     const [x, y] = key.split(',').map(Number);
     g.fillStyle = mats[st.floors[key]] || '#e8e2d6';

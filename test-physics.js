@@ -42,7 +42,11 @@ for (const f of ['grid.js', 'catalog.js', 'rooms.js', 'geom3d.js', 'graphics3d.j
   eval(fs.readFileSync(path.join(__dirname, 'src', f), 'utf8'));
 
 /* ---------- real house ---------- */
-const house = require('C:/Users/bo1y/Desktop/myhouse/my-house.house.json');
+const localHousePath = path.join(__dirname, 'my-house.house.json');
+const fallbackHousePath = 'C:/Users/bo1y/Desktop/myhouse/my-house.house.json';
+const housePath = fs.existsSync(localHousePath) ? localHousePath
+  : (fs.existsSync(fallbackHousePath) ? fallbackHousePath : null);
+const house = housePath ? require(housePath) : { state: HP.DEFAULT_HOUSE && HP.DEFAULT_HOUSE.state };
 HP.state = house.state; HP.state.level = house.state.level || 0;
 
 const W3 = HP.world3d;

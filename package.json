@@ -1,7 +1,7 @@
 {
   "name": "house-designer",
   "productName": "House Designer",
-  "version": "1.3.36",
+  "version": "1.3.37",
   "description": "Cozy 2D & 3D Architectural Home Designer with Live Co-op",
   "main": "electron-main.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "sync": "node scripts/sync-desktop.js",
     "test": "node test-geom3d.js && node test-physics.js && node test-graphics.js && node test-smoke.js && node test-floors.js && node test-render.js",
     "build:icons": "node scripts/generate-app-icons.js",
-    "build:pc": "electron-packager . \"House Designer\" --platform=win32 --arch=x64 --icon=assets/icon.ico --out=dist --overwrite --ignore=\"(^/(android|ios|dist|test-.*|scripts))\"",
+    "build:pc": "electron-packager . \"House Designer\" --platform=win32 --arch=x64 --icon=assets/icon.ico --out=dist --overwrite --ignore=\"(^/(android|ios|dist|dist-src|www|test-.*|scripts|assets/floor_references|my-house\\.house\\.json))\"",
     "cap:sync": "cap sync",
     "cap:open:android": "cap open android",
     "cap:open:ios": "cap open ios"

@@ -32,6 +32,7 @@ function copyDir(src, dest) {
   if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.isDirectory() && entry.name === 'floor_references') continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
@@ -54,11 +55,11 @@ const files = [
   'preload.js',
   'index.html',
   'play3d.html',
+  '3d.html',
   'style.css',
   'manifest.json',
   'version.json',
-  'sw.js',
-  'my-house.house.json'
+  'sw.js'
 ];
 
 for (const f of files) copyFile(f);

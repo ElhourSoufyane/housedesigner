@@ -9,8 +9,25 @@
 */
 (function () {
   'use strict';
-  const PREFIX = 'houseplan3d-';
+  const PREFIX = 'houseplan-';
   const LS_NAME = 'hd_name';
+  const PEER_CONFIG = {
+    config: {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ]
+    }
+  };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const inviteHref = code => {
+    const base = location.protocol === 'file:'
+      ? 'https://elhoursoufyane.github.io/housedesigner/' + (/play3d\.html$/i.test(location.pathname) ? 'play3d.html' : '')
+      : (location.origin + location.pathname);
+    return base + '?room=' + encodeURIComponent(code || '');
+  };
   const CURSOR_COLORS = ['#38bdf8', '#f43f5e', '#a855f7', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4', '#eab308'];
 
   function nameColor(n) {
@@ -324,7 +341,9 @@
       cur.s = tgt.s;
       cur.v += (tgt.v - cur.v) * lerpFactor;
 
-      const renderY = cur.s ? (cur.y > 15 ? 0 : cur.y) : cur.y;
+      const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
+      const floorBaseY = Math.floor(Math.max(0, cur.y) / WALL_H) * WALL_H;
+      const renderY = cur.s ? ((cur.y - floorBaseY) > 15 ? floorBaseY : cur.y) : cur.y;
       av.root.position.set(cur.x, renderY, cur.z);
       av.root.rotation.y = cur.yaw + Math.PI;
       av.headGroup.rotation.x = -Math.max(-0.85, Math.min(0.85, cur.pitch * 0.65));
@@ -407,8 +426,9 @@
         return;
       }
       const p = getOrCreatePeer(peerId, d.name || (conn && conn.name));
+      const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
       const posZ = d.z !== undefined ? d.z : (d.py2d !== undefined ? d.py2d : d.y);
-      const posY = d.y !== undefined && d.z !== undefined ? d.y : 32;
+      const posY = (d.y !== undefined && d.z !== undefined) ? d.y : ((d.lvl || 0) * WALL_H + 32);
       if (!p.hasFirstPos) {
         p.hasFirstPos = true;
         p.current.x = d.x;
@@ -683,7 +703,7 @@
     try { sessionStorage.setItem('hd_room', S3.roomCode); } catch (e) {}
     notify(`Creating room ${S3.roomCode}…`);
     try {
-      S3.peer = new Peer(PREFIX + S3.roomCode);
+      S3.peer = new Peer(PREFIX + S3.roomCode, PEER_CONFIG);
       S3.peer.on('error', e => {
         if (e && e.type === 'unavailable-id') {
           if (clean) {
@@ -716,7 +736,7 @@
     try { sessionStorage.setItem('hd_room', S3.roomCode); } catch (e) {}
     notify(`Joining room ${cleanCode}…`);
     try {
-      S3.peer = new Peer();
+      S3.peer = new Peer(PEER_CONFIG);
       S3.peer.on('error', e => {
         if (e && e.type === 'peer-unavailable') {
           if (autoHostFallback) {
@@ -785,7 +805,7 @@
   }
 
   function copyInvite() {
-    const url = location.origin + location.pathname + '?room=' + S3.roomCode;
+    const url = inviteHref(S3.roomCode);
     const btn = document.getElementById('coop3d-copy');
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url)
@@ -802,16 +822,16 @@
   function renderModal() {
     const modal = document.getElementById('coop3d-modal');
     if (!modal) return;
-    const inviteUrl = S3.roomCode ? (location.origin + location.pathname + '?room=' + S3.roomCode) : '';
+    const inviteUrl = S3.roomCode ? inviteHref(S3.roomCode) : '';
 
     if (S3.conns.length > 0) {
-      const names = S3.conns.map(c => c.name || 'Partner').join(', ');
+      const names = esc(S3.conns.map(c => c.name || 'Partner').join(', '));
       modal.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <h3 style="margin:0;font-size:15px;color:#38bdf8">👥 Online 3D Walk</h3>
           <button id="coop3d-close" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer">×</button>
         </div>
-        <div style="font-size:13px;color:#e2e8f0;margin-bottom:8px">Room Code: <b style="letter-spacing:1px;color:#facc15">${S3.roomCode}</b></div>
+        <div style="font-size:13px;color:#e2e8f0;margin-bottom:8px">Room Code: <b style="letter-spacing:1px;color:#facc15">${esc(S3.roomCode)}</b></div>
         <div style="font-size:12px;color:#94a3b8;margin-bottom:12px">Walking with: <b style="color:#f8fafc">${names}</b></div>
         <div style="display:flex;gap:6px;margin-bottom:12px">
           <button id="coop3d-copy" class="btn" style="flex:1;background:#2563eb;color:#fff;padding:6px 10px;font-size:12px;border-radius:6px">📋 Copy Link</button>
@@ -836,11 +856,11 @@
         </div>
         <div style="background:#1e293b;border:1px dashed #38bdf8;border-radius:8px;padding:10px;text-align:center;margin-bottom:10px">
           <div style="font-size:11px;color:#94a3b8;text-transform:uppercase">Room Code</div>
-          <div style="font-size:26px;font-weight:900;letter-spacing:4px;color:#facc15">${S3.roomCode}</div>
+          <div style="font-size:26px;font-weight:900;letter-spacing:4px;color:#facc15">${esc(S3.roomCode)}</div>
         </div>
         <button id="coop3d-copy" class="btn" style="width:100%;background:#059669;color:#fff;padding:9px;font-size:13px;border-radius:6px;font-weight:bold;margin-bottom:6px">📋 Copy Invite Link</button>
         <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Direct Join Link:</div>
-        <input type="text" id="coop3d-link-input" readonly value="${inviteUrl}" onclick="this.select()" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,.2);color:#38bdf8;border-radius:6px;padding:6px;font-size:11px;box-sizing:border-box;margin-bottom:10px;cursor:pointer" title="Click to select">
+        <input type="text" id="coop3d-link-input" readonly value="${esc(inviteUrl)}" onclick="this.select()" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,.2);color:#38bdf8;border-radius:6px;padding:6px;font-size:11px;box-sizing:border-box;margin-bottom:10px;cursor:pointer" title="Click to select">
         <div style="font-size:12px;color:#94a3b8;text-align:center;margin-bottom:10px">Send this link to your partner to join you!</div>
         <button id="coop3d-cancel" class="btn" style="width:100%;background:#475569;color:#fff;padding:6px;font-size:12px;border-radius:6px">Cancel Hosting</button>
       `;
@@ -854,7 +874,7 @@
         </div>
         <div style="margin-bottom:10px">
           <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px">Your Name</label>
-          <input type="text" id="coop3d-name-input" value="${S3.myName}" maxlength="16" style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">
+          <input type="text" id="coop3d-name-input" value="${esc(S3.myName)}" maxlength="16" style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">
         </div>
         <button id="coop3d-host-btn" class="btn" style="width:100%;background:#059669;color:#fff;padding:8px;font-size:13px;font-weight:bold;border-radius:6px;margin-bottom:10px">🏠 Host My House (Get Code)</button>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
