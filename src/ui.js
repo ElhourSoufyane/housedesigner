@@ -1133,6 +1133,7 @@ function wallSelectedUI(selWall) {
           }
         }
       }
+      HP.invalidateRegions();
       HP.saveState();
       HP.markDirty();
       if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
@@ -1146,6 +1147,7 @@ function wallSelectedUI(selWall) {
     w.c = col;
     w.ca = col;
     w.cb = col;
+    HP.invalidateRegions();
     HP.saveState();
     HP.markDirty();
     if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
@@ -1367,6 +1369,8 @@ function setDoorWallStyle(k, style) {
     }
   }
   HP.wallStyle = style;
+  if (HP.invalidateRegions) HP.invalidateRegions();
+  if (HP.markDirty) HP.markDirty();
   if (HP.in3D && HP.world3d && HP.world3d.buildLevel) {
     HP.world3d.buildLevel();
   }
@@ -1419,6 +1423,8 @@ HP.setRoomWallStyle = function (r, style) {
     setStyle(HP.wallKey('v', x, y));
     setStyle(HP.wallKey('v', x + 1, y));
   }
+  if (HP.invalidateRegions) HP.invalidateRegions();
+  if (HP.markDirty) HP.markDirty();
   if (HP.in3D && HP.world3d && HP.world3d.buildLevel) {
     HP.world3d.buildLevel();
   }

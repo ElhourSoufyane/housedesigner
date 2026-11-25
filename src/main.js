@@ -1750,16 +1750,17 @@ function drawWallCore(g, s, t, w) {
   const C = HP.CELL, ca = w && w.ca, cb = w && w.cb;
   const style = (w && w.style) || 'plaster';
   const painted = !!(ca || cb);
-  const ti = Math.max(painted ? 4.6 : 2, t - (painted ? 4.6 : 8));
+  const styled = painted || style !== 'plaster';
+  const ti = Math.max(styled ? 5.2 : 2, t - (styled ? 3.8 : 8));
   const styleDefCol = style === 'brick' ? '#8c382a' :
                       style === 'brick_white' ? '#f4f1ea' :
                       style === 'stone' ? '#8a857b' :
                       style === 'wood' ? '#be9866' :
-                      style === 'tile' ? '#dad6cf' :
-                      style === 'concrete' ? '#949ba3' :
-                      style === 'marble' ? '#f8fafc' :
+                      style === 'tile' ? '#e6e2da' :
+                      style === 'concrete' ? '#9aa1a8' :
+                      style === 'marble' ? '#f4f7fb' :
                       style === 'shiplap' ? '#f5f5f2' :
-                      style === 'glass' ? 'rgba(165, 222, 242, 0.75)' : '#f5f3ec';
+                      style === 'glass' ? '#d8eef6' : '#f5f3ec';
 
   let rx, ry, rw, rh;
   if (!painted || ca === cb) {
@@ -1834,9 +1835,9 @@ function drawWallCore(g, s, t, w) {
       }
     }
   } else if (style === 'marble') {
-    // Polished Calacatta marble subtle diagonal veining
-    g.strokeStyle = 'rgba(100, 116, 139, 0.4)';
-    g.lineWidth = 0.8;
+    // Polished Calacatta marble diagonal veining
+    g.strokeStyle = 'rgba(90, 108, 130, 0.55)';
+    g.lineWidth = 0.9;
     g.beginPath();
     if (s.d === 'h') {
       g.moveTo(rx + 4, ry); g.lineTo(rx + 14, ry + rh);
@@ -1847,8 +1848,8 @@ function drawWallCore(g, s, t, w) {
     }
     g.stroke();
     // Gold vein accent
-    g.strokeStyle = 'rgba(217, 119, 6, 0.35)';
-    g.lineWidth = 0.7;
+    g.strokeStyle = 'rgba(202, 138, 4, 0.5)';
+    g.lineWidth = 0.8;
     g.beginPath();
     if (s.d === 'h') {
       g.moveTo(rx + 8, ry); g.lineTo(rx + 16, ry + rh);
@@ -1858,7 +1859,7 @@ function drawWallCore(g, s, t, w) {
     g.stroke();
   } else if (style === 'shiplap') {
     // Horizontal painted wood shiplap nickel-gap grooves
-    g.strokeStyle = 'rgba(38, 38, 38, 0.45)';
+    g.strokeStyle = 'rgba(38, 38, 38, 0.52)';
     g.lineWidth = 0.9;
     g.beginPath();
     if (s.d === 'h') {
@@ -1870,20 +1871,27 @@ function drawWallCore(g, s, t, w) {
     }
     g.stroke();
   } else if (style === 'stone') {
-    g.strokeStyle = 'rgba(40, 35, 30, 0.4)'; g.lineWidth = 0.9;
-    g.beginPath();
+    const sPal = ['#8d867a', '#77736b', '#9b9284'];
+    const sLen = 9;
     if (s.d === 'h') {
-      for (let x = rx + 6; x < rx + rw - 3; x += 9) {
-        g.moveTo(x, ry); g.lineTo(x, ry + rh);
+      for (let sx = rx, i = 0; sx < rx + rw; sx += sLen, i++) {
+        const sw = Math.min(sLen - 1.2, rx + rw - sx);
+        g.fillStyle = sPal[i % sPal.length];
+        g.fillRect(sx, ry, sw, rh);
+        g.fillStyle = '#3f3a33';
+        g.fillRect(sx + sw, ry, 1.2, rh);
       }
     } else {
-      for (let y = ry + 6; y < ry + rh - 3; y += 9) {
-        g.moveTo(rx, y); g.lineTo(rx + rw, y);
+      for (let sy = ry, i = 0; sy < ry + rh; sy += sLen, i++) {
+        const sh = Math.min(sLen - 1.2, ry + rh - sy);
+        g.fillStyle = sPal[i % sPal.length];
+        g.fillRect(rx, sy, rw, sh);
+        g.fillStyle = '#3f3a33';
+        g.fillRect(rx, sy + sh, rw, 1.2);
       }
     }
-    g.stroke();
   } else if (style === 'wood') {
-    g.strokeStyle = 'rgba(80, 50, 20, 0.38)'; g.lineWidth = 0.9;
+    g.strokeStyle = 'rgba(68, 40, 14, 0.52)'; g.lineWidth = 1.0;
     g.beginPath();
     if (s.d === 'h') {
       g.moveTo(rx, ry + rh * 0.33); g.lineTo(rx + rw, ry + rh * 0.33);
@@ -1894,7 +1902,7 @@ function drawWallCore(g, s, t, w) {
     }
     g.stroke();
   } else if (style === 'tile') {
-    g.strokeStyle = 'rgba(90, 100, 110, 0.35)'; g.lineWidth = 0.8;
+    g.strokeStyle = 'rgba(72, 82, 92, 0.5)'; g.lineWidth = 0.85;
     g.beginPath();
     for (let x = rx + 5; x < rx + rw; x += 5) {
       g.moveTo(x, ry); g.lineTo(x, ry + rh);
@@ -2950,8 +2958,8 @@ function drawOverlays(g) {
       const badgeText = (rec.style || 'plaster').toUpperCase();
       g.font = 'bold 9px "Segoe UI", sans-serif';
       const tw = g.measureText(badgeText).width + 8;
-      const bx = isH ? (s.x + 0.5) * C : (s.x * C);
-      const by = isH ? (s.y * C) : (s.y + 0.5) * C;
+      const bx = isH ? (s.x + 0.5) * C : (s.x * C + 0.25 * C + tw / 2 + 5);
+      const by = isH ? (s.y * C - 0.25 * C - 9) : (s.y + 0.5) * C;
       g.fillStyle = 'rgba(20,23,28,0.85)';
       g.beginPath();
       if (g.roundRect) g.roundRect(bx - tw / 2, by - 7, tw, 14, 3);
