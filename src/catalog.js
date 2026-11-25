@@ -4360,146 +4360,209 @@ HP.CATALOG = [
       g.strokeStyle = '#8fa4b0'; g.strokeRect(W * 0.15, H * 0.45, W * 0.16, H * 0.16);
       g.strokeRect(W * 0.7, H * 0.45, W * 0.16, H * 0.16);
     } },
-  { id: 'treehouse', name: 'Treehouse', cat: 'Outdoor', w: 3, h: 3, colors: ['#8a6844', '#6b4f33', '#a4805c'],
+  { id: 'treehouse', name: 'Treehouse', cat: 'Outdoor', w: 6, h: 6, colors: ['#c27d48', '#d99346', '#2a2826'],
+    styleNames: ['Modern Glass', 'Craftsman', 'Nordic'],
     draw(g, W, H, v) {
-      const p = P(), c = this.colors[v];
-      p.shadow(g, 4, 4, W - 8, H - 8, 8);
-      // 1. Structural deck rim beam and timber planks
-      g.fillStyle = '#5c3317';
-      g.fillRect(6, 6, W - 12, H - 12);
-      p.wood(g, 8, 8, W - 16, H - 16, c);
-      // Deck plank lines
-      g.strokeStyle = HP.shade(c, 0.75); g.lineWidth = 1;
-      for (let x = 14; x < W - 14; x += 10) {
-        g.beginPath(); g.moveTo(x, 8); g.lineTo(x, H - 8); g.stroke();
-      }
-      // 2. Heavy corner and intermediate deck railing posts
-      g.fillStyle = '#451a03';
-      const posts = [[8, 8], [W - 12, 8], [8, H - 12], [W * 0.60, H - 12], [W - 12, H * 0.40]];
-      posts.forEach(([px, py]) => g.fillRect(px - 2, py - 2, 5, 5));
-      // Top handrails
-      g.strokeStyle = '#78350f'; g.lineWidth = 2.5;
-      g.beginPath();
-      // Rear & left
-      g.moveTo(W - 12, 8); g.lineTo(8, 8); g.lineTo(8, H - 12);
-      // Front (up to ladder opening)
-      g.lineTo(W * 0.60, H - 12); g.stroke();
-      // Right (above ladder opening)
-      g.beginPath(); g.moveTo(W - 12, 8); g.lineTo(W - 12, H * 0.40); g.stroke();
+      const p = P();
+      const style = (v || 0) % 3; // 0 = Modern Timber & Glass, 1 = Classic Craftsman, 2 = Nordic Sanctuary
+      const m = Math.min(W, H) * 0.04;
 
-      // 3. Central Ancient Oak Trunk cross-section with growth rings & root flares
-      g.fillStyle = '#3b2214';
-      for (let a = 0; a < 6.28; a += 0.78) {
-        g.beginPath();
-        g.arc(W / 2 + Math.cos(a) * W * 0.16, H / 2 + Math.sin(a) * H * 0.16, W * 0.07, 0, 7);
-        g.fill();
-      }
-      g.beginPath(); g.arc(W / 2, H / 2, W * 0.17, 0, 7);
-      g.fillStyle = '#4a2c1a'; g.fill();
-      g.strokeStyle = '#2d160c'; g.lineWidth = 2; g.stroke();
-      // Tree growth rings
-      g.strokeStyle = 'rgba(217, 119, 6, 0.25)'; g.lineWidth = 1;
-      g.beginPath(); g.arc(W / 2, H / 2, W * 0.11, 0, 7); g.stroke();
-      g.beginPath(); g.arc(W / 2, H / 2, W * 0.06, 0, 7); g.stroke();
+      // Ground drop shadow
+      p.shadow(g, m * 0.6, m * 0.6, W - m * 1.2, H - m * 1.2, 10);
 
-      // 4. Sturdy Ship's Ladder at front-right with wooden rungs
-      const lx0 = W * 0.68, lx1 = W * 0.88, ly0 = H * 0.55, ly1 = H - 2;
-      g.fillStyle = '#3d2516'; // shadow under ladder
-      g.fillRect(lx0 - 1, ly0, (lx1 - lx0) + 2, ly1 - ly0);
-      g.strokeStyle = '#fed7aa'; g.lineWidth = 2.5;
-      g.beginPath(); g.moveTo(lx0, ly0); g.lineTo(lx0, ly1); g.stroke();
-      g.beginPath(); g.moveTo(lx1, ly0); g.lineTo(lx1, ly1); g.stroke();
-      g.lineWidth = 2;
-      for (let r = 0; r < 6; r++) {
-        const ry = ly0 + 4 + r * ((ly1 - ly0 - 8) / 5);
-        g.beginPath(); g.moveTo(lx0, ry); g.lineTo(lx1, ry); g.stroke();
+      // 1. Elevated Deck Planks & Rim Beams
+      const rimCol = style === 0 ? '#272b33' : (style === 1 ? '#5c3317' : '#8b633c');
+      const deckCol = style === 2 ? '#d6b488' : '#b87a4c';
+      g.fillStyle = rimCol;
+      g.fillRect(m, m, W - m * 2, H - m * 2);
+      p.wood(g, m + 2, m + 2, W - m * 2 - 4, H - m * 2 - 4, deckCol);
+
+      // Clean horizontal deck plank lines
+      g.strokeStyle = HP.shade(deckCol, 0.78);
+      g.lineWidth = 1;
+      const step = Math.max(7, H / 16);
+      for (let py = m + 6; py < H - m - 4; py += step) {
+        g.beginPath(); g.moveTo(m + 3, py); g.lineTo(W - m - 3, py); g.stroke();
       }
 
-      // 5. Rustic Cabin on rear-left of deck
-      const cabW = W * 0.54, cabH = H * 0.54;
-      g.fillStyle = 'rgba(0,0,0,0.22)';
-      g.fillRect(10, 10, cabW + 4, cabH + 4);
-      p.wood(g, 9, 9, cabW, cabH, HP.shade(c, 0.9));
-      g.strokeStyle = '#451a03'; g.lineWidth = 2;
-      g.strokeRect(9, 9, cabW, cabH);
-      // Gabled roof planes and ridge beam
-      g.fillStyle = '#3f2113';
+      // 2. Deck Perimeter Railing (gap at front-right for stairs)
+      const stairX0 = W * 0.80, stairX1 = W * 0.94;
+      g.strokeStyle = style === 0 ? '#181b20' : (style === 1 ? '#78350f' : '#a87d52');
+      g.lineWidth = Math.max(2, m * 0.45);
       g.beginPath();
-      g.moveTo(7, 7); g.lineTo(cabW * 0.55, 7);
-      g.lineTo(cabW * 0.55, cabH + 9); g.lineTo(7, cabH + 9);
-      g.closePath(); g.fill();
-      g.fillStyle = '#5c3317';
-      g.beginPath();
-      g.moveTo(cabW * 0.55, 7); g.lineTo(cabW + 11, 7);
-      g.lineTo(cabW + 11, cabH + 9); g.lineTo(cabW * 0.55, cabH + 9);
-      g.closePath(); g.fill();
-      g.strokeStyle = '#2d160c'; g.lineWidth = 3;
-      g.beginPath(); g.moveTo(cabW * 0.55, 6); g.lineTo(cabW * 0.55, cabH + 10); g.stroke();
-      // Cabin windows (cyan glass)
-      g.fillStyle = '#92bbc0';
-      g.fillRect(cabW + 9, cabH * 0.35, 3, cabH * 0.30);
-      g.fillRect(7, cabH * 0.35, 3, cabH * 0.30);
-      // Walk-in doorway with Dutch door & glowing interior hint
-      g.fillStyle = '#1e293b';
-      g.fillRect(cabW * 0.28, cabH + 7, cabW * 0.38, 5);
-      g.fillStyle = '#fef08a';
-      g.beginPath(); g.arc(cabW * 0.40, cabH + 5, 3, 0, 7); g.fill();
-      // Stone chimney at rear
-      g.fillStyle = '#64748b';
-      g.fillRect(cabW * 0.70, 5, 8, 7);
-      g.fillStyle = '#c2410c';
-      g.fillRect(cabW * 0.72, 4, 4, 3);
-
-      // 6. Observation Viewing Deck Appointments
-      // Brass telescope on tripod
-      g.strokeStyle = '#78350f'; g.lineWidth = 1.5;
-      g.beginPath();
-      g.moveTo(W * 0.75, H * 0.22); g.lineTo(W * 0.71, H * 0.26);
-      g.moveTo(W * 0.75, H * 0.22); g.lineTo(W * 0.79, H * 0.26);
-      g.moveTo(W * 0.75, H * 0.22); g.lineTo(W * 0.75, H * 0.18);
+      g.moveTo(stairX1 + 2, H - m); g.lineTo(W - m, H - m); g.lineTo(W - m, m);
+      g.lineTo(m, m); g.lineTo(m, H - m); g.lineTo(stairX0 - 2, H - m);
       g.stroke();
-      g.fillStyle = '#eab308';
-      g.save();
-      g.translate(W * 0.75, H * 0.22);
-      g.rotate(-0.4);
-      g.fillRect(-2, -7, 4, 14);
-      g.restore();
 
-      // Ship's wheel / helm mounted to right railing
-      g.strokeStyle = '#9a5826'; g.lineWidth = 1.5;
-      g.beginPath(); g.arc(W - 13, H * 0.50, 5, 0, 7); g.stroke();
-      g.fillStyle = '#5c3317';
-      g.beginPath(); g.arc(W - 13, H * 0.50, 2, 0, 7); g.fill();
+      // Corner & rail posts
+      g.fillStyle = style === 0 ? '#0f172a' : '#451a03';
+      const pw = Math.max(3.5, m * 0.75);
+      for (const [px, py] of [[m, m], [W - m, m], [m, H - m], [W - m, H - m], [stairX0 - 2, H - m], [stairX1 + 2, H - m]]) {
+        g.fillRect(px - pw / 2, py - pw / 2, pw, pw);
+      }
 
-      // Bucket hoist & davit projecting past deck edge
-      g.strokeStyle = '#78350f'; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(W - 14, H * 0.30); g.lineTo(W - 2, H * 0.30); g.stroke();
-      g.fillStyle = '#854d24';
-      g.fillRect(W - 4, H * 0.27, 5, 6);
+      // 3. Access Stairs (front-right projecting forward slightly)
+      const sy0 = H - m * 1.4, sy1 = H - 1;
+      g.fillStyle = 'rgba(0,0,0,0.22)';
+      g.fillRect(stairX0 - 1, sy0, stairX1 - stairX0 + 3, sy1 - sy0 + 1);
+      g.strokeStyle = style === 0 ? '#181b20' : '#78350f';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(stairX0, sy0); g.lineTo(stairX0, sy1);
+      g.moveTo(stairX1, sy0); g.lineTo(stairX1, sy1);
+      g.stroke();
+      g.strokeStyle = '#d99b66';
+      g.lineWidth = Math.max(1.5, m * 0.35);
+      for (let r = 0; r < 6; r++) {
+        const ry = sy0 + 2 + r * ((sy1 - sy0 - 4) / 5);
+        g.beginPath(); g.moveTo(stairX0 + 1, ry); g.lineTo(stairX1 - 1, ry); g.stroke();
+      }
 
-      // Planter box with bright flower blossoms
-      g.fillStyle = '#78350f';
-      g.fillRect(W * 0.18, H - 10, W * 0.28, 4);
-      const flwCols = ['#ec4899', '#facc15', '#38bdf8', '#f43f5e'];
-      flwCols.forEach((fc, i) => {
-        g.fillStyle = fc;
-        g.beginPath(); g.arc(W * 0.22 + i * (W * 0.06), H - 8, 2, 0, 7); g.fill();
-      });
+      // 4. Sweeping Organic Oak Boughs reaching out around cabin corners
+      g.strokeStyle = '#3b2415';
+      g.lineCap = 'round';
+      const trunkX = W * 0.36, trunkY = H * 0.36;
+      for (const [bx, by, lw] of [
+        [W * 0.04, H * 0.36, m * 1.1],
+        [W * 0.06, H * 0.08, m * 0.95],
+        [W * 0.44, H * 0.03, m * 0.95],
+        [W * 0.95, H * 0.16, m * 1.05]
+      ]) {
+        g.lineWidth = Math.max(2.5, lw);
+        g.beginPath();
+        g.moveTo(trunkX, trunkY);
+        g.lineTo(bx, by);
+        g.stroke();
+      }
 
-      // 7. Lush Towering Foliage Canopy Clusters around and above
-      const canopyClusters = [
-        { cx: W * 0.18, cy: H * 0.18, r: W * 0.20, c: '#15803d' },
-        { cx: W * 0.82, cy: H * 0.20, r: W * 0.18, c: '#14532d' },
-        { cx: W * 0.50, cy: H * 0.12, r: W * 0.22, c: '#16a34a' },
-        { cx: W * 0.15, cy: H * 0.80, r: W * 0.18, c: '#166534' },
-        { cx: W * 0.82, cy: H * 0.78, r: W * 0.16, c: '#15803d' },
-        { cx: W * 0.50, cy: H * 0.50, r: W * 0.18, c: '#22c55e' }
-      ];
-      canopyClusters.forEach(cl => {
-        g.beginPath(); g.arc(cl.cx, cl.cy, cl.r, 0, 7);
-        g.fillStyle = cl.c; g.fill();
-        g.strokeStyle = HP.shade(cl.c, 0.7); g.lineWidth = 1; g.stroke();
-      });
+      // 5. Elevated House Structure (matches layout proportions 1:1)
+      const cabX0 = W * 0.06, cabY0 = H * 0.06, cabW = W * 0.70, cabH = H * 0.62;
+      const eave = m * 1.1;
+
+      // Soft roof cast shadow on veranda
+      g.fillStyle = 'rgba(0,0,0,0.20)';
+      g.fillRect(cabX0 + 4, cabY0 + 5, cabW + eave, cabH + eave);
+
+      if (style === 0) {
+        // Style 0: Modern Timber & Glass Canopy Roof (flat cantilevered charcoal fascia + cedar trim)
+        const rx = cabX0 - eave * 0.5, ry = cabY0 - eave * 0.5, rw = cabW + eave * 1.1, rh = cabH + eave * 1.4;
+        g.fillStyle = '#242933';
+        g.fillRect(rx, ry, rw, rh);
+        g.strokeStyle = '#111827'; g.lineWidth = Math.max(2, m * 0.45);
+        g.strokeRect(rx, ry, rw, rh);
+        // Subtle standing-seam architectural lines + cedar fascia reveal
+        g.strokeStyle = '#334155'; g.lineWidth = 1;
+        for (let sx = rx + rw * 0.2; sx < rx + rw - 4; sx += rw * 0.2) {
+          g.beginPath(); g.moveTo(sx, ry + 2); g.lineTo(sx, ry + rh - 2); g.stroke();
+        }
+        // Highlight skylight glass corner hint along front-right glass curtain
+        g.fillStyle = 'rgba(147, 210, 232, 0.52)';
+        g.fillRect(rx + rw * 0.36, ry + rh - 6, rw * 0.56, 4);
+        g.fillRect(rx + rw - 6, ry + rh * 0.35, 4, rh * 0.60);
+        // Cedar plank inlay accent strip
+        g.fillStyle = '#b8723d';
+        g.fillRect(rx + 4, ry + 4, rw * 0.28, rh - 8);
+      } else if (style === 1) {
+        // Style 1: Classic Craftsman Cabin (pitched shingle gable roof + front dormer + porch gable + chimney)
+        const rx = cabX0 - eave * 0.6, ry = cabY0 - eave * 0.6, rw = cabW + eave * 1.2, rh = cabH + eave * 1.2;
+        const rMidY = ry + rh * 0.5;
+        g.fillStyle = '#47362e';
+        g.fillRect(rx, ry, rw, rh * 0.5);
+        g.fillStyle = '#352721';
+        g.fillRect(rx, rMidY, rw, rh * 0.5);
+        // Shingle course lines
+        g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1;
+        for (let cy = ry + 6; cy < ry + rh - 2; cy += 7) {
+          g.beginPath(); g.moveTo(rx + 2, cy); g.lineTo(rx + rw - 2, cy); g.stroke();
+        }
+        g.strokeStyle = '#f8fafc'; g.lineWidth = Math.max(1.5, m * 0.35);
+        g.strokeRect(rx, ry, rw, rh);
+        // Main ridge beam
+        g.strokeStyle = '#1f1612'; g.lineWidth = Math.max(2.5, m * 0.55);
+        g.beginPath(); g.moveTo(rx, rMidY); g.lineTo(rx + rw, rMidY); g.stroke();
+        // Centered Front Dormer Roof
+        const dw = rw * 0.32, dh = rh * 0.28, dx = rx + (rw - dw) * 0.5, dy = rMidY;
+        g.fillStyle = '#574339';
+        g.fillRect(dx, dy, dw, dh);
+        g.strokeStyle = '#f8fafc'; g.lineWidth = 1.5;
+        g.strokeRect(dx, dy, dw, dh);
+        // Covered Front Entry Porch Gable projecting forward
+        const pw0 = rw * 0.34, ph0 = H * 0.14, px0 = rx + (rw - pw0) * 0.5, py0 = ry + rh;
+        g.fillStyle = '#47362e';
+        g.fillRect(px0, py0, pw0, ph0);
+        g.strokeStyle = '#d99346'; g.lineWidth = 1.5;
+        g.strokeRect(px0, py0, pw0, ph0);
+        g.strokeStyle = '#fef08a'; g.fillStyle = '#fef08a';
+        g.beginPath(); g.arc(px0 + 4, py0 + ph0 - 3, 2, 0, 7); g.fill();
+        g.beginPath(); g.arc(px0 + pw0 - 4, py0 + ph0 - 3, 2, 0, 7); g.fill();
+        // Stone chimney
+        g.fillStyle = '#64748b';
+        g.fillRect(rx + rw * 0.72, ry + 3, rw * 0.14, rh * 0.16);
+      } else {
+        // Style 2: Japanese & Nordic Sanctuary (4-way hipped dark slate roof + exposed hinoki rafter tails + lanterns)
+        const rx = cabX0 - eave * 0.9, ry = cabY0 - eave * 0.9, rw = cabW + eave * 1.8, rh = cabH + eave * 1.8;
+        // Exposed hinoki cypress rafter tails around perimeter eaves
+        g.strokeStyle = '#deb887'; g.lineWidth = 1.5;
+        for (let tx = rx + 6; tx < rx + rw - 4; tx += 9) {
+          g.beginPath(); g.moveTo(tx, ry - 2); g.lineTo(tx, ry + 2); g.stroke();
+          g.beginPath(); g.moveTo(tx, ry + rh - 2); g.lineTo(tx, ry + rh + 2); g.stroke();
+        }
+        for (let ty = ry + 6; ty < ry + rh - 4; ty += 9) {
+          g.beginPath(); g.moveTo(rx - 2, ty); g.lineTo(rx + 2, ty); g.stroke();
+          g.beginPath(); g.moveTo(rx + rw - 2, ty); g.lineTo(rx + rw + 2, ty); g.stroke();
+        }
+        // Hipped slate roof planes
+        g.fillStyle = '#2a313a';
+        g.fillRect(rx, ry, rw, rh);
+        g.strokeStyle = '#181c22'; g.lineWidth = 2;
+        g.strokeRect(rx, ry, rw, rh);
+        // Diagonal hip ridges meeting top ridge
+        const rLen = rw * 0.34, rX0 = rx + (rw - rLen) * 0.5, rX1 = rX0 + rLen, rMidY = ry + rh * 0.5;
+        g.strokeStyle = '#14171c'; g.lineWidth = Math.max(2, m * 0.45);
+        g.beginPath();
+        g.moveTo(rx, ry); g.lineTo(rX0, rMidY);
+        g.moveTo(rx, ry + rh); g.lineTo(rX0, rMidY);
+        g.moveTo(rX0, rMidY); g.lineTo(rX1, rMidY);
+        g.moveTo(rx + rw, ry); g.lineTo(rX1, rMidY);
+        g.moveTo(rx + rw, ry + rh); g.lineTo(rX1, rMidY);
+        g.stroke();
+        // Glowing warm hanging washi lanterns under porch eaves
+        g.fillStyle = '#fef08a';
+        g.beginPath(); g.arc(rx + rw * 0.16, ry + rh + 3, 2.5, 0, 7); g.fill();
+        g.beginPath(); g.arc(rx + rw * 0.78, ry + rh + 3, 2.5, 0, 7); g.fill();
+      }
+
+      // 6. Front Terrace Outdoor Lounge Cushion Accent (left veranda)
+      g.fillStyle = '#e6ded3';
+      g.fillRect(W * 0.14, H * 0.78, W * 0.16, H * 0.10);
+      g.strokeStyle = '#475569'; g.lineWidth = 1;
+      g.strokeRect(W * 0.14, H * 0.78, W * 0.16, H * 0.10);
+
+      // 7. Translucent Jagged Botanical Oak Leaf Crown Around Outer Boughs (never blocks roof view)
+      const drawLeafTuft = (lx, ly, rad, col) => {
+        g.save();
+        g.globalAlpha = 0.28;
+        g.fillStyle = col;
+        g.beginPath();
+        const pts = 9;
+        for (let i = 0; i <= pts * 2; i++) {
+          const a = (i / (pts * 2)) * Math.PI * 2;
+          const rr = (i % 2 === 0) ? rad : rad * 0.66;
+          const vx = lx + Math.cos(a) * rr, vy = ly + Math.sin(a) * rr;
+          if (i === 0) g.moveTo(vx, vy); else g.lineTo(vx, vy);
+        }
+        g.closePath();
+        g.fill();
+        g.globalAlpha = 0.42;
+        g.strokeStyle = '#1f4219'; g.lineWidth = 1;
+        g.stroke();
+        g.restore();
+      };
+      drawLeafTuft(W * 0.06, H * 0.34, W * 0.14, '#2d5a24');
+      drawLeafTuft(W * 0.10, H * 0.10, W * 0.15, '#3e742d');
+      drawLeafTuft(W * 0.46, H * 0.06, W * 0.14, '#4f8c37');
+      drawLeafTuft(W * 0.90, H * 0.18, W * 0.16, '#2d5a24');
+      drawLeafTuft(W * 0.88, H * 0.44, W * 0.12, '#4f8c37');
     } },
 
   { id: 'ridemower', name: 'Ride-on Mower', cat: 'Garage', w: 1, h: 2, colors: ['#5d8a5d', '#e8b04a', '#a03a3a'],

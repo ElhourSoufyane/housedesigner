@@ -390,7 +390,7 @@ const H3D = [
   [/modchaise/i, 26],
   [/modtable/i, 14],
   [/flagpole/i, 60],
-  [/treehouse/i, 290],
+  [/treehouse/i, 310],
   [/palmtree/i, 56],
   [/^tree$/i, 92],
   [/lamppost/i, 52],
@@ -3286,7 +3286,7 @@ function initFurnitureContext(targetGroup) {
         for (const sub of it.interior.furniture) {
           const wSub = HP.interiorToWorld ? HP.interiorToWorld(it, sub) : null;
           if (wSub) {
-            wSub._baseY = lvlBaseY;
+            wSub._baseY = (wSub._baseY !== undefined ? wSub._baseY : 0) + lvlBaseY;
             wSub._levelIdx = lIdx;
             allFurniture.push(wSub);
           }
@@ -3979,33 +3979,23 @@ function buildGarageDoorModel(it, d, f, c, C, lvl, env, targetGroup, garageDoors
 }
 
 function buildTreehouseClimbModel(it, f, C, elevatedDecks, climbs) {
+  const bw = (it.rot % 2 === 0) ? (it.w || f.w) : (it.h || f.h);
+  const bh = (it.rot % 2 === 0) ? (it.h || f.h) : (it.w || f.w);
+  const L = HP.treehouseLayout ? HP.treehouseLayout(bw, bh) : {
+    deckY: 54.0, lx0: 0.24 * f.w * C, lx1: 0.44 * f.w * C, lz0: 0.45 * f.h * C, lz1: 0.72 * f.h * C,
+    stairCx: 0.34 * f.w * C, W: f.w * C, D: f.h * C
+  };
   elevatedDecks.push({
     x0: f.x * C, x1: (f.x + f.w) * C,
     z0: f.y * C, z1: (f.y + f.h) * C,
-    deckY: 54.0
+    deckY: L.deckY
   });
   const rot = it.rot || 0;
   const tcx = (f.x + f.w / 2) * C, tcz = (f.y + f.h / 2) * C;
-  const W = f.w * C, D = f.h * C;
-  const lx0 = 0.20 * W, lx1 = 0.34 * W, lz0 = 0.44 * D, lz1 = 0.65 * D;
   const corners = [
-    { x: lx0, z: lz0 }, { x: lx1, z: lz0 },
-    { x: lx1, z: lz1 }, { x: lx0, z: lz1 }
+    { x: L.lx0, z: L.lz0 }, { x: L.lx1, z: L.lz0 },
+    { x: L.lx1, z: L.lz1 }, { x: L.lx0, z: L.lz1 }
   ];
-  const rotCorners = corners.map(pt => {
-    let rx = pt.x, rz = pt.z;
-    if (rot === 1) { rx = -pt.z; rz = pt.x; }
-    else if (rot === 2) { rx = -pt.x; rz = -pt.z; }
-    else if (rot === 3) { rx = pt.z; rz = -pt.x; }
-    return { x: tcx + rx, z: tcz + rz };
-  });
-  const minX = Math.min(...rotCorners.map(p => p.x));
-  const maxX = Math.max(...rotCorners.map(p => p.x));
-  const minZ = Math.min(...rotCorners.map(p => p.z));
-  const maxZ = Math.max(...rotCorners.map(p => p.z));
-
-  let deckPt = { x: 0.27 * W, z: 0.38 * D };
-  let gndPt  = { x: 0.27 * W, z: 0.68 * D };
   const rotateSpot = pt => {
     let rx = pt.x, rz = pt.z;
     if (rot === 1) { rx = -pt.z; rz = pt.x; }
@@ -4013,6 +4003,14 @@ function buildTreehouseClimbModel(it, f, C, elevatedDecks, climbs) {
     else if (rot === 3) { rx = pt.z; rz = -pt.x; }
     return { x: tcx + rx, z: tcz + rz };
   };
+  const rotCorners = corners.map(rotateSpot);
+  const minX = Math.min(...rotCorners.map(p => p.x));
+  const maxX = Math.max(...rotCorners.map(p => p.x));
+  const minZ = Math.min(...rotCorners.map(p => p.z));
+  const maxZ = Math.max(...rotCorners.map(p => p.z));
+
+  const deckPt = { x: L.stairCx, z: 0.36 * L.D };
+  const gndPt  = { x: L.stairCx, z: 0.76 * L.D };
   const deckSpot = rotateSpot(deckPt);
   const groundSpot = rotateSpot(gndPt);
 
@@ -4024,7 +4022,7 @@ function buildTreehouseClimbModel(it, f, C, elevatedDecks, climbs) {
   climbs.push({
     x0: minX - 2, x1: maxX + 2,
     z0: minZ - 2, z1: maxZ + 2,
-    y0: 0, y1: 54.0,
+    y0: 0, y1: L.deckY,
     ax, dir, from, run,
     deckSpot, groundSpot
   });
@@ -4401,6 +4399,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
 
       const conf = explicit || roomConf || { style: 'plaster', color: '#f3ecdc' };
       const style = (typeof conf === 'string' ? conf : (conf.style || 'plaster')).toLowerCase();
+      if (style === 'none' || style === 'open' || style === 'sky') continue;
       const color = typeof conf === 'object' ? conf.color : null;
       ceilCells.push({ x, y, k, style, color, isInterior, rid });
 

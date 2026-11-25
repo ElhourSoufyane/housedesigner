@@ -686,33 +686,34 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
     ];
   }
   if (/^treehouse$/i.test(t)) {
+    const L = HP.treehouseLayout(bw, bh);
     return [
-      // Central ancient oak trunk at (-16, -12) (ground to tree canopy)
-      { x0: -34, x1: 2, z0: -30, z1: 6, y0: 0, y1: H },
-      // 4 Heavy timber corner stilts with clearance underneath (y=0 to 54)
-      { x0: -W / 2, x1: -W / 2 + 0.25 * C, z0: -D / 2, z1: -D / 2 + 0.25 * C, y0: 0, y1: 54 },
-      { x0: W / 2 - 0.25 * C, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.25 * C, y0: 0, y1: 54 },
-      { x0: -W / 2, x1: -W / 2 + 0.25 * C, z0: D / 2 - 0.25 * C, z1: D / 2, y0: 0, y1: 54 },
-      { x0: W / 2 - 0.25 * C, x1: W / 2, z0: D / 2 - 0.25 * C, z1: D / 2, y0: 0, y1: 54 },
-      // Elevated timber deck floor slab (y=50 to 54.0 - flush with feetY=54.0)
-      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 50, y1: 54.0 },
-      // Cabin rear wall (y=54 to 160)
-      { x0: -48, x1: 38, z0: -52, z1: -48, y0: 54, y1: 160 },
-      // Cabin west roof slope & dormer (y=54 to 160)
-      { x0: -50, x1: -44, z0: -48, z1: 34, y0: 54, y1: 160 },
-      // Cabin east roof slope (y=54 to 160)
-      { x0: 34, x1: 40, z0: -48, z1: 34, y0: 54, y1: 160 },
-      // Cabin front glass wall (leaving open walk-in entrance portal at x=-13..+3)
-      { x0: -46, x1: -13, z0: 33, z1: 36, y0: 54, y1: 160 },
-      { x0: 3, x1: 36, z0: 33, z1: 36, y0: 54, y1: 160 },
-      // Fire pit table on front cantilever terrace
-      { x0: 19, x1: 37, z0: 38, z1: 50, y0: 54, y1: 63 },
-      // Observation deck perimeter guardrails (leaves ladder opening at front-right x=24..40)
-      { x0: -W / 2, x1: 24, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 72 },
-      { x0: 40, x1: W / 2, z0: D / 2 - 0.20 * C, z1: D / 2, y0: 54, y1: 72 },
-      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.20 * C, y0: 54, y1: 72 },
-      { x0: W / 2 - 0.20 * C, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 54, y1: 72 },
-      { x0: -W / 2, x1: -W / 2 + 0.20 * C, z0: -D / 2, z1: D / 2, y0: 54, y1: 72 }
+      // Central gnarled oak trunk base under deck (y=0..54) + 4 corner timber stilts
+      { x0: L.trunkX - L.trunkR, x1: L.trunkX + L.trunkR, z0: L.trunkZ - L.trunkR, z1: L.trunkZ + L.trunkR, y0: 0, y1: L.deckY - 1 },
+      { x0: -W / 2, x1: -W / 2 + 0.24 * C, z0: -D / 2, z1: -D / 2 + 0.24 * C, y0: 0, y1: L.deckY },
+      { x0: W / 2 - 0.24 * C, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.24 * C, y0: 0, y1: L.deckY },
+      { x0: -W / 2, x1: -W / 2 + 0.24 * C, z0: D / 2 - 0.24 * C, z1: D / 2, y0: 0, y1: L.deckY },
+      { x0: W / 2 - 0.24 * C, x1: W / 2, z0: D / 2 - 0.24 * C, z1: D / 2, y0: 0, y1: L.deckY },
+      // Elevated deck slab (y=50..54.0 - flush with feetY=54.0)
+      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 50, y1: L.deckY },
+      // Cabin solid perimeter walls (full vertical height, open walk-in front doorway doorX0..doorX1)
+      { x0: L.cabX0 - 2, x1: L.cabX1 + 2, z0: L.cabZ0 - 2.5, z1: L.cabZ0 + 2.5, y0: L.deckY, y1: L.wallTop },
+      { x0: L.cabX0 - 2.5, x1: L.cabX0 + 2.5, z0: L.cabZ0, z1: L.cabZ1, y0: L.deckY, y1: L.wallTop },
+      { x0: L.cabX1 - 2.5, x1: L.cabX1 + 2.5, z0: L.cabZ0, z1: L.cabZ1, y0: L.deckY, y1: L.wallTop },
+      { x0: L.cabX0 - 2, x1: L.doorX0, z0: L.cabZ1 - 2.5, z1: L.cabZ1 + 2.5, y0: L.deckY, y1: L.wallTop },
+      { x0: L.doorX1, x1: L.cabX1 + 2, z0: L.cabZ1 - 2.5, z1: L.cabZ1 + 2.5, y0: L.deckY, y1: L.wallTop },
+      // Overhead doorway lintel + full cabin roof slab
+      { x0: L.doorX0, x1: L.doorX1, z0: L.cabZ1 - 2.5, z1: L.cabZ1 + 2.5, y0: L.deckY + L.doorH, y1: L.wallTop },
+      { x0: L.cabX0 - 6, x1: L.cabX1 + 6, z0: L.cabZ0 - 6, z1: L.cabZ1 + 6, y0: L.wallTop, y1: L.wallTop + 18 },
+      // Outer bough trunks rising beside deck perimeter
+      { x0: -W / 2 - 14, x1: -W / 2 + 2, z0: -D * 0.14 - 8, z1: -D * 0.14 + 8, y0: L.deckY, y1: H },
+      { x0: W / 2 - 2, x1: W / 2 + 14, z0: -D * 0.34 - 8, z1: -D * 0.34 + 8, y0: L.deckY, y1: H },
+      // Deck perimeter guardrails (open at stairGapX0..stairGapX1 on South edge)
+      { x0: -W / 2, x1: L.stairGapX0, z0: D / 2 - 0.18 * C, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 },
+      { x0: L.stairGapX1, x1: W / 2, z0: D / 2 - 0.18 * C, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 },
+      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.18 * C, y0: L.deckY, y1: L.deckY + 20 },
+      { x0: W / 2 - 0.18 * C, x1: W / 2, z0: -D / 2, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 },
+      { x0: -W / 2, x1: -W / 2 + 0.18 * C, z0: -D / 2, z1: D / 2, y0: L.deckY, y1: L.deckY + 20 }
     ];
   }
   if (/^greenhouse/i.test(t)) {
@@ -931,8 +932,9 @@ HP.itemSeatSpots = function (it, def) {
       { x: 0.28 * W,  z: 0.07 * D },  // right chaise lounge
     ];
   } else if (/^treehouse$/i.test(t)) {
+    const L = HP.treehouseLayout(bw, bh);
     modelSpots = [
-      { x: -0.14 * W, z: -0.32 * D }  // daybed bench inside treehouse cabin
+      { x: (L.cabX0 + L.cabX1) * 0.5 - 0.14 * (L.cabX1 - L.cabX0), z: (L.cabZ0 + L.cabZ1) * 0.5 }
     ];
   } else if (HP.seatKind && HP.seatKind(it.type) === 'lie') {
     if (bw >= bh) {
@@ -966,6 +968,46 @@ HP.itemSeatSpots = function (it, def) {
 };
 
 /* ================= STRUCTURE INTERIOR MANAGEMENT ================= */
+HP.treehouseLayout = function (bw = 6, bh = 6) {
+  const C = HP.CELL || 28;
+  const W = bw * C, D = bh * C;
+  const cabCols = Math.min(bw - 1, Math.max(2, Math.round(bw * 0.72)));
+  const cabRows = Math.min(bh - 1, Math.max(2, Math.round(bh * 0.66)));
+  const cabX0 = -W / 2 + 0.16 * C;
+  const cabX1 = -W / 2 + cabCols * C - 0.12 * C;
+  const cabZ0 = -D / 2 + 0.16 * C;
+  const cabZ1 = -D / 2 + cabRows * C - 0.10 * C;
+  const doorHalfW = Math.min((cabX1 - cabX0) * 0.28, Math.max(15, 0.12 * W));
+  const doorCx = (cabX0 + cabX1) * 0.5;
+  const stairCx = Math.max(cabX1 + (W / 2 - cabX1) * 0.55, 0.34 * W);
+  const stairHalfW = Math.min(0.11 * W, Math.max(10, (W / 2 - cabX1) * 0.38));
+  return {
+    W, D, C, bw, bh,
+    deckY: 54.0,
+    wallH: 74,
+    wallTop: 128,
+    doorH: 56,
+    cabCols, cabRows,
+    cabX0, cabX1, cabZ0, cabZ1,
+    cabW: cabX1 - cabX0,
+    cabD: cabZ1 - cabZ0,
+    doorCx, doorHalfW,
+    doorX0: doorCx - doorHalfW,
+    doorX1: doorCx + doorHalfW,
+    trunkX: -0.10 * W,
+    trunkZ: -0.12 * D,
+    trunkR: Math.max(12, Math.min(22, 0.11 * Math.min(W, D))),
+    stairCx,
+    stairHalfW,
+    stairGapX0: stairCx - stairHalfW - 2,
+    stairGapX1: Math.min(W / 2 - 4, stairCx + stairHalfW + 2),
+    lx0: stairCx - stairHalfW,
+    lx1: stairCx + stairHalfW,
+    lz0: D * 0.45,
+    lz1: D * 0.72
+  };
+};
+
 HP.createDefaultInterior = function (it) {
   if (!it) return null;
   if (it.type === 'greenhouse') {
@@ -1017,34 +1059,61 @@ HP.createDefaultInterior = function (it) {
     HP.nextId = Math.max(HP.nextId, nextId);
     return inLvl;
   } else if (it.type === 'treehouse') {
+    const def = HP.itemDef('treehouse');
+    const bw = it.w || (def ? def.w : 6);
+    const bh = it.h || (def ? def.h : 6);
+    const L = HP.treehouseLayout(bw, bh);
     const inLvl = {
-      w: 9, h: 9,
-      ox: 2, oy: 2, rw: 5, rh: 5,
+      w: bw + 2, h: bh + 2,
+      ox: 1, oy: 1, rw: bw, rh: bh,
+      cabCols: L.cabCols, cabRows: L.cabRows,
       walls: {}, floors: {}, fences: {}, roomNames: {}, furniture: [],
       customized: true
     };
-    const ox = inLvl.ox, oy = inLvl.oy, rw = inLvl.rw, rh = inLvl.rh;
-    for (let x = ox; x < ox + rw; x++) inLvl.walls[HP.wallKey('h', x, oy)] = { f: 'window' };
-    for (let x = ox; x < ox + rw; x++) {
-      if (x === 4) inLvl.walls[HP.wallKey('h', x, oy + rh)] = { f: 'door' };
-      else inLvl.walls[HP.wallKey('h', x, oy + rh)] = { f: 'window' };
-    }
-    for (let y = oy; y < oy + rh; y++) inLvl.walls[HP.wallKey('v', ox, y)] = { f: 'window' };
-    for (let y = oy; y < oy + rh; y++) inLvl.walls[HP.wallKey('v', ox + rw, y)] = { f: 'window' };
+    const ox = inLvl.ox, oy = inLvl.oy, cc = L.cabCols, cr = L.cabRows;
+    const doorCol = ox + Math.floor(cc / 2);
 
-    for (let y = oy; y < oy + rh; y++) {
-      for (let x = ox; x < ox + rw; x++) {
-        inLvl.roomNames[HP.cellKey(x, y)] = 'Cabin Interior';
-        inLvl.floors[HP.cellKey(x, y)] = 'wood';
+    // Architectural cabin perimeter (glass/windowed walls + open front entry door)
+    for (let x = ox; x < ox + cc; x++) inLvl.walls[HP.wallKey('h', x, oy)] = { f: 'window', style: 'wood' };
+    for (let x = ox; x < ox + cc; x++) {
+      inLvl.walls[HP.wallKey('h', x, oy + cr)] = (x === doorCol) ? { f: 'door', style: 'wood' } : { f: 'window', style: 'wood' };
+    }
+    for (let y = oy; y < oy + cr; y++) inLvl.walls[HP.wallKey('v', ox, y)] = { f: 'window', style: 'wood' };
+    for (let y = oy; y < oy + cr; y++) inLvl.walls[HP.wallKey('v', ox + cc, y)] = { f: 'window', style: 'wood' };
+
+    // Cabin oak floor + outdoor cedar veranda deck floor
+    for (let y = oy; y < oy + bh; y++) {
+      for (let x = ox; x < ox + bw; x++) {
+        const inCabin = x < ox + cc && y < oy + cr;
+        inLvl.roomNames[HP.cellKey(x, y)] = inCabin ? 'Treehouse Room' : 'Observation Deck';
+        inLvl.floors[HP.cellKey(x, y)] = inCabin ? 'wood' : 'deck';
       }
     }
 
+    // Perimeter deck guardrails (leaving open stair landing at front-right)
+    const stairCol = ox + bw - 1;
+    for (let x = ox; x < ox + bw; x++) {
+      inLvl.fences[HP.wallKey('h', x, oy)] = { s: 'wood' };
+      if (x < stairCol) inLvl.fences[HP.wallKey('h', x, oy + bh)] = { s: 'wood' };
+    }
+    for (let y = oy; y < oy + bh; y++) {
+      inLvl.fences[HP.wallKey('v', ox, y)] = { s: 'wood' };
+      inLvl.fences[HP.wallKey('v', ox + bw, y)] = { s: 'wood' };
+    }
+
+    // Sensible, collision-free starter layout scaled cleanly to cabin size
     let nextId = HP.nextId;
-    inLvl.furniture.push({ id: nextId++, type: 'daybed', x: 2, y: 2, rot: 0, v: 0, oid: HP.oid });
-    inLvl.furniture.push({ id: nextId++, type: 'nightstand', x: 5, y: 2, rot: 0, v: 0, oid: HP.oid });
-    inLvl.furniture.push({ id: nextId++, type: 'shelfunit', x: 2, y: 4, rot: 1, v: 0, oid: HP.oid });
-    inLvl.furniture.push({ id: nextId++, type: 'rugRound', x: 3, y: 3, rot: 0, v: 0, oid: HP.oid });
-    inLvl.furniture.push({ id: nextId++, type: 'lampcandle', x: 4, y: 3, rot: 0, v: 0, oid: HP.oid });
+    if (cc >= 3 && cr >= 2) {
+      const seatType = cc >= 5 ? 'sofa2' : 'armchair';
+      inLvl.furniture.push({ id: nextId++, type: seatType, x: ox, y: oy, rot: 0, v: 0, oid: HP.oid });
+      inLvl.furniture.push({ id: nextId++, type: 'floorlamp', x: ox + cc - 1, y: oy, rot: 0, v: 0, oid: HP.oid });
+      if (cr >= 3 && cc >= 4) {
+        inLvl.furniture.push({ id: nextId++, type: 'coffeeR', x: ox + 1, y: oy + 2, rot: 0, v: 0, oid: HP.oid });
+      }
+    }
+    if (bh > cr && bw >= 2) {
+      inLvl.furniture.push({ id: nextId++, type: 'plantBig', x: ox, y: oy + bh - 1, rot: 0, v: 0, oid: HP.oid });
+    }
 
     HP.nextId = Math.max(HP.nextId, nextId);
     return inLvl;
@@ -1174,6 +1243,14 @@ HP.enterInterior = function (it) {
 
   if (!it.interior) {
     it.interior = HP.createDefaultInterior(it);
+  } else if (it.type === 'treehouse') {
+    const def = HP.itemDef('treehouse');
+    const bw = it.w || (def ? def.w : 6), bh = it.h || (def ? def.h : 6);
+    if (it.interior.rw !== bw || it.interior.rh !== bh || it.interior.ox !== 1) {
+      const kept = (it.interior.furniture || []).filter(s => s.x >= 1 && s.y >= 1 && s.x < 1 + bw && s.y < 1 + bh);
+      it.interior = HP.createDefaultInterior(it);
+      if (kept.length) it.interior.furniture = kept;
+    }
   }
 
   HP.editingInterior = { item: it, interior: it.interior };

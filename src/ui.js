@@ -99,6 +99,40 @@ function btn(label, cls, fn) {
   return b;
 }
 
+function treehouseControlsUI(container, def, activeV, curW, curH, onStyle, onSize) {
+  const names = (def && def.styleNames) || ['Modern Glass', 'Craftsman', 'Nordic'];
+  const sf = document.createElement('div');
+  sf.className = 'field';
+  sf.innerHTML = '<label>Treehouse Style</label>';
+  const sWrap = document.createElement('div');
+  sWrap.className = 'seg wrap';
+  names.forEach((nm, vi) => {
+    const b = document.createElement('button');
+    b.className = 'seg-btn' + (vi === (activeV || 0) ? ' on' : '');
+    b.textContent = nm;
+    b.onclick = () => onStyle(vi);
+    sWrap.appendChild(b);
+  });
+  sf.appendChild(sWrap);
+  container.appendChild(sf);
+
+  const szf = document.createElement('div');
+  szf.className = 'field';
+  szf.innerHTML = `<label>Treehouse Size (${(curW / 2).toFixed(1)}m × ${(curH / 2).toFixed(1)}m)</label>`;
+  const szWrap = document.createElement('div');
+  szWrap.className = 'seg wrap';
+  for (const s of [3, 4, 5, 6, 7, 8, 9, 10, 12]) {
+    const b = document.createElement('button');
+    b.className = 'seg-btn' + (curW === s && curH === s ? ' on' : '');
+    b.textContent = `${s}×${s}`;
+    b.title = `${(s / 2).toFixed(1)}m × ${(s / 2).toFixed(1)}m`;
+    b.onclick = () => onSize(s, s);
+    szWrap.appendChild(b);
+  }
+  szf.appendChild(szWrap);
+  container.appendChild(szf);
+}
+
 function placingUI() {
   const top = $('#insp-top'), p = HP.pending;
   top.innerHTML = '';
@@ -110,7 +144,15 @@ function placingUI() {
   row.appendChild(btn('Rotate', '', () => HP.rotateActive()));
   if (p.def.colors.length > 1) row.appendChild(btn('Style', '', () => HP.cycleVariant()));
   row.appendChild(btn('Cancel', 'danger', () => HP.cancelPending()));
-  s.appendChild(row); top.appendChild(s);
+  s.appendChild(row);
+  if (p.def.id === 'treehouse') {
+    const cw = p.w || p.def.w, ch = p.h || p.def.h;
+    treehouseControlsUI(s, p.def, p.v || 0, cw, ch,
+      vi => { p.v = vi; HP.markDirty(); placingUI(); },
+      (nw, nh) => { p.w = nw; p.h = nh; HP.markDirty(); placingUI(); }
+    );
+  }
+  top.appendChild(s);
 }
 
 function itemUI(it) {
@@ -134,7 +176,7 @@ function itemUI(it) {
     const editRow = document.createElement('div');
     editRow.style.marginTop = '8px';
     const isGH = it.type === 'greenhouse';
-    const b = btn(isGH ? '🌿 Edit Greenhouse Interior' : '🏡 Edit Cabin Interior', 'primary', () => HP.enterInterior(it));
+    const b = btn(isGH ? '🌿 Edit Greenhouse Interior' : '🏡 Edit Treehouse & Deck', 'primary', () => HP.enterInterior(it));
     b.style.width = '100%';
     b.style.fontWeight = '700';
     b.style.padding = '8px 10px';
@@ -147,6 +189,12 @@ function itemUI(it) {
   }
   // size steppers (visual footprint, shown in metres)
   const f = HP.footprint(it);
+  if (it.type === 'treehouse') {
+    treehouseControlsUI(s, def, it.v || 0, f.w, f.h,
+      vi => { HP.pushUndo(); for (const m of HP.groupOf(it)) m.v = vi; HP.markDirty(); HP.saveState(); itemUI(it); },
+      (nw, nh) => { HP.resizeItem(it, nw - f.w, nh - f.h); }
+    );
+  }
   const sizeF = document.createElement('div');
   sizeF.className = 'field';
   sizeF.innerHTML = `<label>Size — ${(f.w / 2).toFixed(1)}m × ${(f.h / 2).toFixed(1)}m</label>`;
@@ -1837,7 +1885,7 @@ HP.showInteriorUI = function (it) {
     const isGH = it.type === 'greenhouse';
     const titleEl = $('#ib-title');
     const iconEl = $('#ib-icon');
-    if (titleEl) titleEl.textContent = isGH ? 'Editing Greenhouse Interior' : 'Editing Cabin Interior';
+    if (titleEl) titleEl.textContent = isGH ? 'Editing Greenhouse Interior' : 'Editing Treehouse Cabin & Deck';
     if (iconEl) iconEl.textContent = isGH ? '🌿' : '🏡';
   }
 };

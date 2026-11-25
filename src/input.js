@@ -16,11 +16,13 @@ function evtPoint(e) {
 function updateGhost(p) {
   if (!HP.pending) return;
   const def = HP.pending.def;
-  const w = (HP.pending.rot % 2 === 0) ? def.w : def.h;
-  const h = (HP.pending.rot % 2 === 0) ? def.h : def.w;
+  const pw = HP.pending.w || def.w, ph = HP.pending.h || def.h;
+  const w = (HP.pending.rot % 2 === 0) ? pw : ph;
+  const h = (HP.pending.rot % 2 === 0) ? ph : pw;
   const px = def.hangs ? p.cx : p.fx, py = def.hangs ? p.cy : p.fy;
   const x = px - Math.floor(w / 2), y = py - Math.floor(h / 2);
-  HP.ghost = { x, y, valid: HP.canPlace(def.id, x, y, HP.pending.rot) };
+  const sizeOverride = (HP.pending.w || HP.pending.h) ? { w: pw, h: ph } : undefined;
+  HP.ghost = { x, y, valid: HP.canPlace(def.id, x, y, HP.pending.rot, null, sizeOverride) };
   HP.markDirty();
 }
 
@@ -100,6 +102,8 @@ HP.initInput = function () {
             x: HP.ghost.x, y: HP.ghost.y,
             rot: HP.pending.rot, v: HP.pending.v || 0, oid: HP.oid
           };
+          if (HP.pending.w && HP.pending.w !== HP.pending.def.w) it.w = HP.pending.w;
+          if (HP.pending.h && HP.pending.h !== HP.pending.def.h) it.h = HP.pending.h;
           if (HP.pending.def.hangs) it.hang = HP.hangSide(it.type, it.x, it.y, it.rot);
           HP.cur().furniture.push(it);
           HP.autoConnect(it);                        // modular pieces join what they touch

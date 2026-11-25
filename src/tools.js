@@ -514,20 +514,34 @@ HP.resizeItem = function (it, dw, dh) {
   const def = HP.itemDef(it.type);
   const snap = HP.snap(), ox = it.x, oy = it.y, ow = it.w, oh = it.h;
   const f = HP.footprint(it);
-  const nw = Math.max(1, Math.min(10, f.w + dw));
-  const nh = Math.max(1, Math.min(10, f.h + dh));
+  const isTH = it.type === 'treehouse';
+  const minS = isTH ? 3 : 1;
+  const maxS = isTH ? 12 : 10;
+  const nw = Math.max(minS, Math.min(maxS, f.w + dw));
+  const nh = Math.max(minS, Math.min(maxS, f.h + dh));
   if (nw === f.w && nh === f.h) return;
   it.w = (it.rot % 2 === 0) ? nw : nh;               // stored unrotated
   it.h = (it.rot % 2 === 0) ? nh : nw;
   const f2 = HP.footprint(it);                       // keep inside grid
   if (f2.x + f2.w > HP.GRID_W) it.x = HP.GRID_W - f2.w;
   if (f2.y + f2.h > HP.GRID_H) it.y = HP.GRID_H - f2.h;
+  if (it.x < 0) it.x = 0;
+  if (it.y < 0) it.y = 0;
   if (!HP.canPlace(it.type, it.x, it.y, it.rot, it, { w: it.w, h: it.h })) {
     it.w = ow; it.h = oh; it.x = ox; it.y = oy;
     HP.status('No room to resize');
     return;
   }
   if (it.w === def.w && it.h === def.h) { delete it.w; delete it.h; }  // back to default
+  if (isTH && it.interior) {
+    const bw = it.w || def.w, bh = it.h || def.h;
+    const prevItems = (it.interior.furniture || []).filter(s => s.x >= 1 && s.y >= 1 && s.x < 1 + bw && s.y < 1 + bh);
+    const prevCustom = it.interior.customized;
+    it.interior = HP.createDefaultInterior(it);
+    if (prevCustom && prevItems.length) {
+      it.interior.furniture = prevItems;
+    }
+  }
   HP.pushUndoSnap(snap);
   HP.saveState(); HP.markDirty(); HP.refreshContext();
 };

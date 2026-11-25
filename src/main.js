@@ -2745,11 +2745,11 @@ HP.drawFenceSeg = drawFenceSeg;
 /* ================= DYNAMIC ================= */
 function drawItems(g) {
   const list = HP.cur().furniture;
-  for (const it of list) { const d = HP.itemDef(it.type); if (!d.onTop && !d.hangs && it.type !== 'rangehood' && !(HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
-  for (const it of list) { const d = HP.itemDef(it.type); if (!d.onTop && !d.hangs && (HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
-  for (const it of list) { const d = HP.itemDef(it.type); if (d.onTop) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (d && !d.onTop && !d.hangs && it.type !== 'rangehood' && !(HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (d && !d.onTop && !d.hangs && (HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (d && d.onTop) HP.drawItem(g, it); }
   for (const it of list) { if (it.type === 'rangehood') HP.drawItem(g, it); }
-  for (const it of list) { const d = HP.itemDef(it.type); if (d.hangs) HP.drawItem(g, it); }
+  for (const it of list) { const d = HP.itemDef(it.type); if (d && d.hangs) HP.drawItem(g, it); }
 }
 
 /* warm light pools under lamps that are switched on (walk-mode interact).
@@ -2827,14 +2827,49 @@ function drawOverlays(g) {
   // placement ghost
   if (HP.pending && HP.ghost) {
     const def = HP.pending.def;
-    const w = (HP.pending.rot % 2 === 0) ? def.w : def.h;
-    const h = (HP.pending.rot % 2 === 0) ? def.h : def.w;
+    const pw = HP.pending.w || def.w, ph = HP.pending.h || def.h;
+    const w = (HP.pending.rot % 2 === 0) ? pw : ph;
+    const h = (HP.pending.rot % 2 === 0) ? ph : pw;
     const ok = HP.ghost.valid;
     g.fillStyle = ok ? 'rgba(90,200,120,.35)' : 'rgba(224,92,92,.4)';
     g.fillRect(HP.ghost.x * C, HP.ghost.y * C, w * C, h * C);
     g.strokeStyle = ok ? '#46a35e' : '#d33'; g.lineWidth = 2; g.setLineDash([6, 4]);
     g.strokeRect(HP.ghost.x * C, HP.ghost.y * C, w * C, h * C); g.setLineDash([]);
-    HP.drawItem(g, { type: def.id, x: HP.ghost.x, y: HP.ghost.y, rot: HP.pending.rot, v: HP.pending.v }, ok ? 'ghost' : false);
+    HP.drawItem(g, { type: def.id, x: HP.ghost.x, y: HP.ghost.y, rot: HP.pending.rot, v: HP.pending.v, w: HP.pending.w, h: HP.pending.h }, ok ? 'ghost' : false);
+  }
+  // 2D Treehouse & Deck Blueprint guides when inside Structure Interior Editor
+  if (HP.editingInterior && HP.editingInterior.item && HP.editingInterior.item.type === 'treehouse') {
+    const inLvl = HP.editingInterior.interior;
+    const ox = inLvl.ox || 1, oy = inLvl.oy || 1, rw = inLvl.rw || 6, rh = inLvl.rh || 6;
+    const cc = inLvl.cabCols || Math.max(2, Math.round(rw * 0.72));
+    const cr = inLvl.cabRows || Math.max(2, Math.round(rh * 0.66));
+    const GW = HP.GRID_W * C, GH = HP.GRID_H * C;
+    g.save();
+    // Dim exterior margin around elevated deck platform
+    g.fillStyle = 'rgba(15, 23, 42, 0.24)';
+    g.fillRect(0, 0, GW, oy * C);
+    g.fillRect(0, (oy + rh) * C, GW, GH - (oy + rh) * C);
+    g.fillRect(0, oy * C, ox * C, rh * C);
+    g.fillRect((ox + rw) * C, oy * C, GW - (ox + rw) * C, rh * C);
+
+    // Highlight Cabin zone vs Terrace Deck border
+    g.strokeStyle = '#f59e0b'; g.lineWidth = 2.5; g.setLineDash([7, 4]);
+    g.strokeRect(ox * C, oy * C, rw * C, rh * C);
+    g.strokeStyle = '#38bdf8'; g.lineWidth = 2; g.setLineDash([4, 3]);
+    g.strokeRect(ox * C + 2, oy * C + 2, cc * C - 4, cr * C - 4);
+    g.setLineDash([]);
+
+    // Mark Stair Landing at front-right cell & Oak Limbs outside left/rear
+    const sx = (ox + rw - 1) * C, sy = (oy + rh - 1) * C;
+    g.fillStyle = 'rgba(56, 189, 248, 0.16)';
+    g.fillRect(sx, sy, C, C);
+    g.font = '600 9px "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#0284c7';
+    g.fillText('STAIRS', sx + C * 0.5, sy + C * 0.5);
+    g.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    g.fillText('CABIN ROOM', (ox + cc * 0.5) * C, oy * C - 10);
+    if (rh > cr) g.fillText('TERRACE DECK', (ox + rw * 0.45) * C, (oy + rh) * C + 10);
+    g.restore();
   }
   // marquee box while box-selecting
   if (HP.marquee) {

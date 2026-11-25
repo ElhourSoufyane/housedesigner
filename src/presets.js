@@ -297,6 +297,7 @@ HP.presetPreview = function (canvas, st) {
   }
   for (const it of st.furniture) {
     const d = HP.itemDef(it.type);
+    if (!d) continue;
     const w = (it.rot % 2 === 0) ? d.w : d.h, h = (it.rot % 2 === 0) ? d.h : d.w;
     g.fillStyle = 'rgba(120,110,95,.7)';
     g.fillRect(it.x * HP.CELL * k, it.y * HP.CELL * k, w * HP.CELL * k, h * HP.CELL * k);

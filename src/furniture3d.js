@@ -104,6 +104,82 @@ F.builder = function (group) {
     geom.computeVertexNormals();
     return geom;
   }
+  function createHipRoofGeometry() {
+    const geom = new THREE.BufferGeometry();
+    const raw = [
+      -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,   0.22, 0.5, 0.0,
+      -0.5, -0.5,  0.5,   0.22, 0.5,  0.0,  -0.22, 0.5, 0.0,
+       0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,  -0.22, 0.5, 0.0,
+       0.5, -0.5, -0.5,  -0.22, 0.5,  0.0,   0.22, 0.5, 0.0,
+      -0.5, -0.5, -0.5,  -0.5, -0.5,  0.5,  -0.22, 0.5, 0.0,
+       0.5, -0.5,  0.5,   0.5, -0.5, -0.5,   0.22, 0.5, 0.0,
+      -0.5, -0.5, -0.5,   0.5, -0.5, -0.5,   0.5, -0.5, 0.5,
+      -0.5, -0.5, -0.5,   0.5, -0.5,  0.5,  -0.5, -0.5, 0.5
+    ];
+    const vertices = new Float32Array(raw);
+    const nTri = raw.length / 9;
+    const indices = new Uint16Array(nTri * 3);
+    const uvs = new Float32Array(nTri * 6);
+    for (let i = 0; i < nTri * 3; i++) {
+      indices[i] = i;
+      uvs[i * 2] = raw[i * 3] + 0.5;
+      uvs[i * 2 + 1] = raw[i * 3 + 2] + 0.5;
+    }
+    geom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geom.setIndex(new THREE.BufferAttribute(indices, 1));
+    geom.computeVertexNormals();
+    return geom;
+  }
+  function createOakLeafGeometry() {
+    const raw = [];
+    const pushTri = (a, b, c) => {
+      raw.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    };
+    // Build 3 clustered faceted scalloped foliage rosettes per instance (natural oak silhouette, no round spheres or sharp star spikes)
+    const addRosette = (ox, oy, oz, radScale, hScale, phase) => {
+      const S = 12;
+      const top = [ox + 0.02 * radScale, oy + 0.44 * hScale, oz - 0.01 * radScale];
+      const bot = [ox - 0.02 * radScale, oy - 0.34 * hScale, oz + 0.01 * radScale];
+      const eq = [], sh = [];
+      for (let i = 0; i < S; i++) {
+        const a = (i / S) * Math.PI * 2;
+        const wave = 0.86 + 0.14 * Math.sin(a * 3 + phase) + 0.09 * Math.cos(a * 5 - phase);
+        const rEq = 0.42 * radScale * wave;
+        const rSh = rEq * 0.64;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const jitterY = (0.06 * Math.sin(a * 4 + phase * 1.3)) * hScale;
+        eq.push([ox + ca * rEq, oy + jitterY, oz + sa * rEq]);
+        sh.push([ox + ca * rSh, oy + 0.25 * hScale + jitterY * 0.5, oz + sa * rSh]);
+      }
+      for (let i = 0; i < S; i++) {
+        const j = (i + 1) % S;
+        pushTri(eq[i], sh[i], eq[j]);
+        pushTri(sh[i], sh[j], eq[j]);
+        pushTri(sh[i], top, sh[j]);
+        pushTri(eq[j], bot, eq[i]);
+      }
+    };
+    addRosette(0.00, 0.02, 0.00, 0.88, 0.96, 0.2);
+    addRosette(0.16, 0.10, -0.11, 0.66, 0.78, 1.7);
+    addRosette(-0.15, -0.05, 0.12, 0.68, 0.74, 3.1);
+
+    const geom = new THREE.BufferGeometry();
+    const vertices = new Float32Array(raw);
+    const vCount = raw.length / 3;
+    const indices = new Uint16Array(vCount);
+    const uvs = new Float32Array(vCount * 2);
+    for (let i = 0; i < vCount; i++) {
+      indices[i] = i;
+      uvs[i * 2] = vertices[i * 3] + 0.5;
+      uvs[i * 2 + 1] = vertices[i * 3 + 2] + 0.5;
+    }
+    geom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geom.setIndex(new THREE.BufferAttribute(indices, 1));
+    geom.computeVertexNormals();
+    return geom;
+  }
   function createArchTopGeometry(S) {
     const positions = [], normals = [], uvs = [], indices = [];
     function addQuad(p0, p1, p2, p3, n) {
@@ -270,6 +346,8 @@ F.builder = function (group) {
     cone: new THREE.CylinderGeometry(0.15, 0.5, 1, 9),
     roof: new THREE.ConeGeometry(0.71, 1, 4).rotateY(Math.PI / 4),
     gable: createGableGeometry(),
+    hipRoof: createHipRoofGeometry(),
+    oakLeaf: createOakLeafGeometry(),
     shadow: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
     archTop: createArchTopGeometry(G.current.detail ? 36 : 24),
     archCasing: createArchCasingGeometry(G.current.detail ? 36 : 24, 0.08, 1.0),
@@ -464,7 +542,7 @@ F.builder = function (group) {
           return { left: false, right: false };
         }
       }
-      const isScreen = /^(divider|shoji|screen|garagedoor|greenhouse|archway)/i.test(it.type);
+      const isScreen = /^(divider|shoji|screen|garagedoor|greenhouse|archway|treehouse)/i.test(it.type);
       width = Math.max(3, (it.w || def.w) * HP.CELL - (isScreen ? 0 : 3));
       depth = Math.max(3, (it.h || def.h) * HP.CELL - (isScreen ? 0 : 3));
       height = Math.max(1.5, h);
@@ -4902,413 +4980,616 @@ F.builder = function (group) {
         box('metal', 0, 0.54, 0.40, 0.12, 0.10, 0.04, '#334155', true);
   
       } else if (/^treehouse$/i.test(t)) {
-        // Grand Luxury Scandinavian 2-Story A-Frame Treehouse Lodge (Height 290px, 4x4 or 5x5 footprint)
-        // Architectural Masterpiece with dramatic scale and cathedral living space:
-        // - Expansive 86px wide, 124px high vaulted A-frame structure with standing-seam charcoal metal roof (#242830) & continuous apex ridge cap (#181b20)
-        // - Floor-to-Apex Front Panoramic Glass Curtain Wall (#e0f2fe) with grand double-height black steel geometric mullions & open walk-in pivot entrance portal
-        // - 2-Story Architectural Interior:
-        //     * Ground Floor: Scandinavian honey oak floors, sectional living lounge with canvas upholstery & throw cushions, coffee table, cylindrical cast-iron wood stove (#1e293b) with glowing embers & chimney flue rising 120px through the roof
-        //     * Second-Story Sleeping Loft (y=100..140): timber mezzanine floor, black steel safety balustrade with teak handrail, queen bed with plush duvet & pillows, interior companionway access stairs, hanging warm brass pendant lamp (#fef08a)
-        //     * Roof Architectural Skylight washing the upper loft & living room in natural daylight
-        // - Wrap-Around Western Red Cedar Observation Deck (y=54) with cantilevered front terrace (z=34..54), linear cast-concrete fire pit table (#64748b) with glowing fire glass embers (#f97316), outdoor deep lounge armchairs, side drinks table & cedar planter box
-        // - Modern Minimalist Cable Railing: matte-black steel posts, continuous teak handrail (#844c26), and 4 horizontal stainless steel aircraft tension cables (#94a3b8)
-        // - Modern Companionway Ship's Ladder: dual matte-black steel stringers, thick cedar treads (#c28452), ergonomic steel handrails
-        // - Elevated Foundation: 4 heavy timber stilts with concrete pier footings and 45° diagonal knee braces; suspended rope tire swing
-        // - Mighty Ancient Oak Trunk ascending from flared buttress roots through deck collar, climbing gracefully past the lodge, and splitting into majestic soaring boughs (up to y=275) crowned with a vast, lush multi-tiered volumetric canopy in 5 rich woodland greens (up to y=290), perched songbird & upper wooden birdhouse!
-
-        // Pixel-based isotropic geometry helpers (eliminates aspect ratio distortion)
+        // Rebuilt From Scratch: Multi-Style Treehouse (v=0 Modern Glass, v=1 Classic Craftsman, v=2 Nordic Sanctuary)
+        // Nestled in a towering Organic Oak Tree (no smooth spheres) with scalable 3x3..12x12 deck & 1:1 2D interior sync.
         const pBox = (k, px, py, pz, pw, ph, pd, c, det, mat) =>
           box(k, px / width, py / height, pz / depth, pw / width, ph / height, pd / depth, c, det, mat);
         const pCyl = (k, px, py, pz, diamPx, ph, c, det, mat) =>
           cyl(k, px / width, py / height, pz / depth, diamPx / width, ph / height, diamPx / depth, c, det, mat);
-        const pCylX = (k, px, py, pz, diamPx, lenPx, c, det, mat) =>
-          cylX(k, px / width, py / height, pz / depth, lenPx / width, diamPx / height, diamPx / depth, c, det, mat);
-        const pCylZ = (k, px, py, pz, diamPx, lenPx, c, det, mat) =>
-          cylZ(k, px / width, py / height, pz / depth, diamPx / width, diamPx / height, lenPx / depth, c, det, mat);
-        const pSphere = (k, px, py, pz, diamPx, c) =>
-          round(k, px / width, py / height, pz / depth, diamPx / width, diamPx / height, diamPx / depth, c);
+        const pCone = (k, px, py, pz, diamPx, ph, c, det, mat) =>
+          part('cone', k, px / width, py / height, pz / depth, diamPx / width, ph / height, diamPx / depth, c, det, mat);
         const pSlope = (k, x0, y0, z0, x1, y1, z1, ty, tz, c, det, mat) =>
           boxSlope(k, x0 / width, y0 / height, z0 / depth, x1 / width, y1 / height, z1 / depth, ty / height, tz / depth, c, det, mat);
+        const pSlopeYZ = (k, px, y0, z0, y1, z1, wx, ty, c, det, mat) =>
+          boxSlopeYZ(k, px / width, y0 / height, z0 / depth, y1 / height, z1 / depth, wx / width, ty / height, c, det, mat);
         const pCylSlope = (k, x0, y0, z0, x1, y1, z1, diamPx, c, det, mat) =>
           partSlope('cylinderX', k, x0 / width, y0 / height, z0 / depth, x1 / width, y1 / height, z1 / depth, diamPx / height, diamPx / depth, c, det, mat);
         const pRot = (k, px, py, pz, pw, ph, pd, ry, c, det, mat) =>
           boxRot(k, px / width, py / height, pz / depth, pw / width, ph / height, pd / depth, ry, c, det, mat);
+        const pShapeRot = (shape, k, px, py, pz, pw, ph, pd, ry, c, det, mat) =>
+          partRot(shape, k, px / width, py / height, pz / depth, pw / width, ph / height, pd / depth, ry, c, det, mat);
         const pGable = (k, px, py, pz, pw, ph, pd, c) =>
           part('gable', k, px / width, py / height, pz / depth, pw / width, ph / height, pd / depth, c);
+        const pHip = (k, px, py, pz, pw, ph, pd, c) =>
+          part('hipRoof', k, px / width, py / height, pz / depth, pw / width, ph / height, pd / depth, c);
+        const pLeaf = (px, py, pz, sx, sy, sz, rx, ry, rz, c) =>
+          partRotEuler('oakLeaf', 'foliage', px / width, py / height, pz / depth, sx / width, sy / height, sz / depth, rx, ry, rz, c);
 
-        const barkCol    = '#422c1b';
-        const barkDark   = '#28170c';
-        const deckWood   = '#b87a4c';
-        const deckTrim   = '#8c532b';
-        const teakRail   = '#844c26';
-        const steelBlack = '#181b20';
-        const roofMetal  = '#242830';
-        const roofRidge  = '#1a1d23';
-        const glassColor = '#e0f2fe';
+        const CELL = (HP && HP.CELL) || 28;
+        const bw = Math.max(3, Math.round(width / CELL));
+        const bh = Math.max(3, Math.round(depth / CELL));
+        const L = HP.treehouseLayout ? HP.treehouseLayout(bw, bh) : {
+          W: width, D: depth, C: CELL, bw, bh, deckY: 54, wallH: 74, wallTop: 128, doorH: 56,
+          cabCols: Math.max(2, Math.round(bw * 0.72)), cabRows: Math.max(2, Math.round(bh * 0.66)),
+          cabX0: -width * 0.42, cabX1: width * 0.28, cabZ0: -depth * 0.42, cabZ1: depth * 0.22,
+          cabW: width * 0.70, cabD: depth * 0.64, doorCx: -width * 0.07, doorHalfW: Math.max(15, width * 0.12),
+          doorX0: -width * 0.07 - 16, doorX1: -width * 0.07 + 16,
+          trunkX: -width * 0.10, trunkZ: -depth * 0.12, trunkR: 15,
+          stairCx: width * 0.37, stairHalfW: 12, stairGapX0: width * 0.25, stairGapX1: width * 0.48,
+          lx0: width * 0.26, lx1: width * 0.48, lz0: depth * 0.45, lz1: depth * 0.72
+        };
 
-        // 1. ANCIENT OAK TRUNK & BUTTRESS ROOTS (Foundation to Earth)
-        pCyl('wood', -16, 5, -12, 48, 10, barkDark);
-        pCyl('wood', -16, 26, -12, 38, 52, barkCol);
+        const style = ((it && it.v) || 0) % 3;
+        const W = L.W, D = L.D, deckY = L.deckY, wallH = L.wallH, wallTop = L.wallTop, doorH = L.doorH;
+        const { cabX0, cabX1, cabZ0, cabZ1, cabW, cabD, doorX0, doorX1, doorCx } = L;
+        const cabCx = (cabX0 + cabX1) * 0.5, cabCz = (cabZ0 + cabZ1) * 0.5;
+        const isCustomized = !!(it && it.interior && it.interior.customized);
 
-        // Buttress root flares sinking naturally below ground level (y1 = -3)
-        pCylSlope('wood', -16, 22, 2, -16, -3, 38, 10.5, barkDark);
-        pCylSlope('wood', -16, 22, -26, -16, -3, -52, 10.5, barkDark);
-        pCylSlope('wood', -2, 22, -12, 26, -3, -12, 10.5, barkDark);
-        pCylSlope('wood', -30, 22, -12, -54, -3, -12, 10.5, barkDark);
-        pCylSlope('wood', -7, 18, 0, 18, -3, 24, 8.5, barkDark);
-        pCylSlope('wood', -25, 18, 0, -44, -3, 24, 8.5, barkDark);
-        pCylSlope('wood', -25, 18, -24, -42, -3, -42, 8.5, barkDark);
-        pCylSlope('wood', -7, 18, -24, 16, -3, -42, 8.5, barkDark);
+        // =========================================================================
+        // 1. REALISTIC ORGANIC OAK TREE (No Smooth Spheres — Faceted Rosettes & Gnarled Limbs)
+        // =========================================================================
+        const barkCol = '#4a311e';
+        const barkDark = '#2d1b0e';
+        const barkLight = '#634329';
+        const tx = L.trunkX, tz = L.trunkZ, trD = L.trunkR * 2.0;
 
-        // Organic trunk details: tree bark shelf fungus
-        pBox('wood', 3, 22, -12, 4.5, 0.8, 3.5, '#92400e');
-        pBox('wood', 2.5, 25, -11, 3.5, 0.6, 2.8, '#d97706');
-        pBox('wood', -16, 32, 7, 4.0, 0.8, 3.2, '#92400e');
+        // Gnarled tapered oak trunk + flared roots + curved bark flutes (stops cleanly beneath deck slab)
+        pCone('wood', tx, 10, tz, trD * 1.42, 20, barkDark);
+        pCyl('wood', tx - 1, 22, tz + 1, trD * 1.08, 22, barkCol);
+        pCyl('wood', tx - 2, 39, tz - 1, trD * 0.92, 22, barkCol);
+        // Sculpted angled trunk flutes & buttress ribs (no stiff straight boxes)
+        for (let f = 0; f < 6; f++) {
+          const a = (f / 6) * Math.PI * 2 + 0.4;
+          pCylSlope('wood', tx + Math.cos(a) * trD * 0.46, 8, tz + Math.sin(a) * trD * 0.46,
+            tx + Math.cos(a + 0.25) * trD * 0.36, 42, tz + Math.sin(a + 0.25) * trD * 0.36,
+            6.5, f % 2 === 0 ? barkDark : barkLight);
+        }
 
-        // Under-deck rope tire swing
-        pCyl('dark', 6, 28, -20, 0.6, 26, '#78350f');
-        pCylX('dark', 6, 15, -20, 10, 3.5, '#181b1e');
-        pCylX('dark', 6, 15, -20, 6, 3.8, '#0b0f14');
+        // 8 Sweeping Buttress Roots anchored into yard turf
+        for (let r = 0; r < 8; r++) {
+          const ang = (r / 8) * Math.PI * 2 + 0.25;
+          const rLen = trD * (1.05 + (r % 2) * 0.28);
+          pCylSlope('wood', tx + Math.cos(ang) * trD * 0.34, 17 - (r % 2) * 3, tz + Math.sin(ang) * trD * 0.34,
+            tx + Math.cos(ang + 0.08) * rLen, -2, tz + Math.sin(ang + 0.08) * rLen, 8.2, barkDark);
+        }
 
-        // 2. ELEVATED FOUNDATION STILTS & HEAVY TIMBER UNDERCARRIAGE
-        const postPts = [
-          [-48, -46], [48, -46],
-          [-48,  46], [48,  46]
+        // Major Smoothly Curved Gnarled Oak Boughs:
+        // Gradually curve diagonally from trunk core (y=18..22) -> clear under deck rim joist at y=43 -> sweep outward/upward in natural S-curves (NO 90° bends!) -> arch over roof!
+        const safeX0 = Math.min(-W * 0.53, cabX0 - 18);
+        const safeX1 = Math.max( W * 0.515, cabX1 + 16);
+        const safeZ0 = Math.min(-D * 0.54, cabZ0 - 18);
+        const oakLimbs = [
+          // West graceful sweeping main arm (gradual organic curvature, <= 24 deg per joint)
+          [
+            [tx, 16, tz, (tx + safeX0) * 0.52, 29, -D * 0.14, 15.0],
+            [(tx + safeX0) * 0.52, 29, -D * 0.14, safeX0, 44, -D * 0.14, 13.5],
+            [safeX0, 44, -D * 0.14, safeX0 - 12, 68, -D * 0.12, 12.4],
+            [safeX0 - 12, 68, -D * 0.12, safeX0 - 20, 108, -D * 0.08, 11.2],
+            [safeX0 - 20, 108, -D * 0.08, safeX0 - 22, 160, -D * 0.04, 9.6],
+            [safeX0 - 22, 160, -D * 0.04, safeX0 - 10, 210,  D * 0.02, 7.8],
+            [safeX0 - 10, 210,  D * 0.02, -W * 0.26, 250, -D * 0.04, 5.8],
+            [safeX0 - 20, 108, -D * 0.08, safeX0 - 38, 180,  D * 0.20, 6.8],
+            [safeX0 - 22, 160, -D * 0.04, safeX0 - 42, 214, -D * 0.22, 6.2]
+          ],
+          // North-West sweeping crown limb
+          [
+            [tx, 18, tz, (tx + safeX0 * 0.85) * 0.5, 30, (tz + safeZ0) * 0.5, 14.5],
+            [(tx + safeX0 * 0.85) * 0.5, 30, (tz + safeZ0) * 0.5, safeX0 * 0.84, 44, safeZ0, 13.0],
+            [safeX0 * 0.84, 44, safeZ0, safeX0 * 0.90, 74, safeZ0 - 8, 11.8],
+            [safeX0 * 0.90, 74, safeZ0 - 8, safeX0 * 0.86, 122, safeZ0 - 12, 10.6],
+            [safeX0 * 0.86, 122, safeZ0 - 12, safeX0 * 0.68, 174, safeZ0 - 8, 9.2],
+            [safeX0 * 0.68, 174, safeZ0 - 8, -W * 0.28, 228, -D * 0.36, 7.6],
+            [-W * 0.28, 228, -D * 0.36, -W * 0.04, 264, -D * 0.16, 5.4],
+            [safeX0 * 0.86, 122, safeZ0 - 12, safeX0 - 20, 188, safeZ0 - 20, 6.4]
+          ],
+          // North central towering canopy trunk/bough
+          [
+            [tx, 19, tz, (tx + W * 0.06) * 0.5, 31, (tz + safeZ0) * 0.52, 15.0],
+            [(tx + W * 0.06) * 0.5, 31, (tz + safeZ0) * 0.52, W * 0.06, 44, safeZ0, 13.5],
+            [W * 0.06, 44, safeZ0, W * 0.10, 76, safeZ0 - 8, 12.2],
+            [W * 0.10, 76, safeZ0 - 8, W * 0.12, 124, safeZ0 - 10, 11.0],
+            [W * 0.12, 124, safeZ0 - 10, W * 0.10, 178, safeZ0 - 4, 9.6],
+            [W * 0.10, 178, safeZ0 - 4, W * 0.02, 236, -D * 0.18, 7.8],
+            [W * 0.02, 236, -D * 0.18, W * 0.24, 268, -D * 0.02, 5.4],
+            [W * 0.02, 236, -D * 0.18, -W * 0.18, 266,  D * 0.04, 5.4]
+          ],
+          // East-Rear gradually sweeping parabolic bough (smooth 16->26->46->68->78->55 deg curve, zero sharp L-elbow)
+          [
+            [tx, 14, tz, tx * 0.2 + safeX1 * 0.3, 22, safeZ0 * 0.35, 14.5],
+            [tx * 0.2 + safeX1 * 0.3, 22, safeZ0 * 0.35, safeX1 * 0.72, 33, safeZ0 * 0.48, 13.4],
+            [safeX1 * 0.72, 33, safeZ0 * 0.48, safeX1 + 3, 44, safeZ0 * 0.50, 12.2],
+            [safeX1 + 3, 44, safeZ0 * 0.50, safeX1 + 12, 64, -D * 0.26, 11.0],
+            [safeX1 + 12, 64, -D * 0.26, safeX1 + 16, 102, -D * 0.23, 9.8],
+            [safeX1 + 16, 102, -D * 0.23, safeX1 + 14, 158, -D * 0.20, 8.6],
+            [safeX1 + 14, 158, -D * 0.20, safeX1 + 4, 208, -D * 0.16, 7.0],
+            [safeX1 + 4, 208, -D * 0.16, W * 0.24, 248, -D * 0.12, 5.4],
+            [safeX1 + 14, 158, -D * 0.20, safeX1 + 30, 194,  D * 0.08, 5.8]
+          ]
         ];
-        for (const [px, pz] of postPts) {
-          pBox('stone', px, 1.5, pz, 7, 3, 7, '#94a3b8');
-          pBox('metal', px, 4, pz, 5.5, 2, 5.5, '#1e293b', true);
-          pBox('wood', px, 28, pz, 5.5, 48, 5.5, '#2d1c10');
-          if (px < 0) pCylSlope('wood', px, 40, pz, px + 14, 52, pz, 4.2, '#3d2716');
-          if (px > 0) pCylSlope('wood', px, 40, pz, px - 14, 52, pz, 4.2, '#3d2716');
-          if (pz < 0) pCylSlope('wood', px, 40, pz, px, 52, pz + 14, 4.2, '#3d2716');
-          if (pz > 0) pCylSlope('wood', px, 40, pz, px, 52, pz - 14, 4.2, '#3d2716');
-        }
-        // Subfloor heavy timber structural rim & joist grid
-        pBox('wood', 0, 52, 0, 110, 3.2, 106, '#2d1c10');
-        pBox('metal', 0, 52.8, 0, 112.5, 2.2, 108.5, '#1e242c');
-
-        // 3. EXPANSIVE WESTERN RED CEDAR OBSERVATION DECK (y = 54.0)
-        pBox('wood', 0, 54.0, 0, 111, 0.8, 107, deckWood);
-        for (let pz = -50; pz <= 50; pz += 10) {
-          pBox('wood', 0, 54.2, pz, 110, 0.25, 0.6, deckTrim);
-        }
-        // Octagonal live tree deck collar at trunk location (-16, -12)
-        pBox('metal', -16, 54.6, -12, 38, 0.8, 38, '#1e242c');
-        pCyl('wood', -16, 54.8, -12, 36, 1.0, '#78350f');
-        pCyl('dark', -16, 54.9, -12, 30, 1.2, '#181b1e');
-
-        // 4. MODERN MINIMALIST CABLE RAILING SYSTEM
-        const railPosts = [
-          [-54, -53.5], [-27, -53.5], [0, -53.5], [27, -53.5], [54, -53.5],
-          [-54, 53.5], [-27, 53.5], [0, 53.5], [24, 53.5], [40, 53.5], [54, 53.5],
-          [-54, -36], [-54, -18], [-54, 0], [-54, 18], [-54, 36],
-          [54, -36], [54, -18], [54, 0], [54, 18], [54, 36]
-        ];
-        for (const [px, pz] of railPosts) {
-          pBox('metal', px, 64, pz, 1.8, 20, 1.8, steelBlack);
-          pBox('metal', px, 54.6, pz, 2.8, 1.2, 2.8, '#0f172a');
-        }
-        // Continuous teak handrails
-        pBox('wood', 0, 74.5, -53.5, 110, 1.8, 3.2, teakRail); // North
-        pBox('wood', -54, 74.5, 0, 3.2, 1.8, 107, teakRail);  // West
-        pBox('wood', 54, 74.5, 0, 3.2, 1.8, 107, teakRail);   // East
-        pBox('wood', -15, 74.5, 53.5, 78, 1.8, 3.2, teakRail); // South West
-        pBox('wood', 47, 74.5, 53.5, 14, 1.8, 3.2, teakRail);  // South East
-        pSphere('wood', 24, 75.2, 53.5, 2.6, teakRail);
-        pSphere('wood', 40, 75.2, 53.5, 2.6, teakRail);
-
-        // 4 Stainless Steel Aircraft Cables
-        const cableYs = [58.5, 62.5, 66.5, 70.5];
-        for (const cy of cableYs) {
-          pBox('metal', 0, cy, -53.5, 108, 0.4, 0.4, '#94a3b8', true);
-          pBox('metal', -54, cy, 0, 0.4, 0.4, 105, '#94a3b8', true);
-          pBox('metal', 54, cy, 0, 0.4, 0.4, 105, '#94a3b8', true);
-          pBox('metal', -15, cy, 53.5, 76, 0.4, 0.4, '#94a3b8', true);
-          pBox('metal', 47, cy, 53.5, 13, 0.4, 0.4, '#94a3b8', true);
-        }
-
-        // 5. MODERN COMPANIONWAY SHIP'S LADDER
-        pSlope('metal', 27, 0, 74, 27, 54, 50, 1.8, 2.6, steelBlack);
-        pSlope('metal', 37, 0, 74, 37, 54, 50, 1.8, 2.6, steelBlack);
-        for (let s = 1; s <= 11; s++) {
-          const st = s / 12;
-          const sy = st * 54;
-          const sz = 74 - st * 24;
-          pBox('wood', 32, sy, sz, 9.6, 1.4, 2.8, '#c28452');
-        }
-        pSlope('metal', 26.5, 13, 74, 26.5, 67, 50, 1.2, 1.2, steelBlack);
-        pSlope('metal', 37.5, 13, 74, 37.5, 67, 50, 1.2, 1.2, steelBlack);
-
-        // 6. GRAND LUXURY SCANDINAVIAN 2-STORY A-FRAME LODGE
-        // Base width: x from -48 to +38 (86px wide, center x = -5)
-        // Depth: z from -50 to +34 (84px deep)
-        // Ridge at x = -5, y = 178 (height 124px above deck, grand cathedral ceiling!)
-        const ridgeX = -5;
-        const ridgeY = 178;
-        const eaveY  = 54;
-        const eaveL  = -48;
-        const eaveR  = 38;
-
-        // Front Floor-to-Apex Glass Curtain Wall (z = +34.0)
-        pGable('glass', ridgeX, (eaveY + ridgeY) / 2, 34.0, 86, ridgeY - eaveY, 0.6, glassColor);
-
-        // Front Gable Matte Black Steel Mullions & Structural A-Frame Ring (z = 34.8)
-        pSlope('metal', eaveL, eaveY, 34.8, ridgeX, ridgeY, 34.8, 2.4, 1.6, steelBlack);
-        pSlope('metal', ridgeX, ridgeY, 34.8, eaveR, eaveY, 34.8, 2.4, 1.6, steelBlack);
-        pBox('metal', ridgeX, eaveY + 0.8, 34.8, 86, 1.8, 1.6, steelBlack); // threshold
-        pBox('metal', ridgeX, (eaveY + ridgeY) / 2, 34.8, 2.0, ridgeY - eaveY, 1.2, steelBlack); // vertical center mullion
-        // Intermediate vertical mullions
-        pSlope('metal', -26, 54, 34.8, -26, 116, 34.8, 1.4, 1.0, steelBlack);
-        pSlope('metal', 16, 54, 34.8, 16, 116, 34.8, 1.4, 1.0, steelBlack);
-        // Horizontal transoms
-        pBox('metal', ridgeX, 80, 34.8, 68, 1.6, 1.0, steelBlack);  // door lintel transom
-        pBox('metal', ridgeX, 100, 34.8, 54, 2.2, 1.2, steelBlack); // mezzanine loft floor transom
-        pBox('metal', ridgeX, 138, 34.8, 28, 1.4, 1.0, steelBlack); // upper loft peak transom
-
-        // Open Walk-In Pivot Entrance Portal (x = -13..+3, y = 54..80)
-        pBox('metal', -12.5, 67, 27.0, 0.8, 26.0, 14.0, steelBlack); // open inward pivot door
-        pBox('glass', -12.5, 67, 27.0, 0.4, 24.0, 12.0, glassColor);
-        pBox('metal', -11.8, 66, 21.0, 0.8, 8.0, 0.8, '#f8fafc', true); // stainless handle
-        pBox('wood', -5.0, 54.4, 39.0, 20.0, 0.6, 10.0, '#78350f');   // welcoming entry deck mat
-
-        // Rear Gable Wall (z = -50.0) with warm cedar siding
-        pGable('wood', ridgeX, (eaveY + ridgeY) / 2, -50.0, 86, ridgeY - eaveY, 1.4, '#b87442');
-        for (let ry = 62; ry <= 166; ry += 10) {
-          const frac = (ry - eaveY) / (ridgeY - eaveY);
-          const rw = 86 * (1 - frac) * 0.95;
-          if (rw > 4) pBox('wood', ridgeX, ry, -50.4, rw, 0.8, 1.0, '#8c4c1d');
-        }
-        // Rear upper loft picture window
-        pBox('glass', ridgeX, 126, -50.2, 26, 20, 0.6, glassColor);
-        pBox('metal', ridgeX, 126, -50.2, 26.8, 20.8, 0.8, steelBlack);
-
-        // Pitch Standing-Seam Charcoal Metal Roof (Left & Right Slopes)
-        // Length along z: 88px (from -52 to +36)
-        pSlope('metal', eaveL - 1, eaveY - 0.5, -8, ridgeX, ridgeY + 1.2, -8, 2.5, 88, roofMetal);
-        pSlope('metal', ridgeX, ridgeY + 1.2, -8, eaveR + 1, eaveY - 0.5, -8, 2.5, 88, roofMetal);
-
-        // Roof Architectural Skylight (East slope, bringing sunlight into living room & loft)
-        pBox('glass', 10, 128, -6, 14, 0.8, 30, glassColor);
-        pBox('metal', 10, 128, -6, 15, 1.2, 31, steelBlack);
-
-        // Standing-Seam Architectural Ribs
-        const ribZs = [-46, -34, -22, -10, 2, 14, 26];
-        for (const rz of ribZs) {
-          pSlope('metal', eaveL - 1.2, eaveY - 0.2, rz, ridgeX, ridgeY + 1.6, rz, 1.4, 0.9, steelBlack);
-          pSlope('metal', ridgeX, ridgeY + 1.6, rz, eaveR + 1.2, eaveY - 0.2, rz, 1.4, 0.9, steelBlack);
-        }
-        for (const bz of [-51.6, 35.6]) {
-          pSlope('metal', eaveL - 1.5, eaveY - 1, bz, ridgeX, ridgeY + 2.0, bz, 3.0, 2.4, steelBlack);
-          pSlope('metal', ridgeX, ridgeY + 2.0, bz, eaveR + 1.5, eaveY - 1, bz, 3.0, 2.4, steelBlack);
-        }
-        pBox('metal', ridgeX, ridgeY + 2.4, -8, 4.0, 2.0, 90, roofRidge);
-
-        // 7. ASYMMETRICAL WEST SHED DORMER POP-OUT (z = -30..-2, x = -50..-32)
-        pBox('wood', -41, 54.2, -16, 18, 0.6, 28, '#eed9b7');
-        pBox('wood', -41, 72, -2, 18, 36, 1.4, '#ba7a48');
-        pBox('wood', -41, 72, -30, 18, 36, 1.4, '#ba7a48');
-        pBox('wood', -50.2, 63.0, -16, 1.4, 18, 28, '#ba7a48');
-        pBox('glass', -50.2, 78.0, -16, 0.6, 12, 24, glassColor);
-        pBox('metal', -50.3, 78.0, -16, 0.8, 12.8, 24.8, steelBlack);
-        pBox('wood', -50.2, 87.0, -16, 1.4, 6, 28, '#ba7a48');
-        pBox('metal', -41, 91.0, -16, 20, 1.6, 30, roofMetal);
-        pBox('metal', -41, 91.0, -16, 20.6, 2.0, 30.6, steelBlack);
-
-        // 8. 2-STORY SCANDINAVIAN INTERIOR ARCHITECTURE
-        // Ground Floor Honey Oak Flooring
-        pBox('wood', ridgeX, 54.2, -8, 84, 0.4, 82, '#eed9b7');
-        pBox('wood', ridgeX, 110, -49, 82, 110, 0.8, '#d49b6a'); // interior back wall
-
-        // Ground Floor: Scandinavian Cylindrical Cast-Iron Wood Stove (Right, x=+24, z=+10)
-        pBox('stone', 24, 54.6, 10, 14, 0.8, 14, '#334155');
-        pCyl('dark', 24, 63, 10, 8.4, 16, '#1e293b');
-        pBox('glow', 24, 63, 14.3, 5.2, 6.4, 0.8, '#f97316');
-        pSphere('glow', 24, 63, 14.0, 3.2, '#fde047');
-        pCyl('dark', 24, 71.5, 10, 9.2, 1.4, '#0f172a');
-        pCyl('dark', 24, 102, 10, 2.8, 60, '#1e293b');
-        pCyl('dark', 24, 145, 10, 3.8, 30, steelBlack);
-        pCyl('dark', 24, 162, 10, 5.8, 1.8, '#0f172a');
-
-        // Ground Floor: Sectional Living Room Lounge (Left, x=-26, z=+8)
-        pBox('wood', -26, 58, 8, 26, 7.5, 22, '#a16207');
-        pBox('fabric', -26, 63, 8, 25, 3.8, 21, '#f8fafc');
-        pBox('fabric', -26, 67, 18, 25, 5.5, 3.0, '#e07a5f');
-        pBox('fabric', -38, 66, 8, 3.0, 5.0, 16, '#3d5a80');
-        // Coffee table
-        pBox('wood', -26, 58, -12, 16, 5.0, 10, '#c6834d');
-        pBox('ceramic', -26, 61, -12, 7, 0.8, 5, '#cbd5e1');
-
-        // Interior companionway timber stairs rising to sleeping loft (x=+18, z=-28..-4, y=54..100)
-        pSlope('wood', 18, 54, 4, 18, 100, -22, 1.4, 4.0, '#8a5c36');
-        for (let ls = 1; ls <= 8; ls++) {
-          const lsf = ls / 9;
-          const lsy = 54 + lsf * 46;
-          const lsz = 4 - lsf * 26;
-          pBox('wood', 18, lsy, lsz, 6.0, 1.2, 2.6, '#c6834d');
-        }
-
-        // Second-Story Sleeping Loft Mezzanine Floor (y = 100)
-        pBox('wood', ridgeX, 100, -20, 52, 2.2, 56, '#c6834d');
-        // Loft safety railing along edge (z = +8)
-        pBox('metal', ridgeX, 107, 8, 50, 1.2, 1.2, steelBlack);
-        pBox('wood', ridgeX, 114, 8, 52, 1.6, 2.4, teakRail);
-        for (let sp = -26; sp <= 16; sp += 6) {
-          pBox('metal', sp, 107, 8, 0.8, 14, 0.8, steelBlack);
-        }
-
-        // Queen-Size Bed on Sleeping Loft
-        pBox('wood', ridgeX, 103, -32, 28, 4.0, 32, '#8a5c36');
-        pBox('fabric', ridgeX, 108, -32, 26, 6.0, 30, '#f8fafc'); // fluffy white duvet
-        pBox('fabric', ridgeX, 109, -20, 26, 1.4, 8, '#cbd5e1');  // throw blanket
-        pBox('fabric', -10, 111, -44, 10, 4.5, 6, '#e2e8f0');
-        pBox('fabric', 0, 111, -44, 10, 4.5, 6, '#e2e8f0');
-
-        // Hanging Warm Brass Loft Pendant Lamp
-        pCyl('metal', ridgeX, 155, -10, 0.4, 42, steelBlack);
-        pCyl('metal', ridgeX, 134, -10, 5.5, 2.5, '#eab308');
-        pSphere('glow', ridgeX, 132, -10, 4.2, '#fef08a');
-
-        // Exterior entrance cylinder sconces
-        pCyl('dark', -14.5, 72, 35.2, 1.4, 4.0, steelBlack);
-        pSphere('glow', -14.5, 72, 35.8, 2.0, '#fef08a');
-        pCyl('dark', 4.5, 72, 35.2, 1.4, 4.0, steelBlack);
-        pSphere('glow', 4.5, 72, 35.8, 2.0, '#fef08a');
-
-        // 9. OUTDOOR LIVING PATIO ON FRONT CANTILEVER TERRACE (z = 34..54)
-        pBox('stone', 28, 57.0, 44, 18, 6.0, 11, '#64748b');
-        pBox('metal', 28, 60.1, 44, 15, 0.4, 8.5, '#334155');
-        pBox('stone', 28, 60.3, 44, 13, 0.3, 6.5, '#1e293b');
-        pBox('glow',  28, 60.8, 44, 10, 0.8, 4, '#f97316');
-        pSphere('glow', 25, 61.4, 44, 2.6, '#fbbf24');
-        pSphere('glow', 28, 61.8, 44, 3.2, '#f97316');
-        pSphere('glow', 31, 61.4, 44, 2.6, '#fb923c');
-
-        // Lounge Armchairs
-        pBox('metal', 16, 57.0, 44, 10, 6.0, 12, steelBlack);
-        pBox('metal', 11.5, 63.0, 44, 1.5, 8.0, 12, steelBlack);
-        pBox('fabric', 16.5, 60.5, 44, 9, 2.5, 11, '#e6ded3');
-        pBox('fabric', 13.0, 64.0, 44, 2.5, 5.0, 10, '#e07a5f');
-
-        pBox('metal', 42, 57.0, 44, 10, 6.0, 12, steelBlack);
-        pBox('metal', 46.5, 63.0, 44, 1.5, 8.0, 12, steelBlack);
-        pBox('fabric', 41.5, 60.5, 44, 9, 2.5, 11, '#e6ded3');
-        pBox('fabric', 45.0, 64.0, 44, 2.5, 5.0, 10, '#3d5a80');
-
-        pBox('wood', -45, 57.0, 45, 16, 6.0, 8.0, '#78350f');
-        pSphere('foliage', -45, 63.0, 45, 9.0, '#366e2c');
-        pSphere('foliage', -40, 64.0, 45, 8.0, '#63aa4e');
-        pSphere('foliage', -50, 62.0, 45, 8.0, '#4a8e3d');
-
-        // Festoon Fairy String Lights draped across front facade eave
-        const festoonBulbs = [
-          [-46, 80.0, 36.0, '#fef08a'],
-          [-34, 88.0, 36.0, '#fde047'],
-          [-22, 94.0, 36.0, '#fed7aa'],
-          [-10, 97.0, 36.0, '#fef08a'],
-          [0,   96.0, 36.0, '#fde047'],
-          [12,  92.0, 36.0, '#fed7aa'],
-          [24,  86.0, 36.0, '#fef08a'],
-          [36,  79.0, 36.0, '#fde047']
-        ];
-        for (let i = 0; i < festoonBulbs.length; i++) {
-          const [bx, by, bz, bc] = festoonBulbs[i];
-          pBox('metal', bx, by + 0.8, bz, 1.0, 0.6, 1.0, steelBlack, true);
-          pSphere('glow', bx, by, bz, 2.2, bc);
-          if (i > 0) {
-            const [px, py, pz] = festoonBulbs[i - 1];
-            pSlope('metal', px, py + 0.6, pz, bx, by + 0.6, bz, 0.25, 0.25, steelBlack);
+        for (const chain of oakLimbs) {
+          for (let li = 0; li < chain.length; li++) {
+            const [x0, y0, z0, x1, y1, z1, dPx] = chain[li];
+            const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+            const segLen = Math.hypot(dx, dy, dz) || 1;
+            const ov = dPx * 0.26 / segLen;
+            const col = li % 2 === 0 ? barkCol : barkDark;
+            pCylSlope('wood', x0 - dx * ov, y0 - dy * ov, z0 - dz * ov, x1 + dx * ov, y1 + dy * ov, z1 + dz * ov, dPx, col);
+            pRot('wood', x1, y1, z1, dPx * 0.74, dPx * 0.74, dPx * 0.74, li * 0.8 + 0.3, col);
           }
         }
 
-        // 10. TOWERING ANCIENT OAK TRUNK, BOUGHS & VOLUMETRIC CANOPY (y = 54..290)
-        pCyl('wood', -16, 95, -12, 34, 82, barkCol);
-        pCyl('wood', -16, 145, -12, 30, 48, barkDark);
-
-        // Major Soaring Boughs branching into the heavens
-        pCylSlope('wood', -16, 145, -12, -28, 220, -40, 18, barkCol);
-        pCylSlope('wood', -25, 200, -32, -48, 240, -52, 12, barkDark);
-
-        pCylSlope('wood', -16, 150, -12, 18, 205, -8, 18, barkCol);
-        pCylSlope('wood', 18, 205, -8, 42, 242, -4, 13, barkDark);
-        pCylSlope('wood', 28, 218, -6, 52, 250, 18, 10, barkDark);
-        pCylSlope('wood', 42, 242, -4, 60, 258, -18, 8, barkDark);
-
-        pCylSlope('wood', -16, 145, -12, -12, 212, 30, 17, barkCol);
-        pCylSlope('wood', -13, 192, 18, -4, 242, 44, 11, barkDark);
-        pCylSlope('wood', -4, 242, 44, 14, 252, 50, 8, barkDark);
-
-        pCylSlope('wood', -16, 150, -12, -10, 230, -10, 20, barkCol);
-        pCylSlope('wood', -10, 230, -10, -6, 272, -8, 14, barkDark);
-        pCylSlope('wood', -6, 258, -8, 14, 284, -4, 9, barkDark);
-        pCylSlope('wood', -6, 258, -8, -22, 284, -14, 9, barkDark);
-
-        // Volumetric Foliage Clouds in 5 woodland green tones (windify animated)
-        const leafDark = '#1b3d17';
-        const leafDeep = '#275220';
-        const leafOak  = '#366e2c';
-        const leafMid  = '#4a8e3d';
-        const leafSun  = '#63aa4e';
-
-        const canopySpheres = [
-          [-6, 286, -8, 38, leafSun],
-          [12, 286, -4, 34, leafMid],
-          [-22, 284, -12, 34, leafMid],
-          [-4, 272, 8, 40, leafOak],
-          [-4, 272, -24, 40, leafDeep],
-          [16, 268, -14, 36, leafDeep],
-          [-26, 266, 2, 36, leafDark],
-          [2, 290, -2, 30, leafSun],
-          [-12, 290, -6, 30, leafSun],
-
-          [38, 248, -4, 40, leafSun],
-          [52, 254, 16, 36, leafMid],
-          [30, 244, 20, 38, leafOak],
-          [48, 238, -20, 36, leafDeep],
-          [24, 234, -12, 34, leafDark],
-          [58, 258, -14, 32, leafSun],
-          [62, 250, 8, 34, leafMid],
-          [42, 262, 4, 34, leafSun],
-          [34, 226, 6, 32, leafOak],
-
-          [-8, 238, 36, 40, leafSun],
-          [-2, 244, 48, 36, leafMid],
-          [-24, 234, 30, 38, leafOak],
-          [12, 230, 34, 36, leafDeep],
-          [-14, 224, 50, 32, leafDark],
-          [16, 252, 48, 32, leafSun],
-          [4, 256, 38, 34, leafMid],
-          [-18, 250, 44, 34, leafOak],
-
-          [-30, 240, -46, 40, leafMid],
-          [-52, 246, -56, 36, leafSun],
-          [-14, 236, -50, 38, leafOak],
-          [-44, 228, -36, 36, leafDeep],
-          [-26, 220, -58, 34, leafDark],
-          [-38, 252, -48, 32, leafSun],
-
-          [-50, 218, -8, 38, leafOak],
-          [-56, 224, 14, 34, leafMid],
-          [-46, 210, -24, 36, leafDeep],
-          [-54, 202, 4, 32, leafDark],
-          [-40, 230, 8, 34, leafSun],
-          [-48, 236, -18, 32, leafOak]
+        // Botanical Unbroken Oak Leaf Crown (rich dense canopy spanning y=166..278, cupping & crowning roof)
+        const leafPalette = ['#1b3e17', '#25501e', '#326627', '#427e30', '#54963c'];
+        const leafCenters = [
+          // Broad upper central crown arching directly over treehouse roof
+          [ W * 0.00, 266, -D * 0.12, 58], [ W * 0.22, 262, -D * 0.02, 52], [-W * 0.22, 260,  D * 0.02, 52],
+          [-W * 0.06, 246, -D * 0.34, 54], [ W * 0.10, 244,  D * 0.14, 50], [ W * 0.00, 278, -D * 0.08, 46],
+          [ W * 0.32, 242, -D * 0.16, 48], [-W * 0.32, 242, -D * 0.16, 48], [-W * 0.16, 224, -D * 0.02, 46],
+          [ W * 0.18, 226, -D * 0.08, 46],
+          // Bridging shoulder boughs connecting outer arms to central crown (zero bare stick gaps!)
+          [-W * 0.44, 230, -D * 0.08, 52], [-W * 0.40, 210, -D * 0.28, 48], [ W * 0.42, 228, -D * 0.14, 54],
+          [ W * 0.38, 208, -D * 0.30, 50], [ W * 0.28, 222, -D * 0.14, 52], [ W * 0.34, 198, -D * 0.08, 46],
+          [-W * 0.12, 212, -D * 0.48, 50], [ W * 0.14, 214, -D * 0.46, 50],
+          // West full foliage cascade (drapes gently beside roof eave above y=170)
+          [safeX0 - 18, 198, -D * 0.04, 52], [safeX0 - 36, 212,  D * 0.18, 48], [safeX0 - 32, 184,  D * 0.14, 44],
+          [safeX0 - 4,  218, -D * 0.24, 48], [safeX0 - 38, 204, -D * 0.22, 46], [safeX0 - 20, 174, -D * 0.12, 42],
+          // North-West & Back lush rim
+          [safeX0 * 0.78, 198, safeZ0 - 8, 48], [safeX0 - 16, 188, safeZ0 - 18, 44], [ W * 0.04, 194, safeZ0 - 4, 48],
+          // East full foliage cascade hugging tightly over right arm
+          [safeX1 + 10, 196, -D * 0.16, 54], [safeX1 + 24, 192,  D * 0.06, 48], [safeX1 + 6,  174, -D * 0.18, 46],
+          [safeX1 - 8,  218, -D * 0.30, 48]
         ];
-        for (const [cx, cy, cz, cd, cc] of canopySpheres) {
-          pSphere('foliage', cx, cy, cz, cd, cc);
+        const leafScale = Math.max(0.98, Math.min(1.48, Math.min(W, D) / 160));
+        leafCenters.forEach(([cx, cy, cz, baseD], ci) => {
+          const s = baseD * leafScale;
+          for (let sub = 0; sub < 3; sub++) {
+            const seed = ci * 7 + sub * 13;
+            const ox = Math.sin(seed * 1.7) * s * 0.24;
+            const oy = Math.cos(seed * 1.3) * s * 0.12;
+            const oz = Math.cos(seed * 2.1) * s * 0.24;
+            const col = leafPalette[(ci + sub * 2) % leafPalette.length];
+            pLeaf(cx + ox, cy + oy, cz + oz, s * (1.04 - sub * 0.09), s * (0.62 + (sub % 2) * 0.12), s * (1.00 - sub * 0.08),
+              Math.sin(seed) * 0.26, seed * 0.72, Math.cos(seed) * 0.24, col);
+          }
+        });
+
+        // =========================================================================
+        // 2. ELEVATED FOUNDATION, TIMBER DECK, STAIRS & STYLE-MATCHED GUARDRAILS
+        // =========================================================================
+        const stPostInset = Math.min(12, W * 0.08);
+        const postCol = style === 0 ? '#272b33' : (style === 1 ? '#5c3317' : '#8a623c');
+        const deckWood = style === 2 ? '#d6b488' : (style === 1 ? '#c68449' : '#bc7b4b');
+        const deckTrim = HP.shade(deckWood, 0.72);
+        const railWood = style === 2 ? '#c69a68' : '#783f1a';
+        const steelDark = '#181b20';
+        const glassCol = '#dff2fe';
+
+        for (const [px, pz] of [
+          [-W / 2 + stPostInset, -D / 2 + stPostInset],
+          [ W / 2 - stPostInset, -D / 2 + stPostInset],
+          [-W / 2 + stPostInset,  D / 2 - stPostInset],
+          [ W / 2 - stPostInset,  D / 2 - stPostInset]
+        ]) {
+          pBox('stone', px, 1.5, pz, 7.5, 3, 7.5, '#94a3b8');
+          pBox('metal', px, 4.0, pz, 5.8, 2, 5.8, '#1e293b', true);
+          pBox('wood',  px, 28,  pz, 5.4, 48, 5.4, postCol);
+          const bxDir = px < 0 ? 1 : -1;
+          const bzDir = pz < 0 ? 1 : -1;
+          pCylSlope('wood', px, 38, pz, px + bxDir * 14, 52, pz, 3.8, postCol);
+          pCylSlope('wood', px, 38, pz, px, 52, pz + bzDir * 14, 3.8, postCol);
         }
 
-        // Wooden songbird birdhouse in high East bough fork
-        pBox('wood', 42, 244, -3, 7, 8, 7, '#92400e');
-        pGable('wood', 42, 249.5, -3, 8.5, 3.5, 8.5, '#451a03');
-        pCylZ('dark', 42, 244, -3 + 3.8, 2.4, 0.8, steelBlack);
-        pCylZ('wood', 42, 242, -3 + 4.5, 1.0, 2.2, '#fed7aa');
+        // Deck rim joist beams + thick plank deck slab
+        pBox('wood', 0, deckY - 1.8, 0, W, 2.8, D, style === 0 ? '#22262e' : deckTrim);
+        pBox('wood', 0, deckY - 0.3, 0, W - 0.5, 0.8, D - 0.5, deckWood);
+        for (let pz = -D / 2 + 8; pz <= D / 2 - 8; pz += 10) {
+          pBox('wood', 0, deckY + 0.05, pz, W - 2, 0.16, 0.45, deckTrim);
+        }
 
-        // Vibrant blue songbird perched proudly on front deck handrail
-        pSphere('foliage', 24, 76.2, 53.5, 2.8, '#0284c7');
-        pBox('wood', 24, 76.2, 53.5 + 1.8, 0.8, 0.6, 1.2, '#f59e0b');
-        pSlope('foliage', 24, 76.2, 53.5 - 1.0, 24, 77.4, 53.5 - 2.8, 0.6, 1.2, '#0369a1');
+        // Perimeter Guardrails (leaving clean opening L.stairGapX0..L.stairGapX1 at South-East stairs)
+        const railRuns = [
+          { x0: -W / 2 + 1.5, x1: W / 2 - 1.5, z0: -D / 2 + 1.5, z1: -D / 2 + 1.5 },          // North
+          { x0: -W / 2 + 1.5, x1: -W / 2 + 1.5, z0: -D / 2 + 1.5, z1: D / 2 - 1.5 },          // West
+          { x0: W / 2 - 1.5,  x1: W / 2 - 1.5,  z0: -D / 2 + 1.5, z1: D / 2 - 1.5 },          // East
+          { x0: -W / 2 + 1.5, x1: L.stairGapX0, z0: D / 2 - 1.5,  z1: D / 2 - 1.5 },          // South West
+          { x0: L.stairGapX1, x1: W / 2 - 1.5,  z0: D / 2 - 1.5,  z1: D / 2 - 1.5 }           // South East stub
+        ];
+        for (const run of railRuns) {
+          const rLen = Math.hypot(run.x1 - run.x0, run.z1 - run.z0);
+          if (rLen < 3) continue;
+          const isH = Math.abs(run.z1 - run.z0) < 0.5;
+          const rCx = (run.x0 + run.x1) * 0.5, rCz = (run.z0 + run.z1) * 0.5;
+          const rW = isH ? rLen : 1.6, rD = isH ? 1.6 : rLen;
 
+          // Posts spaced evenly along run
+          const nSeg = Math.max(1, Math.round(rLen / 34));
+          for (let i = 0; i <= nSeg; i++) {
+            const tPos = i / nSeg;
+            const px = run.x0 + (run.x1 - run.x0) * tPos;
+            const pz = run.z0 + (run.z1 - run.z0) * tPos;
+            pBox(style === 0 ? 'metal' : 'wood', px, deckY + 10, pz, 2.0, 20, 2.0, style === 0 ? steelDark : railWood);
+          }
+
+          // Top continuous handrail
+          pBox('wood', rCx, deckY + 20.2, rCz, isH ? rLen + 2 : 2.8, 1.6, isH ? 2.8 : rLen + 2, railWood);
+
+          if (style === 0) {
+            // 4 sleek stainless aircraft tension cables
+            for (const cy of [deckY + 4, deckY + 8, deckY + 12, deckY + 16]) {
+              pBox('metal', rCx, cy, rCz, isH ? rLen : 0.35, 0.35, isH ? 0.35 : rLen, '#94a3b8', true);
+            }
+          } else if (style === 1) {
+            // Classic craftsman vertical wood balusters + bottom rail
+            pBox('wood', rCx, deckY + 3.0, rCz, rW, 1.2, rD, railWood);
+            const nBal = Math.max(2, Math.floor(rLen / 7.5));
+            for (let b = 1; b < nBal; b++) {
+              const bt = b / nBal;
+              pBox('wood', run.x0 + (run.x1 - run.x0) * bt, deckY + 11.2, run.z0 + (run.z1 - run.z0) * bt,
+                0.9, 15.5, 0.9, railWood, true);
+            }
+          } else {
+            // Nordic wide slatted timber horizontal bars
+            for (const sy of [deckY + 5, deckY + 10, deckY + 15]) {
+              pBox('wood', rCx, sy, rCz, isH ? rLen : 0.8, 1.6, isH ? 0.8 : rLen, '#deb887');
+            }
+          }
+        }
+
+        // Front-Right Access Stairs descending from (L.stairCx, deckY, D/2 - 2) -> (L.stairCx, 0, L.lz1)
+        const sTopZ = D / 2 - 2, sBotZ = L.lz1;
+        const stMat = style === 0 ? steelDark : railWood;
+        const stKind = style === 0 ? 'metal' : 'wood';
+        pSlopeYZ(stKind, L.lx0, 0, sBotZ, deckY - 1, sTopZ, 1.6, 2.6, stMat);
+        pSlopeYZ(stKind, L.lx1, 0, sBotZ, deckY - 1, sTopZ, 1.6, 2.6, stMat);
+        const treadW = Math.max(8, (L.lx1 - L.lx0) - 1.6);
+        for (let st = 1; st <= 10; st++) {
+          const sf = st / 11;
+          pBox('wood', L.stairCx, sf * deckY, sBotZ - sf * (sBotZ - sTopZ), treadW, 1.4, 3.0, deckWood);
+        }
+        // Angled stair handrails
+        pSlopeYZ(stKind, L.lx0 - 0.5, 16, sBotZ, deckY + 18, sTopZ, 1.3, 1.3, railWood);
+        pSlopeYZ(stKind, L.lx1 + 0.5, 16, sBotZ, deckY + 18, sTopZ, 1.3, 1.3, railWood);
+        pBox(stKind, L.lx0 - 0.5, 9, sBotZ, 1.6, 18, 1.6, stMat);
+        pBox(stKind, L.lx1 + 0.5, 9, sBotZ, 1.6, 18, 1.6, stMat);
+
+        // =========================================================================
+        // 3. ARCHITECTURAL CABIN STRUCTURES BY STYLE (Full Headroom Vertical Walls)
+        // =========================================================================
+        const intWallCol = style === 2 ? '#e6d6bc' : '#f1e7d5';
+        const winLow = deckY + 16, winHi = deckY + doorH - 2, winH = winHi - winLow;
+        const doorMidY = deckY + doorH * 0.5;
+        const doorW = doorX1 - doorX0;
+
+        if (style === 0) {
+          // ---------- STYLE 0: MODERN TIMBER & GLASS CANOPY HOUSE ----------
+          const cedar = '#be7743', cedarGroove = '#783f18';
+          // North cedar wall + upper clerestory transom glass
+          pBox('wood', cabCx, deckY + 28, cabZ0, cabW, 56, 2.4, cedar);
+          pBox('glass', cabCx, wallTop - 9, cabZ0, cabW - 4, 16, 0.8, glassCol);
+          pBox('metal', cabCx, deckY + 57, cabZ0, cabW, 2.0, 2.2, steelDark);
+          pBox('metal', cabCx, wallTop - 1, cabZ0, cabW, 2.0, 2.2, steelDark);
+          for (let vx = cabX0 + 8; vx < cabX1 - 6; vx += 10) {
+            pBox('wood', vx, deckY + 28, cabZ0 - 1.3, 0.7, 55, 0.4, cedarGroove, true);
+          }
+
+          // West cedar wall with tall architectural black-framed window + clerestory
+          const wWinZ0 = cabCz - cabD * 0.16, wWinZ1 = cabCz + cabD * 0.20;
+          pBox('wood', cabX0, deckY + 28, (cabZ0 + wWinZ0) * 0.5, 2.4, 56, Math.max(4, wWinZ0 - cabZ0), cedar);
+          pBox('wood', cabX0, deckY + 28, (wWinZ1 + cabZ1) * 0.5, 2.4, 56, Math.max(4, cabZ1 - wWinZ1), cedar);
+          pBox('wood', cabX0, deckY + 8, (wWinZ0 + wWinZ1) * 0.5, 2.4, 16, wWinZ1 - wWinZ0, cedar);
+          pBox('glass', cabX0, deckY + 36, (wWinZ0 + wWinZ1) * 0.5, 0.8, 38, wWinZ1 - wWinZ0, glassCol);
+          pBox('metal', cabX0, deckY + 57, cabCz, 2.2, 2.0, cabD, steelDark);
+          pBox('glass', cabX0, wallTop - 9, cabCz, 0.8, 16, cabD - 4, glassCol);
+          pBox('metal', cabX0, wallTop - 1, cabCz, 2.2, 2.0, cabD, steelDark);
+
+          // East floor-to-ceiling black steel curtain wall
+          pBox('glass', cabX1, deckY + wallH * 0.5, cabCz, 0.8, wallH - 4, cabD - 2, glassCol);
+          pBox('metal', cabX1, deckY + 1, cabCz, 2.2, 2.0, cabD, steelDark);
+          pBox('metal', cabX1, deckY + doorH + 1, cabCz, 2.2, 2.0, cabD, steelDark);
+          pBox('metal', cabX1, wallTop - 1, cabCz, 2.2, 2.0, cabD, steelDark);
+          const nEMull = Math.max(2, Math.round(cabD / 28));
+          for (let m = 0; m <= nEMull; m++) {
+            const mz = cabZ0 + (m / nEMull) * cabD;
+            pBox('metal', cabX1, deckY + wallH * 0.5, mz, 2.2, wallH, 1.8, steelDark);
+          }
+
+          // Front Wall: Cedar corner pier + open sliding patio doorway + corner glass curtain
+          const fLeftW = Math.max(4, doorX0 - cabX0);
+          pBox('wood', cabX0 + Math.min(8, fLeftW * 0.35), deckY + wallH * 0.5, cabZ1, Math.min(14, fLeftW * 0.65), wallH, 2.4, cedar);
+          if (fLeftW > 14) {
+            const glW = fLeftW - 14;
+            pBox('glass', doorX0 - glW * 0.5, deckY + wallH * 0.5, cabZ1, glW, wallH - 4, 0.8, glassCol);
+          }
+          const fRightW = Math.max(4, cabX1 - doorX1);
+          pBox('glass', doorX1 + fRightW * 0.5, deckY + wallH * 0.5, cabZ1, fRightW - 2, wallH - 4, 0.8, glassCol);
+          pBox('metal', cabCx, wallTop - 1, cabZ1, cabW, 2.2, 2.2, steelDark);
+          pBox('metal', cabCx, deckY + doorH + 1, cabZ1, cabW, 2.0, 2.2, steelDark);
+          pBox('metal', doorX0 + fLeftW * 0.5, deckY + 1, cabZ1, fLeftW, 1.8, 2.0, steelDark);
+          pBox('metal', doorX1 + fRightW * 0.5, deckY + 1, cabZ1, fRightW, 1.8, 2.0, steelDark);
+          pBox('metal', doorX0, deckY + wallH * 0.5, cabZ1, 2.0, wallH, 2.2, steelDark);
+          pBox('metal', doorX1, deckY + wallH * 0.5, cabZ1, 2.0, wallH, 2.2, steelDark);
+          // Upper transom glass above open doorway
+          pBox('glass', doorCx, wallTop - 9, cabZ1, doorW, 16, 0.8, glassCol);
+          // Slid-open sliding glass patio door panel parked cleanly left of doorway
+          const sdW = Math.min(fLeftW - 2, doorW * 0.88);
+          pBox('glass', doorX0 - sdW * 0.5, doorMidY, cabZ1 - 1.5, sdW - 2, doorH - 3, 0.6, glassCol);
+          pBox('metal', doorX0 - sdW * 0.5, doorMidY, cabZ1 - 1.5, sdW, doorH, 1.2, steelDark);
+
+          // Cantilevered Flat Charcoal Fascia Roof with Warm Cedar Soffits & Downlights
+          const rX0 = cabX0 - 10, rX1 = cabX1 + 14;
+          const rZ0 = cabZ0 - 10, rZ1 = Math.min(D / 2 - 2, cabZ1 + 22);
+          const rCx = (rX0 + rX1) * 0.5, rCz = (rZ0 + rZ1) * 0.5;
+          const rW = rX1 - rX0, rD = rZ1 - rZ0;
+          pBox('wood',  rCx, wallTop + 0.8, rCz, rW - 2, 1.4, rD - 2, '#c87e48');   // cedar soffit underside
+          pBox('metal', rCx, wallTop + 3.2, rCz, rW, 3.8, rD, '#222730');           // dark charcoal fascia cap
+          pBox('metal', rCx, wallTop + 5.2, rCz, rW + 1.5, 1.0, rD + 1.5, steelDark);
+          // Porch recessed soffit downlights
+          pCyl('glow', doorCx - doorW * 0.6, wallTop + 0.1, cabZ1 + 10, 3.6, 0.6, '#fef08a');
+          pCyl('glow', doorCx + doorW * 0.6, wallTop + 0.1, cabZ1 + 10, 3.6, 0.6, '#fef08a');
+
+        } else if (style === 1) {
+          // ---------- STYLE 1: CLASSIC CRAFTSMAN TIMBER CABIN ----------
+          const honey = '#d99346', honeyLine = '#9e6226', trimW = '#f7f4ec', shingle = '#3f3029', shingleDark = '#291f1a';
+          const cPane = (px, py, pz, pw, ph, pd, alongZ) => {
+            pBox('glass', px, py, pz, alongZ ? 0.8 : pw, ph, alongZ ? pw : 0.8, glassCol);
+            // Perimeter painted plaster trim strips (open center, crisp white contrast)
+            pBox('plaster', px, py + ph * 0.5 + 0.8, pz, alongZ ? pd : pw + 2.4, 1.8, alongZ ? pw + 2.4 : pd, trimW);
+            pBox('plaster', px, py - ph * 0.5 - 0.8, pz, alongZ ? pd + 0.8 : pw + 3.0, 1.8, alongZ ? pw + 3.0 : pd + 0.8, trimW);
+            const hw = pw * 0.5 + 0.7;
+            pBox('plaster', alongZ ? px : px - hw, py, alongZ ? pz - hw : pz, alongZ ? pd : 1.6, ph + 1.6, alongZ ? 1.6 : pd, trimW);
+            pBox('plaster', alongZ ? px : px + hw, py, alongZ ? pz + hw : pz, alongZ ? pd : 1.6, ph + 1.6, alongZ ? 1.6 : pd, trimW);
+            pBox('plaster', px, py, pz, alongZ ? 1.6 : 1.0, ph, alongZ ? 1.0 : 1.6, trimW); // vertical mullion
+          };
+          // Corner architectural painted cream-white trim boards (shifted slightly outward so interior stays clean wood)
+          for (const [cx, cz] of [[cabX0 - 0.6, cabZ0 - 0.6], [cabX1 + 0.6, cabZ0 - 0.6], [cabX0 - 0.6, cabZ1 + 0.6], [cabX1 + 0.6, cabZ1 + 0.6]]) {
+            pBox('plaster', cx, deckY + wallH * 0.5, cz, 2.4, wallH, 2.4, trimW);
+          }
+          // North wall with open double casement window + interior plaster finish
+          const nWinW = cabW * 0.28, nPierW = (cabW - nWinW) * 0.5;
+          pBox('wood', cabCx, deckY + 8, cabZ0, cabW, 16, 2.4, honey);
+          pBox('wood', cabCx, deckY + doorH + 8, cabZ0, cabW, wallH - doorH + 2, 2.4, honey);
+          pBox('wood', cabX0 + nPierW * 0.5, deckY + wallH * 0.5, cabZ0, nPierW, wallH, 2.4, honey);
+          pBox('wood', cabX1 - nPierW * 0.5, deckY + wallH * 0.5, cabZ0, nPierW, wallH, 2.4, honey);
+          cPane(cabCx, winLow + winH * 0.5, cabZ0, nWinW, winH, 2.8, false);
+          for (let ly = deckY + 6; ly < wallTop - 4; ly += 6) {
+            pBox('wood', cabCx, ly, cabZ0 - 1.25, cabW - 4, 0.35, 0.35, honeyLine, true);
+          }
+
+          // West wall with open picture window
+          const wWinD = cabD * 0.28, wPierD = (cabD - wWinD) * 0.5;
+          pBox('wood', cabX0, deckY + 8, cabCz, 2.4, 16, cabD, honey);
+          pBox('wood', cabX0, deckY + doorH + 8, cabCz, 2.4, wallH - doorH + 2, cabD, honey);
+          pBox('wood', cabX0, deckY + wallH * 0.5, cabZ0 + wPierD * 0.5, 2.4, wallH, wPierD, honey);
+          pBox('wood', cabX0, deckY + wallH * 0.5, cabZ1 - wPierD * 0.5, 2.4, wallH, wPierD, honey);
+          cPane(cabX0, winLow + winH * 0.5, cabCz, wWinD, winH, 2.8, true);
+
+          // East wall with wide Craftsman window overlooking terrace & stairs
+          const eWinD = cabD * 0.36, ePierD = (cabD - eWinD) * 0.5;
+          pBox('wood', cabX1, deckY + 8, cabCz, 2.4, 16, cabD, honey);
+          pBox('wood', cabX1, deckY + doorH + 8, cabCz, 2.4, wallH - doorH + 2, cabD, honey);
+          pBox('wood', cabX1, deckY + wallH * 0.5, cabZ0 + ePierD * 0.5, 2.4, wallH, ePierD, honey);
+          pBox('wood', cabX1, deckY + wallH * 0.5, cabZ1 - ePierD * 0.5, 2.4, wallH, ePierD, honey);
+          cPane(cabX1, winLow + winH * 0.5, cabCz, eWinD, winH, 2.8, true);
+
+          // Front Wall: flanked open windows + open front doorway + crisp white lintel/jambs
+          const fLW = Math.max(4, doorX0 - cabX0);
+          pBox('wood', cabX0 + fLW * 0.5, deckY + 8, cabZ1, fLW, 16, 2.4, honey);
+          pBox('wood', cabX0 + fLW * 0.5, deckY + doorH + 8, cabZ1, fLW, wallH - doorH + 2, 2.4, honey);
+          pBox('wood', cabX0 + fLW * 0.17, deckY + wallH * 0.5, cabZ1, fLW * 0.34, wallH, 2.4, honey);
+          pBox('wood', doorX0 - fLW * 0.17, deckY + wallH * 0.5, cabZ1, fLW * 0.34, wallH, 2.4, honey);
+          if (fLW * 0.30 > 4) cPane(cabX0 + fLW * 0.5, winLow + winH * 0.5, cabZ1, fLW * 0.32, winH, 2.8, false);
+
+          const fRW = Math.max(4, cabX1 - doorX1);
+          pBox('wood', doorX1 + fRW * 0.5, deckY + 8, cabZ1, fRW, 16, 2.4, honey);
+          pBox('wood', doorX1 + fRW * 0.5, deckY + doorH + 8, cabZ1, fRW, wallH - doorH + 2, 2.4, honey);
+          pBox('wood', doorX1 + fRW * 0.17, deckY + wallH * 0.5, cabZ1, fRW * 0.34, wallH, 2.4, honey);
+          pBox('wood', cabX1 - fRW * 0.17, deckY + wallH * 0.5, cabZ1, fRW * 0.34, wallH, 2.4, honey);
+          if (fRW * 0.30 > 4) cPane(doorX1 + fRW * 0.5, winLow + winH * 0.5, cabZ1, fRW * 0.32, winH, 2.8, false);
+
+          // Door header & side jambs + swung-open paneled wood & glass Craftsman entry door
+          pBox('wood', doorCx, deckY + doorH + 9, cabZ1, doorW + 2, wallH - doorH, 2.4, honey);
+          pBox('plaster', doorX0 - 1, doorMidY, cabZ1, 2.4, doorH, 2.8, trimW);
+          pBox('plaster', doorX1 + 1, doorMidY, cabZ1, 2.4, doorH, 2.8, trimW);
+          pBox('plaster', doorCx, deckY + doorH + 1, cabZ1, doorW + 4, 2.4, 2.8, trimW);
+          // Open door leaf hinged inward cleanly inside doorX0
+          const leafLen = Math.min(doorW * 0.86, 22);
+          pBox('wood', doorX0 + 1, doorMidY, cabZ1 - leafLen * 0.5, 1.4, doorH - 2, leafLen, '#8c4c1f');
+          pBox('glass', doorX0 + 1, deckY + doorH * 0.68, cabZ1 - leafLen * 0.5, 1.6, doorH * 0.34, leafLen * 0.65, glassCol);
+          pBox('metal', doorX0 + 2, deckY + 26, cabZ1 - leafLen + 2.5, 0.8, 4, 1.2, '#eab308', true);
+
+          // Covered Gable Entry Porch + Truss + Glowing Copper Lanterns
+          const prZ1 = Math.min(D / 2 - 3, cabZ1 + 20), prD = Math.max(10, prZ1 - cabZ1), prCz = (cabZ1 + prZ1) * 0.5;
+          const prW = Math.min(cabW * 0.58, doorW * 1.45);
+          pBox('wood', doorCx - prW * 0.45, deckY + 26, prZ1, 3.2, 52, 3.2, '#8c4c1f');
+          pBox('wood', doorCx + prW * 0.45, deckY + 26, prZ1, 3.2, 52, 3.2, '#8c4c1f');
+          pBox('wood', doorCx, deckY + 53, prZ1, prW, 2.6, 3.0, '#78350f');
+          pGable('wood', doorCx, deckY + 62, prCz, prW + 4, 15, prD + 4, shingle);
+          pBox('plaster', doorCx, deckY + 55.5, prZ1 + 1.2, prW + 6, 1.8, 1.8, trimW);
+          // Two copper porch lanterns flanking door
+          for (const lx of [doorX0 - 4, doorX1 + 4]) {
+            pBox('dark', lx, deckY + 38, cabZ1 + 2.0, 2.4, 4.5, 2.4, steelDark);
+            pBox('glow', lx, deckY + 38, cabZ1 + 2.4, 1.8, 3.2, 1.8, '#fef08a');
+          }
+
+          // Main Pitched Wood-Shingle Gable Roof (ridge along X) + Open-Window Front Dormer + Stone Chimney
+          const mrSpanZ = cabD + 16, mrLenX = cabW + 16, mrH = 30;
+          pShapeRot('gable', 'wood', cabCx, wallTop + mrH * 0.5, cabCz, cabD, mrH, cabW - 1, Math.PI / 2, honey);
+          // Front (South) & Back (North) sloped shingle planes
+          pSlopeYZ('wood', cabCx, wallTop - 1, cabCz + mrSpanZ * 0.5, wallTop + mrH + 1, cabCz, mrLenX, 2.8, shingle);
+          pSlopeYZ('wood', cabCx, wallTop + mrH + 1, cabCz, wallTop - 1, cabCz - mrSpanZ * 0.5, mrLenX, 2.8, shingleDark);
+          // Main Ridge beam & crisp cream eave fascia
+          pBox('wood', cabCx, wallTop + mrH + 1.8, cabCz, mrLenX + 1, 2.4, 3.0, shingleDark);
+          pBox('plaster', cabCx, wallTop - 0.5, cabCz + mrSpanZ * 0.5, mrLenX, 2.2, 1.4, trimW);
+          pBox('plaster', cabCx, wallTop - 0.5, cabCz - mrSpanZ * 0.5, mrLenX, 2.2, 1.4, trimW);
+          // Centered Front Dormer with Open Triple Windows & Crisp White Frame (zero solid cover over glass!)
+          const dmW = Math.max(18, cabW * 0.30), dmD = Math.max(12, cabD * 0.24), dmZ = cabCz + cabD * 0.25;
+          pBox('wood', cabCx, wallTop + 10, dmZ, dmW, 14, dmD, honey);
+          pGable('wood', cabCx, wallTop + 21, dmZ, dmW + 4, 11, dmD + 4, shingle);
+          const dmFz = dmZ + dmD * 0.5 + 0.5, dmGlW = dmW * 0.72, dmGlH = 7.4;
+          pBox('glass', cabCx, wallTop + 10, dmFz, dmGlW, dmGlH, 0.8, glassCol);
+          pBox('plaster', cabCx, wallTop + 10 + dmGlH * 0.5 + 0.6, dmFz + 0.2, dmGlW + 2.2, 1.2, 1.0, trimW);
+          pBox('plaster', cabCx, wallTop + 10 - dmGlH * 0.5 - 0.6, dmFz + 0.2, dmGlW + 2.6, 1.2, 1.2, trimW);
+          pBox('plaster', cabCx - dmGlW * 0.5 - 0.5, wallTop + 10, dmFz + 0.2, 1.0, dmGlH, 1.0, trimW);
+          pBox('plaster', cabCx + dmGlW * 0.5 + 0.5, wallTop + 10, dmFz + 0.2, 1.0, dmGlH, 1.0, trimW);
+          pBox('plaster', cabCx - dmGlW * 0.17, wallTop + 10, dmFz + 0.2, 0.9, dmGlH, 1.0, trimW);
+          pBox('plaster', cabCx + dmGlW * 0.17, wallTop + 10, dmFz + 0.2, 0.9, dmGlH, 1.0, trimW);
+          // Rear Stone Chimney
+          pBox('stone', cabX0 + cabW * 0.74, wallTop + 20, cabCz - cabD * 0.26, 9, 34, 9, '#64748b');
+          pBox('stone', cabX0 + cabW * 0.74, wallTop + 37, cabCz - cabD * 0.26, 11, 2.5, 11, '#475569');
+
+        } else {
+          // ---------- STYLE 2: JAPANESE & NORDIC SANCTUARY ----------
+          const charred = '#262423', charredLine = '#141212', hinoki = '#deb887', shojiPaper = '#fcf6e8', slateRoof = '#272e36';
+          // Structural Hinoki Cypress Post-and-Beam Framing
+          for (const [cx, cz] of [[cabX0, cabZ0], [cabX1, cabZ0], [cabX0, cabZ1], [cabX1, cabZ1]]) {
+            pBox('wood', cx, deckY + wallH * 0.5, cz, 3.6, wallH, 3.6, hinoki);
+          }
+          pBox('wood', cabCx, wallTop - 1.5, cabZ0, cabW, 3.0, 3.0, hinoki);
+          pBox('wood', cabCx, wallTop - 1.5, cabZ1, cabW, 3.0, 3.0, hinoki);
+          pBox('wood', cabX0, wallTop - 1.5, cabCz, 3.0, 3.0, cabD, hinoki);
+          pBox('wood', cabX1, wallTop - 1.5, cabCz, 3.0, 3.0, cabD, hinoki);
+
+          // North Charred Shou Sugi Ban Wall + interior Japanese shikkui plaster panel
+          pBox('wood', cabCx, deckY + wallH * 0.5 - 1, cabZ0, cabW - 2, wallH - 3, 2.2, charred);
+          for (let px = cabX0 + 7; px < cabX1 - 5; px += 9) {
+            pBox('dark', px, deckY + wallH * 0.5 - 1, cabZ0 - 1.2, 0.6, wallH - 4, 0.4, charredLine, true);
+          }
+          pBox('plaster', cabCx, deckY + 26, cabZ0 + 1.2, cabW - 4, 50, 0.5, '#efe7d6');
+
+          // West Shoji Translucent Veranda Screen Panel (clean piers, zero overlap with charred wall)
+          const wShZ0 = cabCz - cabD * 0.14, wShZ1 = cabCz + cabD * 0.30, wShD = wShZ1 - wShZ0;
+          pBox('wood', cabX0, deckY + wallH * 0.5, (cabZ0 + wShZ0) * 0.5, 2.4, wallH - 2, Math.max(4, wShZ0 - cabZ0), charred);
+          pBox('wood', cabX0, deckY + wallH * 0.5, (wShZ1 + cabZ1) * 0.5, 2.4, wallH - 2, Math.max(4, cabZ1 - wShZ1), charred);
+          pBox('wood', cabX0, deckY + 7, (wShZ0 + wShZ1) * 0.5, 2.4, 14, wShD, charred);
+          pBox('wood', cabX0, wallTop - 8, (wShZ0 + wShZ1) * 0.5, 2.4, 14, wShD, charred);
+          pBox('fabric', cabX0, deckY + 37, (wShZ0 + wShZ1) * 0.5, 1.0, 46, wShD, shojiPaper);
+          pBox('wood', cabX0, deckY + 60, (wShZ0 + wShZ1) * 0.5, 2.4, 2.0, wShD + 2, hinoki);
+          pBox('wood', cabX0, deckY + 14, (wShZ0 + wShZ1) * 0.5, 2.4, 2.0, wShD + 2, hinoki);
+          for (let hz = wShZ0 + 9; hz < wShZ1 - 2; hz += 9) {
+            pBox('wood', cabX0, deckY + 37, hz, 1.6, 46, 0.8, hinoki, true);
+          }
+
+          // East Clear Glass Veranda Wall with Hinoki Slats
+          pBox('glass', cabX1, deckY + wallH * 0.5 - 2, cabCz, 0.8, wallH - 6, cabD - 4, glassCol);
+          pBox('wood', cabX1, deckY + doorH + 1, cabCz, 2.6, 2.4, cabD, hinoki);
+          for (let ez = cabZ0 + cabD * 0.25; ez < cabZ1 - 6; ez += cabD * 0.25) {
+            pBox('wood', cabX1, deckY + wallH * 0.5, ez, 2.4, wallH, 1.8, hinoki);
+          }
+
+          // Front Wall: Charred left wing with inset glowing shoji window + open doorway + right glass/hinoki wing
+          const nLW = Math.max(4, doorX0 - cabX0);
+          pBox('wood', cabX0 + nLW * 0.5, deckY + 8, cabZ1, nLW, 16, 2.2, charred);
+          pBox('wood', cabX0 + nLW * 0.5, wallTop - 9, cabZ1, nLW, 16, 2.2, charred);
+          pBox('wood', cabX0 + nLW * 0.16, deckY + wallH * 0.5, cabZ1, nLW * 0.32, wallH - 2, 2.2, charred);
+          pBox('wood', doorX0 - nLW * 0.16, deckY + wallH * 0.5, cabZ1, nLW * 0.32, wallH - 2, 2.2, charred);
+          if (nLW > 12) {
+            const shW = nLW * 0.38;
+            pBox('fabric', cabX0 + nLW * 0.5, deckY + 36, cabZ1, shW, 42, 0.8, shojiPaper);
+            pBox('wood', cabX0 + nLW * 0.5, deckY + 36, cabZ1, shW + 1, 1.0, 1.6, hinoki);
+            pBox('wood', cabX0 + nLW * 0.5, deckY + 36, cabZ1, 1.0, 42, 1.6, hinoki);
+          }
+          const nRW = Math.max(4, cabX1 - doorX1);
+          pBox('glass', doorX1 + nRW * 0.5, deckY + doorH * 0.5, cabZ1, nRW - 2, doorH - 2, 0.8, glassCol);
+          pBox('wood', doorX1 + nRW * 0.5, deckY + doorH + 10, cabZ1, nRW, wallH - doorH, 2.2, charred);
+          pBox('wood', cabCx, deckY + doorH + 1, cabZ1, cabW, 2.6, 2.8, hinoki);
+          pBox('wood', doorX0, deckY + wallH * 0.5, cabZ1, 2.4, wallH, 2.6, hinoki);
+          pBox('wood', doorX1, deckY + wallH * 0.5, cabZ1, 2.4, wallH, 2.6, hinoki);
+          pBox('wood', doorCx, deckY + doorH + 10, cabZ1, doorW, wallH - doorH - 2, 2.0, charred);
+          // Parted sliding shoji leaf slid neatly inside left jamb
+          const shLeafW = Math.min(nLW - 4, doorW * 0.72);
+          pBox('fabric', doorX0 - shLeafW * 0.5, doorMidY, cabZ1 - 1.5, shLeafW, doorH - 2, 0.8, shojiPaper);
+          pBox('wood', doorX0 - shLeafW * 0.5, doorMidY, cabZ1 - 1.5, shLeafW, 1.2, 1.4, hinoki);
+
+          // Deep Overhanging Hipped Dark Slate Roof with Exposed Hinoki Rafter Tails
+          const hW = cabW + 26, hD = cabD + 28, hCz = cabCz + 4;
+          const hipH = 32;
+          pBox('wood', cabCx, wallTop + 0.8, hCz, hW - 4, 1.4, hD - 4, hinoki); // deep cypress soffit
+          // Rhythmically spaced exposed hinoki rafter tails projecting beneath all 4 eaves
+          for (let rx = cabCx - hW * 0.46; rx <= cabCx + hW * 0.46; rx += 9) {
+            pBox('wood', rx, wallTop - 0.6, hCz - hD * 0.5 + 1.5, 1.4, 1.6, 5, '#b88b58', true);
+            pBox('wood', rx, wallTop - 0.6, hCz + hD * 0.5 - 1.5, 1.4, 1.6, 5, '#b88b58', true);
+          }
+          for (let rz = hCz - hD * 0.44; rz <= hCz + hD * 0.44; rz += 9) {
+            pBox('wood', cabCx - hW * 0.5 + 1.5, wallTop - 0.6, rz, 5, 1.6, 1.4, '#b88b58', true);
+            pBox('wood', cabCx + hW * 0.5 - 1.5, wallTop - 0.6, rz, 5, 1.6, 1.4, '#b88b58', true);
+          }
+          // Sculpted 4-slope Hipped Slate Roof
+          pHip('metal', cabCx, wallTop + 1.5 + hipH * 0.5, hCz, hW, hipH, hD, slateRoof);
+          pBox('metal', cabCx, wallTop + 2.0 + hipH, hCz, hW * 0.48, 2.4, 3.0, '#14181e'); // ridge beam
+
+          // Warm Hanging Paper Washi Lanterns under deep front corners
+          for (const lx of [cabX0 - 4, cabX1 + 6]) {
+            const lz = Math.min(D / 2 - 4, cabZ1 + 14);
+            pCyl('metal', lx, wallTop - 3, lz, 0.6, 8, '#1e293b', true);
+            pCyl('glow',  lx, wallTop - 10, lz, 5.4, 8.0, '#fef6e4');
+            pCyl('dark',  lx, wallTop - 6.0, lz, 3.6, 0.8, '#1e293b', true);
+            pCyl('dark',  lx, wallTop - 14.0, lz, 3.6, 0.8, '#1e293b', true);
+          }
+        }
+
+        // =========================================================================
+        // 4. INTERIOR FLOOR, CUSTOM 2D PARTITION WALLS, OR DEFAULT STARTER PROPS
+        // =========================================================================
+        const cabFloorCol = style === 2 ? '#e3c79e' : '#eedab9';
+        pBox('wood', cabCx, deckY + 0.15, cabCz, cabW - 2, 0.35, cabD - 2, cabFloorCol);
+
+        if (isCustomized) {
+          // User customized 2D interior in Structure Editor:
+          // World3d already places all it.interior.floors & it.interior.furniture cleanly on deckY!
+          // Here render any additional interior partition walls drawn strictly INSIDE cabin perimeter.
+          const inLvl = it.interior;
+          const ox = inLvl.ox !== undefined ? inLvl.ox : 1;
+          const oy = inLvl.oy !== undefined ? inLvl.oy : 1;
+          const cc = inLvl.cabCols || L.cabCols;
+          const cr = inLvl.cabRows || L.cabRows;
+          if (inLvl.walls) {
+            for (const wk of Object.keys(inLvl.walls)) {
+              const s = HP.parseWallKey ? HP.parseWallKey(wk) : null;
+              if (!s) continue;
+              const isPerim = (s.d === 'h' && (s.y === oy || s.y === oy + cr) && s.x >= ox && s.x < ox + cc) ||
+                              (s.d === 'v' && (s.x === ox || s.x === ox + cc) && s.y >= oy && s.y < oy + cr);
+              if (isPerim) continue;
+              if (s.x < ox || s.x > ox + bw || s.y < oy || s.y > oy + bh) continue;
+              const rec = inLvl.walls[wk] || {};
+              const wx = -W / 2 + (s.x - ox + (s.d === 'h' ? 0.5 : 0)) * CELL;
+              const wz = -D / 2 + (s.y - oy + (s.d === 'v' ? 0.5 : 0)) * CELL;
+              const pw = s.d === 'h' ? CELL : 3.2;
+              const pd = s.d === 'v' ? CELL : 3.2;
+              if (rec.f === 'door') {
+                pBox('wood', wx, deckY + doorH + (wallH - doorH) * 0.5, wz, pw, wallH - doorH, pd, intWallCol);
+              } else if (rec.f === 'window') {
+                pBox('wood', wx, deckY + 10, wz, pw, 20, pd, intWallCol);
+                pBox('glass', wx, deckY + 34, wz, pw * 0.85, 28, pd * 0.5, glassCol);
+                pBox('wood', wx, deckY + 60, wz, pw, 24, pd, intWallCol);
+              } else {
+                pBox('wood', wx, deckY + wallH * 0.5 - 2, wz, pw, wallH - 4, pd, rec.ca || rec.cb || intWallCol);
+              }
+            }
+          }
+        } else {
+          // Starter Interior & Terrace Furnishings (skipped cleanly once user edits 2D Interior!)
+          const furnW = Math.min(24, cabW * 0.34);
+          // Cozy bench/lounge on back-left wall away from door
+          const lx = cabX0 + furnW * 0.5 + 4, lz = cabZ0 + 10;
+          pBox('wood', lx, deckY + 4.5, lz, furnW, 7, 13, '#9a6134');
+          pBox('fabric', lx, deckY + 9, lz, furnW - 2, 3.2, 12, '#f4efe4');
+          pBox('fabric', lx, deckY + 13.5, lz - 4.5, furnW - 2, 7, 3.0, style === 0 ? '#475569' : '#c26d53');
+          // Woven area rug centered inside cabin floor
+          pBox('fabric', cabCx, deckY + 0.4, cabCz, cabW * 0.44, 0.5, cabD * 0.36, style === 2 ? '#c7b89c' : '#cbd5e1');
+          // Corner warm glowing minimalist standing lamp
+          const lampX = cabX1 - 8, lampZ = cabZ0 + 8;
+          pCyl('metal', lampX, deckY + 18, lampZ, 1.4, 34, steelDark);
+          pCyl('glow',  lampX, deckY + 36, lampZ, 6.4, 6.0, '#fef08a');
+          // Front terrace lounge chair & planter on South-West porch (clear of door & stairs)
+          if (D - cabD > 24) {
+            const pY = deckY + 4, pZ = Math.min(D / 2 - 10, cabZ1 + (D / 2 - cabZ1) * 0.5);
+            const pX = -W * 0.28;
+            pBox('wood', pX, pY, pZ, 13, 6, 12, '#78350f');
+            pBox('fabric', pX, pY + 3.8, pZ, 12, 2.2, 11, '#e6ded3');
+            pBox('wood', -W * 0.42, deckY + 4, pZ, 9, 8, 9, '#78350f');
+            pLeaf(-W * 0.42, deckY + 11, pZ, 10, 8, 10, 0.2, 0.6, -0.1, '#386e2a');
+          }
+        }
       } else if (/^sandbox$/i.test(t)) {
         // Cedar Timber Children's Sandbox with 4 Corner Benches, Sandcastle & Beach Toys (Height 18px)
         // 1. Interlocking solid cedar timber box with wide corner seating boards

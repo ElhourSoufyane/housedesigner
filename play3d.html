@@ -191,7 +191,7 @@
   E — open / close doors &nbsp;·&nbsp; Space — jump &nbsp;·&nbsp; Esc — pause</div>
   <div style="font-size:12px;color:#94a3b8;margin-top:16px;letter-spacing:0.3px;display:flex;align-items:center;gap:5px">
     <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#38bdf8"></span>
-    <span id="play3d-ver">v1.3.35 · Up to date</span>
+    <span id="play3d-ver">v1.3.36 · Up to date</span>
   </div>
 </div>
 
@@ -229,7 +229,7 @@
 </script>
 
 <script src="lib/three.min.js"></script>
-<script src="src/grid.js?v=1.3.35"></script>
+<script src="src/grid.js?v=1.3.36"></script>
 <script>
 /* stubs so the editor modules load without the 2D canvas/UI */
 HP.invalidateRegions = () => {
@@ -240,22 +240,22 @@ HP.invalidateRegions = () => {
 HP.status = () => {}; HP.refreshContext = () => {}; HP.updateFloorUI = () => {};
 HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () => {};
 </script>
-<script src="src/catalog.js?v=1.3.35"></script>
-<script src="src/rooms.js?v=1.3.35"></script>
-<script src="src/save.js?v=1.3.35"></script>
-<script src="src/default-house.js?v=1.3.35"></script>
-<script src="src/geom3d.js?v=1.3.35"></script>
-<script src="src/graphics3d.js?v=1.3.35"></script>
-<script src="src/cull3d.js?v=1.3.35"></script>
-<script src="src/sky3d.js?v=1.3.35"></script>
-<script src="src/weather3d.js?v=1.3.35"></script>
-<script src="src/furniture3d.js?v=1.3.35"></script>
-<script src="src/life3d.js?v=1.3.35"></script>
-<script src="src/sound3d.js?v=1.3.35"></script>
-<script src="src/world3d.js?v=1.3.35"></script>
-<script src="src/walk3d.js?v=1.3.35"></script>
+<script src="src/catalog.js?v=1.3.36"></script>
+<script src="src/rooms.js?v=1.3.36"></script>
+<script src="src/save.js?v=1.3.36"></script>
+<script src="src/default-house.js?v=1.3.36"></script>
+<script src="src/geom3d.js?v=1.3.36"></script>
+<script src="src/graphics3d.js?v=1.3.36"></script>
+<script src="src/cull3d.js?v=1.3.36"></script>
+<script src="src/sky3d.js?v=1.3.36"></script>
+<script src="src/weather3d.js?v=1.3.36"></script>
+<script src="src/furniture3d.js?v=1.3.36"></script>
+<script src="src/life3d.js?v=1.3.36"></script>
+<script src="src/sound3d.js?v=1.3.36"></script>
+<script src="src/world3d.js?v=1.3.36"></script>
+<script src="src/walk3d.js?v=1.3.36"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="src/sync3d.js?v=1.3.35"></script>
+<script src="src/sync3d.js?v=1.3.36"></script>
 <script>
 (function () {
   /* ---------- state: same house as the editor (localStorage) or Showroom ---------- */
@@ -404,9 +404,12 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
         }
 
         const rowEndY = curY;
+        const isOpenSky = sec.name === 'Outdoor' || sec.name === 'Garden' || sec.name === 'Fences';
+        if (isOpenSky && !cur.ceilings) cur.ceilings = {};
         for (let fx = 4; fx < 180; fx++) {
           for (let fy = rowStartY - 2; fy < rowEndY; fy++) {
             cur.floors[fx + ',' + fy] = sec.floor;
+            if (isOpenSky) cur.ceilings[fx + ',' + fy] = { style: 'sky' };
           }
         }
         curY += 2;
@@ -424,22 +427,25 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
       const isWall = firstDef && firstDef.hangs;
       const isTable = firstDef && firstDef.onTop;
       const isCeiling = firstDef && /ceilingfan|pendant|chandelier|hanginglight/i.test(firstItem.type);
+      const isTreehouse = /treehouse|windmill|basketball/i.test(firstItem.type);
       const isLampPost = firstDef && /lamppost/i.test(firstItem.type);
       const isTallLamp = firstDef && /lamparc|floorlamp|lamptripod|lamptorch/i.test(firstItem.type);
       const isSmallLamp = firstDef && /lampmush|lampcandle|lampbanker|lamptable|lamppaper|nightlight|topcandles|fllantern|pathlight/i.test(firstItem.type);
-      const defaultPitch = isCeiling ? 0.44 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.20 : (isWall ? 0.20 : -0.12)));
-      const defaultElev = isCeiling ? 12 : (isLampPost ? 6 : (isTallLamp ? 4 : (isSmallLamp ? 5 : (isWall ? 0 : (isTable ? 6 : 0)))));
+      const defaultPitch = isCeiling ? 0.44 : (isTreehouse ? 0.22 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.20 : (isWall ? 0.20 : -0.12))));
+      const defaultElev = isCeiling ? 12 : (isTreehouse ? 14 : (isLampPost ? 6 : (isTallLamp ? 4 : (isSmallLamp ? 5 : (isWall ? 0 : (isTable ? 6 : 0))))));
       const viewDist = isCeiling
         ? 2.8
-        : (isLampPost
-          ? 5.4
-          : (isTallLamp
-            ? 4.6
-            : (isSmallLamp
-              ? 2.8
-              : (isWall
-                ? Math.max(3.8, Math.max(firstW, firstH) * 0.9 + 2.4)
-                : Math.max(3.2, Math.max(firstW, firstH) * 0.8 + 1.6)))));
+        : (isTreehouse
+          ? Math.max(8.5, Math.max(firstW, firstH) * 1.45)
+          : (isLampPost
+            ? 5.4
+            : (isTallLamp
+              ? 4.6
+              : (isSmallLamp
+                ? 2.8
+                : (isWall
+                  ? Math.max(3.8, Math.max(firstW, firstH) * 0.9 + 2.4)
+                  : Math.max(3.2, Math.max(firstW, firstH) * 0.8 + 1.6))))));
       const spawnX = (firstItem.x + firstW / 2) * HP.CELL;
       if (reqDir === 'behind') {
         if (isWall) {
@@ -583,22 +589,25 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
       const isWall = firstDef && firstDef.hangs;
       const isTable = firstDef && firstDef.onTop;
       const isCeiling = firstDef && /ceilingfan|pendant|chandelier|hanginglight/i.test(firstItem.type);
+      const isTreehouse = /treehouse|windmill|basketball/i.test(firstItem.type);
       const isLampPost = firstDef && /lamppost/i.test(firstItem.type);
       const isTallLamp = firstDef && /lamparc|floorlamp|lamptripod|lamptorch/i.test(firstItem.type);
       const isSmallLamp = firstDef && /lampmush|lampcandle|lampbanker|lamptable|lamppaper|nightlight|topcandles|fllantern|pathlight/i.test(firstItem.type);
-      const defaultPitch = isCeiling ? 0.44 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.20 : (isWall ? 0.20 : -0.12)));
-      const defaultElev = isCeiling ? 12 : (isLampPost ? 6 : (isTallLamp ? 4 : (isSmallLamp ? 5 : (isWall ? 0 : (isTable ? 6 : 0)))));
+      const defaultPitch = isCeiling ? 0.44 : (isTreehouse ? 0.22 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.20 : (isWall ? 0.20 : -0.12))));
+      const defaultElev = isCeiling ? 12 : (isTreehouse ? 14 : (isLampPost ? 6 : (isTallLamp ? 4 : (isSmallLamp ? 5 : (isWall ? 0 : (isTable ? 6 : 0))))));
       const viewDist = isCeiling
         ? 2.8
-        : (isLampPost
-          ? 5.4
-          : (isTallLamp
-            ? 4.6
-            : (isSmallLamp
-              ? 2.8
-              : (isWall
-                ? Math.max(3.8, Math.max(firstW, firstH) * 0.9 + 2.4)
-                : Math.max(3.2, Math.max(firstW, firstH) * 0.8 + 1.6)))));
+        : (isTreehouse
+          ? Math.max(8.5, Math.max(firstW, firstH) * 1.45)
+          : (isLampPost
+            ? 5.4
+            : (isTallLamp
+              ? 4.6
+              : (isSmallLamp
+                ? 2.8
+                : (isWall
+                  ? Math.max(3.8, Math.max(firstW, firstH) * 0.9 + 2.4)
+                  : Math.max(3.2, Math.max(firstW, firstH) * 0.8 + 1.6))))));
       const spawnX = (firstItem.x + firstW / 2) * HP.CELL;
       if (reqDir === 'behind') {
         if (isWall) {
@@ -879,24 +888,27 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
       const isWall = !!(d && d.hangs);
       const isTable = !!(d && d.onTop);
       const isCeiling = /ceilingfan|pendant|chandelier|hanginglight/i.test(it.type);
+      const isTreehouse = /treehouse|windmill|basketball/i.test(it.type);
       const isLampPost = /lamppost/i.test(it.type);
       const isTallLamp = /lamparc|floorlamp|lamptripod|lamptorch/i.test(it.type);
       const isSmallLamp = /lampmush|lampcandle|lampbanker|lamptable|lamppaper|nightlight|topcandles|fllantern/i.test(it.type);
       const targetX = (it.x + itemW / 2) * HP.CELL;
       const viewDist = isCeiling
         ? 2.8
-        : (isLampPost
-          ? 5.0
-          : (isTallLamp
-            ? 4.6
-            : (isSmallLamp
-              ? 2.8
-              : (isWall
-                ? Math.max(3.8, Math.max(itemW, itemH) * 0.9 + 2.4)
-                : Math.max(3.2, Math.max(itemW, itemH) * 0.8 + 1.6)))));
-      const pitchNorm = isCeiling ? 0.44 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.20 : (isWall ? 0.20 : -0.12)));
-      const pitchAng = isCeiling ? 0.40 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.22 : (isWall ? 0.20 : -0.15)));
-      const elevate = isCeiling ? 12 : (isLampPost ? 6 : (isTallLamp ? 4 : (isSmallLamp ? 5 : (isWall ? 0 : (isTable ? 6 : 0)))));
+        : (isTreehouse
+          ? Math.max(8.5, Math.max(itemW, itemH) * 1.45)
+          : (isLampPost
+            ? 5.0
+            : (isTallLamp
+              ? 4.6
+              : (isSmallLamp
+                ? 2.8
+                : (isWall
+                  ? Math.max(3.8, Math.max(itemW, itemH) * 0.9 + 2.4)
+                  : Math.max(3.2, Math.max(itemW, itemH) * 0.8 + 1.6))))));
+      const pitchNorm = isCeiling ? 0.44 : (isTreehouse ? 0.22 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.20 : (isWall ? 0.20 : -0.12))));
+      const pitchAng = isCeiling ? 0.40 : (isTreehouse ? 0.20 : (isTallLamp ? 0.04 : (isSmallLamp ? -0.22 : (isWall ? 0.20 : -0.15))));
+      const elevate = isCeiling ? 12 : (isTreehouse ? 14 : (isLampPost ? 6 : (isTallLamp ? 4 : (isSmallLamp ? 5 : (isWall ? 0 : (isTable ? 6 : 0))))));
       const angle = dir || HP.showroomCurAngle || 'front';
       HP.showroomCurAngle = angle;
 
@@ -1326,8 +1338,8 @@ HP.markDirty = () => {}; HP.resetLayers = () => {}; HP.updateUndoButtons = () =>
 })();
 </script>
 <script>
-const LOCAL_APP_VERSION = '1.3.35';
-const LOCAL_APP_BUILD = 1795550608119;
+const LOCAL_APP_VERSION = '1.3.36';
+const LOCAL_APP_BUILD = 1795570067569;
 if ('serviceWorker' in navigator) {
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     navigator.serviceWorker.getRegistrations().then(regs => {
