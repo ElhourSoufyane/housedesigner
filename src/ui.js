@@ -1794,13 +1794,16 @@ function lazyThumb(listWrap, el, id, make, immediate) {
     } catch (e) { /* leave the tile empty rather than breaking the list */ }
   };
   if (immediate || !('IntersectionObserver' in window)) { paint(); return; }
-  if (!listWrap._io) listWrap._io = new IntersectionObserver(entries => {
-    for (const en of entries) {
-      if (!en.isIntersecting) continue;
-      listWrap._io.unobserve(en.target);
-      en.target._paint && en.target._paint();
-    }
-  }, { root: $('#inspector') || null, rootMargin: '500px' });
+  if (!listWrap._io) {
+    const root = listWrap.closest('#edit-panel, #inspector') || null;
+    listWrap._io = new IntersectionObserver(entries => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        listWrap._io.unobserve(en.target);
+        en.target._paint && en.target._paint();
+      }
+    }, { root, rootMargin: '500px' });
+  }
   el._paint = paint;
   listWrap._io.observe(el);
 }
