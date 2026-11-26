@@ -105,11 +105,11 @@ const selectTool = {
     } else if (drag.kind === 'marquee') {
       HP.marquee = { x0: Math.min(drag.ax, p.wx), y0: Math.min(drag.ay, p.wy),
                      x1: Math.max(drag.ax, p.wx), y1: Math.max(drag.ay, p.wy) };
-      HP.markDirty();
+      (HP.markCamDirty || HP.markDirty)();
     } else if (drag.kind === 'pan') {
       HP.camera.x = drag.cam.x - (p.sx - drag.sx) / HP.camera.zoom;
       HP.camera.y = drag.cam.y - (p.sy - drag.sy) / HP.camera.zoom;
-      HP.markDirty();
+      (HP.markCamDirty || HP.markDirty)();
     }
   },
   up(p) {

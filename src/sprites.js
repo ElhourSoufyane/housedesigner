@@ -126,6 +126,8 @@ HP.getSprite = function (type, v, w, h, mask) {
 /* joinable items: bitmask of sides where an identical (same type+rot) item touches.
    bit0=right 1=down 2=left 3=up, in the sprite's LOCAL frame (before rotation) */
 HP._joinMask = function (item) {
+  const rev = HP._sceneRev || 0;
+  if (item._jm !== undefined && item._jmRev === rev) return item._jm;
   const f = HP.footprint(item);
   const same = (cx, cy) => {
     const o = HP.itemAt(cx, cy);
@@ -138,6 +140,8 @@ HP._joinMask = function (item) {
   for (let i = 0; i < f.w; i++) if (same(f.x + i, f.y - 1)) { wm |= 8; break; }
   let lm = 0;                                     // sprite is drawn, then rotated rot*90° CW
   for (let s = 0; s < 4; s++) if (wm & (1 << s)) lm |= 1 << ((s - item.rot + 4) & 3);
+  item._jm = lm;
+  item._jmRev = rev;
   return lm;
 };
 

@@ -104,10 +104,14 @@ button { font-family: inherit; color: inherit; }
   background: linear-gradient(135deg, #2563eb, #3b82f6);
   color: #fff;
 }
-@media (max-width: 1300px) {
+@media (max-width: 1360px) {
   .topbar { gap: 4px; padding: 0 8px; }
-  .tbtn { padding: 0 8px; font-size: 12px; gap: 5px; }
-  .logo { font-size: 14px; margin-right: 6px; }
+  .tbtn { height: 30px; padding: 0 7px; font-size: 12px; gap: 4px; }
+  .logo { font-size: 13.5px; margin-right: 4px; gap: 6px; }
+  .logo .ver-badge { display: none; }
+  .tb-sep { margin: 0 2px; }
+  .zval, .fval { min-width: 44px; font-size: 11px; }
+  .zoom-ctrl button, .floor-ctrl button { width: 22px; height: 22px; }
 }
 @media (max-width: 1120px) {
   .topbar { gap: 3px; padding: 0 6px; }
@@ -181,6 +185,12 @@ button { font-family: inherit; color: inherit; }
 .tool:hover .tip { opacity: 1; transform: translateY(-50%) translateX(0); }
 .toolbar .sep { width: 30px; height: 2px; background: var(--border-soft); margin: 5px 0; flex: none; }
 .toolbar .grow { flex: 1; }
+@media (max-height: 780px) {
+  .toolbar { padding: 4px 0; gap: 2px; }
+  .tool { height: 38px; gap: 2px; }
+  .tool .lbl { font-size: 8.5px; }
+  .toolbar .sep { margin: 2px 0; }
+}
 
 /* ---------- CANVAS ---------- */
 .canvas-wrap {
@@ -502,7 +512,7 @@ button { font-family: inherit; color: inherit; }
 .panel-btn:active { transform: translate(2px,2px); box-shadow: none; }
 /* ---------- co-op panel ---------- */
 #coop-panel {
-  position: fixed; top: 12px; right: 12px; width: min(280px, 84vw);
+  position: fixed; top: calc(var(--tb-h, 56px) + 8px); right: 12px; width: min(280px, 84vw);
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--sh-lg); z-index: 10000; overflow: hidden;
 }

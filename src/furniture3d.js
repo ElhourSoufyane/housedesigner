@@ -412,6 +412,7 @@ F.builder = function (group) {
   const base = { wood: '#c3a383', fabric: '#e4ded1', metal: '#8b918c',
     ceramic: '#f1eee5', foliage: '#60845a', dark: '#343c3d', glass: '#92bbc0',
     water: '#b6e0db', stone: '#bdb5a5', soil: '#5c4839', art: '#ffffff', glow: '#fff1d6',
+    led_red: '#dc2626', led_white: '#f8fafc',
     plaster: '#f4efe4', brick: '#ffffff', brick_white: '#ffffff', tile: '#ffffff', concrete: '#ffffff', shiplap: '#ffffff' };
   /* see-through or decal parts never cast a shadow                    */
   const NO_CAST = { glass: 1, water: 1, art: 1 };
@@ -5803,10 +5804,10 @@ F.builder = function (group) {
         box('dark', 0, 0.275, -0.490, 0.44, 0.145, 0.016, '#0b1017');
         box('metal', 0, 0.275, -0.486, 0.465, 0.165, 0.012, '#cbd5e1', true);
         box('ceramic', 0, 0.275, -0.492, 0.035, 0.145, 0.018, carCol);
-        box('glow', -0.31, 0.37, -0.488, 0.16, 0.065, 0.016, '#f8fafc');
-        box('glow', 0.31, 0.37, -0.488, 0.16, 0.065, 0.016, '#f8fafc');
-        box('glow', -0.30, 0.51, 0.488, 0.20, 0.050, 0.014, '#dc2626');
-        box('glow', 0.30, 0.51, 0.488, 0.20, 0.050, 0.014, '#dc2626');
+        box('led_white', -0.31, 0.37, -0.488, 0.16, 0.065, 0.016, '#f8fafc');
+        box('led_white', 0.31, 0.37, -0.488, 0.16, 0.065, 0.016, '#f8fafc');
+        box('led_red', -0.30, 0.51, 0.488, 0.20, 0.050, 0.014, '#dc2626');
+        box('led_red', 0.30, 0.51, 0.488, 0.20, 0.050, 0.014, '#dc2626');
         box('dark', 0, 0.36, 0.490, 0.24, 0.105, 0.014, '#181b1e');
         box('fabric', 0, 0.36, 0.496, 0.21, 0.082, 0.008, '#f8fafc');
         box('dark', 0, 0.155, 0.472, 0.76, 0.09, 0.038, '#14171c');
@@ -5853,14 +5854,14 @@ F.builder = function (group) {
           box('dark', sx, 0.76, 0.06, 0.022, 0.37, 0.038, '#181b20');
           box('dark', sx, 0.58, 0.11, 0.018, 0.022, 0.57, '#181b20');
         }
-        box('glow', 0, 0.50, -0.490, 0.74, 0.038, 0.015, '#ffffff');
+        box('led_white', 0, 0.50, -0.490, 0.74, 0.038, 0.015, '#ffffff');
         box('glow', -0.33, 0.50, -0.488, 0.11, 0.062, 0.016, '#38bdf8');
         box('glow', 0.33, 0.50, -0.488, 0.11, 0.062, 0.016, '#38bdf8');
         box('dark', 0, 0.21, -0.490, 0.52, 0.095, 0.016, '#0b1017');
         for (const sx of [-0.455, 0.455]) {
           box('ceramic', sx, 0.60, -0.10, 0.07, 0.056, 0.05, evCol);
         }
-        box('glow', 0, 0.515, 0.488, 0.80, 0.042, 0.014, '#ef4444');
+        box('led_red', 0, 0.515, 0.488, 0.80, 0.042, 0.014, '#ef4444');
         box('dark', 0, 0.16, 0.48, 0.76, 0.095, 0.03, '#0f172a');
         box('glow', -0.435, 0.49, 0.32, 0.016, 0.042, 0.036, '#38bdf8');
 
@@ -5898,8 +5899,8 @@ F.builder = function (group) {
         box('dark', 0, 0.35, -0.490, 0.52, 0.19, 0.016, '#0b1017');
         box('metal', 0, 0.35, -0.486, 0.54, 0.21, 0.012, '#cbd5e1', true);
         box('metal', 0, 0.17, -0.485, 0.42, 0.05, 0.025, '#94a3b8', true);
-        box('glow', -0.32, 0.44, -0.488, 0.16, 0.075, 0.016, '#ffffff');
-        box('glow', 0.32, 0.44, -0.488, 0.16, 0.075, 0.016, '#ffffff');
+        box('led_white', -0.32, 0.44, -0.488, 0.16, 0.075, 0.016, '#ffffff');
+        box('led_white', 0.32, 0.44, -0.488, 0.16, 0.075, 0.016, '#ffffff');
 
         // Upright Commanding 2-Box SUV Greenhouse (front -0.17..-0.02, long roof -0.02..+0.33, raked liftgate +0.33..+0.45)
         wedge('glass', 0, 0.77, -0.095, 0.74, 0.37, 0.15, glassCol);
@@ -5927,7 +5928,7 @@ F.builder = function (group) {
           box('ceramic', sx, 0.62, -0.10, 0.075, 0.058, 0.052, suvCol);
         }
         // Flush sleek rear lightbar, license plate & dual chrome exhausts
-        box('glow', 0, 0.53, 0.488, 0.80, 0.048, 0.014, '#dc2626');
+        box('led_red', 0, 0.53, 0.488, 0.80, 0.048, 0.014, '#dc2626');
         box('dark', 0, 0.39, 0.488, 0.26, 0.105, 0.014, '#181b1e');
         box('fabric', 0, 0.39, 0.494, 0.23, 0.082, 0.008, '#f8fafc');
         box('dark', 0, 0.175, 0.472, 0.78, 0.105, 0.038, '#14171c');
@@ -5957,7 +5958,7 @@ F.builder = function (group) {
         // 4. Automatic Trolley Opener Motor Housing (mounted between ceiling tracks)
         box('metal', 0, 0.96, -0.38, 0.025, 0.025, 0.76, '#475569', true);
         box('dark', 0, 0.95, -0.65, 0.20, 0.08, 0.22, '#1e293b');
-        box('glow', 0, 0.92, -0.65, 0.14, 0.02, 0.14, '#fffbeb');
+        box('glow', 0, 0.905, -0.65, 0.14, 0.018, 0.14, '#fffbeb');
 } else if (/^greenhouse/i.test(t)) {
         // Grand Architectural Victorian Glasshouse / Conservatory (Hartley Botanic & Kew Gardens inspired)
         // Soaring pitched glass roof with connected sloped panels, gable end triangles, ornate cresting & spires,
@@ -10121,15 +10122,15 @@ F.builder = function (group) {
           box('metal', dx, 0.32, 0.445, 0.12, 0.015, 0.012, '#c9a44e', true);
         }
         // 3. Dolby Atmos slim soundbar sitting on credenza top
-        box('dark', 0, 0.405, 0.20, 0.46, 0.04, 0.12, '#141619');
-        round('glow', 0, 0.405, 0.262, 0.008, 0.008, 0.008, '#60a5fa');
-        // 4. Heavy brushed titanium TV pedestal stand
-        box('metal', 0, 0.395, -0.04, 0.24, 0.02, 0.22, '#50565e');
-        box('dark', 0, 0.47, -0.04, 0.06, 0.14, 0.04, '#1b1d22');
+        box('dark', 0, 0.405, 0.20, 0.46, 0.04, 0.12, '#222730');
+        box('metal', 0, 0.405, 0.261, 0.44, 0.028, 0.006, '#3b4250', true);
+        round('glow', 0, 0.405, 0.266, 0.008, 0.008, 0.008, '#60a5fa');
+        // 4. Heavy brushed titanium TV pedestal stand (neck tucked behind display panel)
+        box('metal', 0, 0.395, -0.05, 0.24, 0.02, 0.20, '#50565e');
+        box('dark', 0, 0.47, -0.06, 0.06, 0.14, 0.04, '#1b1d22');
         // 5. Razor-thin 65-inch OLED Display in authentic 16:9 widescreen ratio
-        box('dark', 0, 0.70, -0.04, 0.41, 0.52, 0.02, '#121417');
-        box('glass', 0, 0.70, -0.028, 0.40, 0.50, 0.005, '#0c1015');
-        box('dark', 0, 0.70, -0.026, 0.395, 0.495, 0.003, '#101722');
+        box('dark', 0, 0.70, -0.035, 0.41, 0.52, 0.022, '#20252e');
+        box('dark', 0, 0.70, -0.022, 0.395, 0.495, 0.004, '#111620');
       } else if (/^bookshelf$|bookcase|shelving/.test(t)) {
         // Modern Architectural Open Bookcase (Matte black ladder frame, 5 floating oak shelves, asymmetric dividers, curated books & ceramics)
         for (const [lx, lz] of [[-0.45, 0.38], [0.45, 0.38], [-0.45, -0.38], [0.45, -0.38]])

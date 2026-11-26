@@ -1,7 +1,7 @@
 /* grid.js — core constants, shared state, coordinate math */
 window.HP = {};
 
-HP.VERSION = 'v1.3.40';
+HP.VERSION = 'v1.3.41';
 HP.GRID_W = 64;          // cells wide  (32 m)
 HP.GRID_H = 44;          // cells tall  (22 m)
 HP.CELL   = 28;          // world px per cell (1 cell = 0.5 m)
@@ -174,6 +174,7 @@ HP.maxFurnitureId = function () {
 HP.wallKey  = (d, x, y) => d + ',' + x + ',' + y;
 HP.parseWallKey = k => { const p = k.split(','); return { d: p[0], x: +p[1], y: +p[2] }; };
 
+const _gdEdgeMap = new WeakMap();
 /* garage door openings (which may have wall segments removed beneath them)
    act as closed room boundaries so the garage keeps its interior room,
    ceiling, and roof when the user deletes wall segments for the door. */
@@ -185,7 +186,8 @@ HP.garageDoorEdges = function (targetLvl) {
   const walls = lvl.walls || {};
   const sig = Object.keys(walls).length + ':' +
     gds.map(it => it.id + ',' + it.x + ',' + it.y + ',' + (it.rot || 0) + ',' + (it.w || '') + ',' + (it.h || '')).join(';');
-  if (lvl._gdEdgeCache && lvl._gdEdgeSig === sig) return lvl._gdEdgeCache;
+  const cached = _gdEdgeMap.get(lvl);
+  if (cached && cached.sig === sig) return cached.edges;
   const edges = new Set();
   for (const it of gds) {
     const f = HP.footprint(it);
@@ -218,8 +220,7 @@ HP.garageDoorEdges = function (targetLvl) {
       for (let cy = gy0; cy <= gy1; cy++) edges.add(HP.wallKey('v', bestX, cy));
     }
   }
-  lvl._gdEdgeSig = sig;
-  lvl._gdEdgeCache = edges;
+  _gdEdgeMap.set(lvl, { sig, edges });
   return edges;
 };
 
@@ -658,8 +659,10 @@ HP.invalidateRegions = () => {
   }
   if (HP.cur()) { delete HP.cur()._cachedRegions; delete HP.cur()._cachedArea; }
   HP.dirty = true;
+  if (HP._onSceneDirty) HP._onSceneDirty();
 };
-HP.markDirty = () => { HP.dirty = true; };
+HP.markCamDirty = () => { HP.dirty = true; };
+HP.markDirty = () => { HP.dirty = true; if (HP._onSceneDirty) HP._onSceneDirty(); };
 
 /* ---------- misc ---------- */
 HP.shade = function (col, f) {             // f<1 darker, f>1 lighter
@@ -961,7 +964,7 @@ const SEATS = new Set(['sofa2', 'sofa3', 'sofaL', 'sofaU', 'outsofa', 'modseat',
   'accentchair', 'swivelchair', 'rockchair', 'rocker', 'chair', 'highchair', 'offchair',
   'gamingchair', 'kneelchair', 'bench', 'gardenbench', 'entrybench', 'showerbench',
   'bedbench', 'weightbench', 'barstool', 'footstool', 'ottoman', 'ottomanTuft', 'ottomanStor',
-  'beanbag', 'beanbag2', 'toilet', 'bathtub', 'hottub', 'lounger', 'cinemaseats', 'swingset', 'car',
+  'beanbag', 'beanbag2', 'toilet', 'bathtub', 'hottub', 'lounger', 'cinemaseats', 'swingset', 'car', 'car_ev', 'suv',
   'sectional5', 'tuxedo3', 'camel3', 'track4', 'velvet3', 'boucle3', 'armless3', 'recamier',
   'wingback', 'papasan', 'slipper', 'stepstool', 'modcorner', 'chester2', 'chester3',
   'english3', 'midcen3', 'track2', 'track3']);
@@ -997,6 +1000,11 @@ HP.itemSeatSpots = function (it, def) {
     const L = HP.treehouseLayout(bw, bh);
     modelSpots = [
       { x: (L.cabX0 + L.cabX1) * 0.5 - 0.14 * (L.cabX1 - L.cabX0), z: (L.cabZ0 + L.cabZ1) * 0.5 }
+    ];
+  } else if (/^car(_ev)?$|^suv$/i.test(t)) {
+    modelSpots = [
+      { x: -0.18 * W, z: -0.02 * D },
+      { x:  0.18 * W, z: -0.02 * D },
     ];
   } else if (HP.seatKind && HP.seatKind(it.type) === 'lie') {
     if (bw >= bh) {

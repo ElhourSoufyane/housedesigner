@@ -687,6 +687,7 @@ function audit(walls, env) {
     b.tag !== 'fence' && x > b.x0 - 1 && x < b.x1 + 1 &&
     z > b.z0 - 1 && z < b.z1 + 1 && b.y0 <= y0 && b.y1 >= y1);
   for (const a of apertures) {
+    if (a.kind === 'garagedoor') continue; // garage doors build their own solid y=56..74 header in world3d
     const mx = (a.x0 + a.x1) / 2, mz = (a.z0 + a.z1) / 2;
     if (a.kind === 'door') {
       if (!cover(mx, mz, 60, 72)) leaks.push({ k: a.k, a });

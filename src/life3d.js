@@ -252,13 +252,87 @@ function addFire(cx, cz, rot, dep, h, baseY, it) {
   // Interaction prompt placed cleanly in front of the hearth opening
   L.interactables.push({ x: cx + Math.sin(a) * dep * 0.45, y: baseY || 0, z: cz + Math.cos(a) * dep * 0.45, kind: 'fire', ref: f });
 }
+let _tvTex = null;
+function getTvScreenTexture() {
+  if (_tvTex || typeof document === 'undefined') return _tvTex;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = 160; cv.height = 90;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return null;
+    // Cinema broadcast frame: twilight mountain vista & glowing cyan/amber horizon
+    const sky = ctx.createLinearGradient(0, 0, 0, 60);
+    sky.addColorStop(0, '#0b1d4a');
+    sky.addColorStop(0.55, '#1d5fa7');
+    sky.addColorStop(1, '#38bdf8');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, 160, 90);
+    // Warm setting sun / cinema highlight
+    const sun = ctx.createRadialGradient(112, 34, 2, 112, 34, 30);
+    sun.addColorStop(0, '#fef08a');
+    sun.addColorStop(0.45, 'rgba(251, 146, 60, 0.75)');
+    sun.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = sun;
+    ctx.fillRect(72, 4, 80, 62);
+    // Layered silhouette peaks
+    ctx.fillStyle = '#1e3a5f';
+    ctx.beginPath(); ctx.moveTo(0, 62); ctx.lineTo(28, 42); ctx.lineTo(56, 56); ctx.lineTo(94, 36); ctx.lineTo(132, 54); ctx.lineTo(160, 44); ctx.lineTo(160, 90); ctx.lineTo(0, 90); ctx.closePath(); ctx.fill();
+    // Lake reflection water band
+    const lake = ctx.createLinearGradient(0, 60, 0, 90);
+    lake.addColorStop(0, '#0f4c81');
+    lake.addColorStop(0.5, '#22d3ee');
+    lake.addColorStop(1, '#082f49');
+    ctx.fillStyle = lake;
+    ctx.fillRect(0, 60, 160, 30);
+    // Shimmering sun reflection streaks on water
+    ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(98 + (i % 2) * 4, 62 + i * 4, 26 - i * 3, 2);
+    }
+    // Crisp broadcast live pill in corner
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(10, 8, 18, 7);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(13, 10, 12, 3);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.encoding = THREE.sRGBEncoding;
+    tex.wrapS = THREE.RepeatWrapping;
+    _tvTex = tex;
+  } catch (_) {}
+  return _tvTex;
+}
+function applyTvScreenState(sc, t) {
+  if (!sc || !sc.mat) return;
+  if (!sc.on) {
+    if (sc.mat.map) { sc.mat.map = null; sc.mat.needsUpdate = true; }
+    sc.mat.color.set(0x0b0e14);
+    return;
+  }
+  const tex = getTvScreenTexture();
+  if (tex && sc.mat.map !== tex) { sc.mat.map = tex; sc.mat.needsUpdate = true; }
+  const n = Math.sin((t || 0) * 8) * 0.5 + Math.sin((t || 0) * 3.1) * 0.5;
+  if (tex) {
+    const g = 0.92 + n * 0.08;
+    sc.mat.color.setRGB(g, g + 0.03, 1.0);
+  } else {
+    sc.mat.color.setRGB(0.50 + n * 0.14, 0.68 + n * 0.14, 0.95);
+  }
+}
 function addScreen(cx, cz, rot, screenW, screenH, offZ, iy, baseY) {
-  const m = glowMat('#08090b');
+  const m = new THREE.MeshBasicMaterial({
+    color: 0x0b0e14,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
+  });
   const s = new THREE.Mesh(new THREE.PlaneGeometry(screenW, screenH), m);
   s.position.set(cx, (baseY || 0) + (iy !== undefined ? iy : 25), cz);
   s.rotation.y = -rot * Math.PI / 2;
   const fwd = new THREE.Vector3(0, 0, offZ !== undefined ? offZ : 0.8).applyEuler(s.rotation);
   s.position.add(fwd);
+  s.renderOrder = 1;
   group.add(s);
   const sc = { mat: m, on: false, mesh: s, x: cx, z: cz };
   screens.push(sc);
@@ -308,7 +382,7 @@ function addLampBulb(cx, cy, cz, it, cfg) {
   const lp = { mesh, shadeMesh, src, on: isOn, x: cx, z: cz, it };
   if (src) src.lampRef = lp;
   lampBulbs.push(lp);
-  L.interactables.push({ x: cx, z: cz, kind: 'lamp', ref: lp });
+  L.interactables.push({ x: cx, y: cy, z: cz, kind: 'lamp', ref: lp });
 }
 
 function addShoeCabinet(cx, cz, rot, w, dep, h, color, it, baseY) {
@@ -537,6 +611,14 @@ function dogStep(nx, nz) {
       else if (m === dtp) nz = a.z0 - R; else nz = a.z1 + R;
     }
   }
+  for (const gd of (HP.world3d.garageDoors || [])) {
+    if (gd.open > 0.5 || !gd.box) continue;
+    const b = gd.box;
+    if (nx > b.x0 - R && nx < b.x1 + R && nz > b.z0 - R && nz < b.z1 + R) {
+      if ((b.x1 - b.x0) >= (b.z1 - b.z0)) nz = nz < gd.cz ? b.z0 - R : b.z1 + R;
+      else nx = nx < gd.cx ? b.x0 - R : b.x1 + R;
+    }
+  }
   return [nx, nz];
 }
 /* closed door leaves also block the dog */
@@ -548,6 +630,14 @@ function dogDoorBlock(nx, nz) {
     if (nx > a.x0 - R && nx < a.x1 + R && nz > a.z0 - R && nz < a.z1 + R) {
       if (a.d === 'h') nz = nz < a.cz ? a.z0 - R : a.z1 + R;
       else nx = nx < a.cx ? a.x0 - R : a.x1 + R;
+    }
+  }
+  for (const gd of (HP.world3d.garageDoors || [])) {
+    if (gd.open > 0.5 || !gd.box) continue;
+    const b = gd.box;
+    if (nx > b.x0 - R && nx < b.x1 + R && nz > b.z0 - R && nz < b.z1 + R) {
+      if ((b.x1 - b.x0) >= (b.z1 - b.z0)) nz = nz < gd.cz ? b.z0 - R : b.z1 + R;
+      else nx = nx < gd.cx ? b.x0 - R : b.x1 + R;
     }
   }
   return [nx, nz];
@@ -743,12 +833,28 @@ L.build = function (g, entries) {
     else if (/fireplace/.test(t)) { addFire(cx, cz, it.rot || 0, dep, e.h, bY, it); L.ambience.fire.push({ x: cx, y: bY, z: cz }); }
     else if (/pool$|pond|jacuzzi|hottub/.test(t)) L.ambience.water.push({ x: cx, y: bY, z: cz });
     else if (/tvwall/.test(t)) {
-      // 85" 4K OLED screen centered on slatted feature wall: exact bezel width=105.0, height=24.0, y=33.28
-      addScreen(cx, cz, it.rot || 0, 105.0, 24.0, -0.355 * dep + 0.05, 33.28, bY);
+      const def = HP.itemDef ? HP.itemDef(it.type) : null;
+      let cw = Math.max(3, (it.w || (def && def.w) || 5) * C() - 3);
+      let cd = Math.max(3, (it.h || (def && def.h) || 1) * C() - 3);
+      let mx = cx, mz = cz;
+      if (HP.geom3d && HP.geom3d.floorClearance) {
+        const cl = HP.geom3d.floorClearance(f, lvlWalls, geomEnv, cw, cd, it.rot || 0);
+        mx += cl.dx; mz += cl.dz; cw = cl.w; cd = cl.d;
+      }
+      const ch = e.h || 52;
+      addScreen(mx, mz, it.rot || 0, 0.77 * cw, 0.47 * ch, -0.35 * cd + 0.25, 0.64 * ch, bY);
     }
     else if (/tvstand|media.*console/.test(t)) {
-      // 65" 16:9 OLED TV screen on lowline credenza: exact bezel width=32.8, height=18.4, y=25.2
-      addScreen(cx, cz, it.rot || 0, 32.8, 18.4, -0.04 * dep + 0.42, 25.2, bY);
+      const def = HP.itemDef ? HP.itemDef(it.type) : null;
+      let cw = Math.max(3, (it.w || (def && def.w) || 3) * C() - 3);
+      let cd = Math.max(3, (it.h || (def && def.h) || 1) * C() - 3);
+      let mx = cx, mz = cz;
+      if (HP.geom3d && HP.geom3d.floorClearance) {
+        const cl = HP.geom3d.floorClearance(f, lvlWalls, geomEnv, cw, cd, it.rot || 0);
+        mx += cl.dx; mz += cl.dz; cw = cl.w; cd = cl.d;
+      }
+      const ch = e.h || 36;
+      addScreen(mx, mz, it.rot || 0, 0.395 * cw, 0.495 * ch, -0.020 * cd + 0.35, 0.70 * ch, bY);
     }
     else if (/^shoecab$/i.test(t)) {
       const def = HP.itemDef ? HP.itemDef(it.type) : null;
@@ -828,9 +934,7 @@ L.tick = function (dt, t, s, cam) {
     }
   }
   for (const sc of screens) {
-    if (!sc.on) { sc.mat.color.set(0x08090b); continue; }
-    const n = Math.sin(t * 13) * 0.5 + Math.sin(t * 4.7) * 0.5;   // channel shimmer
-    sc.mat.color.setRGB(0.25 + n * 0.1, 0.3 + n * 0.12, 0.42 + n * 0.12);
+    applyTvScreenState(sc, t);
   }
   const night = s.night || 0;
   for (const lp of lampBulbs) {
@@ -939,7 +1043,7 @@ L.toggle = function (g2) {
     if (!r.on && HP.world3d && HP.world3d.turnOffLamp) HP.world3d.turnOffLamp(r);
     if (HP.world3d && HP.world3d.syncLamps) HP.world3d.syncLamps();
   } else if (g2.kind === 'tv') {
-    if (!r.on && r.mat) r.mat.color.set(0x08090b);
+    applyTvScreenState(r, performance.now ? performance.now() / 1000 : 0);
   }
 };
 })();

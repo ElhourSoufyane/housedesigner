@@ -85,7 +85,7 @@ HP.initInput = function () {
     if (midPan) {
       HP.camera.x = midPan.cam.x - (e.clientX - midPan.sx) / HP.camera.zoom;
       HP.camera.y = midPan.cam.y - (e.clientY - midPan.sy) / HP.camera.zoom;
-      HP.markDirty();
+      (HP.markCamDirty || HP.markDirty)();
       return;
     }
     if (pinch && pointers.size >= 2) {
@@ -99,7 +99,7 @@ HP.initInput = function () {
       HP.camera.zoom = z;
       HP.camera.x = wMid0.x - (mid.x - r.left - r.width / 2) / z;
       HP.camera.y = wMid0.y - (mid.y - r.top - r.height / 2) / z;
-      HP.markDirty();
+      (HP.markCamDirty || HP.markDirty)();
       if (HP.updateZoomUI) HP.updateZoomUI();
       return;
     }
@@ -158,7 +158,7 @@ HP.initInput = function () {
     const r = HP.canvas.getBoundingClientRect();
     HP.camera.x = p.x - (e.clientX - r.left - r.width / 2) / z;
     HP.camera.y = p.y - (e.clientY - r.top - r.height / 2) / z;
-    HP.markDirty();
+    (HP.markCamDirty || HP.markDirty)();
     if (HP.updateZoomUI) HP.updateZoomUI();
   }
 
@@ -181,14 +181,23 @@ HP.initInput = function () {
       case 'r': HP.rotateActive(); break;
       case 'h': HP.toggleSnap(); break;
       case 'delete': case 'backspace': HP.deleteSelected(); break;
-      case 'escape':
+      case 'escape': {
+        const dlg = document.getElementById('dialog-overlay');
+        const pre = document.getElementById('preset-overlay');
+        const coop = document.getElementById('coop-panel');
+        const insp = document.getElementById('inspector');
+        if (dlg && !dlg.classList.contains('hidden')) { dlg.classList.add('hidden'); break; }
+        if (pre && !pre.classList.contains('hidden')) { pre.classList.add('hidden'); break; }
+        if (coop && !coop.classList.contains('hidden')) { if (HP.coop && HP.coop.hide) HP.coop.hide(); else coop.classList.add('hidden'); break; }
+        if (insp && insp.dataset.sec === 'settings') { insp.dataset.sec = 'generic'; HP.refreshContext(); break; }
         if (HP.pending) HP.cancelPending();
-        else if (HP.selected || (HP.selectedSet && HP.selectedSet.length) || HP.selectedRoom || HP.measureLine) {
-          HP.selected = null; HP.selectedRoom = null; HP.selectedSet = []; HP.measureLine = null; HP.refreshContext(); HP.markDirty();
+        else if (HP.selected || (HP.selectedSet && HP.selectedSet.length) || HP.selectedRoom || HP.selectedFeature || HP.selectedWall || HP.measureLine) {
+          HP.selected = null; HP.selectedRoom = null; HP.selectedSet = []; HP.selectedFeature = null; HP.selectedWall = null; HP.measureLine = null; HP.refreshContext(); HP.markDirty();
         } else if (HP.editingInterior) {
           HP.exitInterior();
         }
         break;
+      }
       case 'v': HP.setTool('select'); break;
       case 'w': HP.setTool('wall'); break;
       case 'd': HP.setTool('door'); break;

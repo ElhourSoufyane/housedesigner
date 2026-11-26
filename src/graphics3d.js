@@ -951,6 +951,14 @@ G.material = function (kind, color) {
     m.emissive.set(0xffa64d); m.emissiveIntensity = 0;
     m.userData.nightGlow = 1.3;
   }
+  if (kind === 'led_red') {
+    m.emissive.set(0xdc0000); m.emissiveIntensity = 0.25;
+    m.userData.nightGlow = 0.85;
+  }
+  if (kind === 'led_white') {
+    m.emissive.set(0xf8fafc); m.emissiveIntensity = 0.15;
+    m.userData.nightGlow = 1.25;
+  }
   if (kind === 'water') {
     G.waterMap = m.map;
     m.bumpMap = m.map; m.bumpScale = 0.8; m.roughness = 0.08;   // moving sun glints

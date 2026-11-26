@@ -78,6 +78,7 @@ HP.migrate = function (state) {
   for (const l of state.levels) {
     l.walls = l.walls || {}; l.floors = l.floors || {}; l.fences = l.fences || {};
     l.roomNames = l.roomNames || {}; l.furniture = l.furniture || [];
+    delete l._gdEdgeCache; delete l._gdEdgeSig; delete l._cachedRegions;
   }
   return state;
 };
@@ -135,6 +136,18 @@ HP.loadState = function () {
           }
           localStorage.setItem('hp_starter_upgraded_v1337', '1');
         }
+      }
+      if (l0 && Array.isArray(l0.furniture) && l0.roomNames && l0.roomNames['13,31'] === 'Floor Showroom' && l0.roomNames['29,34'] === 'Garage' && !localStorage.getItem('hp_tv_orient_v1341')) {
+        let tvFixed = false;
+        for (const it of l0.furniture) {
+          if (it && it.type === 'tvstand' && (it.rot || 0) === 0 && ((it.id === 190 && it.x === 20 && it.y === 27) || (it.id === 470 && it.x === 9 && it.y === 15))) {
+            it.rot = 2; tvFixed = true;
+          }
+        }
+        if (tvFixed) {
+          localStorage.setItem(LS_KEY, JSON.stringify({ state: HP.state, nextId: Math.max(data.nextId || 0, HP.maxFurnitureId() + 1) }));
+        }
+        localStorage.setItem('hp_tv_orient_v1341', '1');
       }
       HP.applyGridSize();
       HP.nextId = Math.max(data.nextId || 0, (HP.DEFAULT_HOUSE && HP.DEFAULT_HOUSE.nextId) || 0, HP.maxFurnitureId() + 1);

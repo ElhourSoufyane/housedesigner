@@ -40,7 +40,7 @@ W3.init = function (canvas) {
   sun = new THREE.DirectionalLight(0xffe5bc, 1.05);
   sun.position.copy(sunDir).multiplyScalar(1200);
   /* shadow box follows the player (see W3.render) — sized per tier   */
-  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.6;
+  sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.35;
   sun.shadow.camera.near = 1; sun.shadow.camera.far = 2800;
   scene.add(sun); scene.add(sun.target);
   const fit = () => {
@@ -3925,9 +3925,14 @@ function buildGarageDoorModel(it, d, f, c, C, lvl, env, targetGroup, garageDoors
   const pw = W - jw * 2 + 1.6;
   for (let pi = 0; pi < 4; pi++) {
     const pGroup = new THREE.Group();
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(pw, ph - 0.4, 2.6), panelMat);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(pw, ph - 0.02, 2.6), panelMat);
     slab.castShadow = slab.receiveShadow = true;
     pGroup.add(slab);
+
+    // Subtle exterior panel seam beading (avoids see-through horizontal gaps when closed)
+    const seamLine = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.35, 0.25), metalMat);
+    seamLine.position.set(0, -ph / 2 + 0.18, 1.32);
+    pGroup.add(seamLine);
 
     for (const sx of [-pw / 2 + 0.6, pw / 2 - 0.6]) {
       const roller = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 1.6, 8), metalMat);
@@ -3941,9 +3946,11 @@ function buildGarageDoorModel(it, d, f, c, C, lvl, env, targetGroup, garageDoors
       const stampW = (pw - (numWindows + 1) * 3) / numWindows;
       for (let wi = 0; wi < numWindows; wi++) {
         const wx = -pw / 2 + 3 + stampW / 2 + wi * (stampW + 3);
-        const win = new THREE.Mesh(new THREE.BoxGeometry(stampW, 6.5, 2.8), winMat);
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(stampW + 0.8, 7.2, 2.72), darkMat);
+        frame.position.set(wx, 0, 0);
+        const win = new THREE.Mesh(new THREE.BoxGeometry(stampW - 0.4, 6.2, 2.86), winMat);
         win.position.set(wx, 0, 0);
-        pGroup.add(win);
+        pGroup.add(frame, win);
       }
     }
 
@@ -4511,7 +4518,7 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   const gw = HP.GRID_W, gh = HP.GRID_H;
   const { regionOf } = HP.computeRegions(lvl);
   const WALL_H = (HP.geom3d ? HP.geom3d.WALL_H : 74);
-  const ceilY = baseY + WALL_H - 0.2;
+  const ceilY = baseY + WALL_H - 0.5;
   const ceilCells = [];
 
   lvl = lvl || {};
@@ -4599,6 +4606,18 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   };
   const allRoofSet = new Set();
 
+  const ceilPart = (c, y) => {
+    const pad = c.isInterior ? 1.2 : 0.45;
+    const touchesHole = stairHoles && (
+      stairHoles.has((c.x - 1) + ',' + c.y) || stairHoles.has((c.x + 1) + ',' + c.y) ||
+      stairHoles.has(c.x + ',' + (c.y - 1)) || stairHoles.has(c.x + ',' + (c.y + 1))
+    );
+    const s = touchesHole ? C : (C + pad * 2);
+    const m = new THREE.Matrix4().makeScale(s, 1, s);
+    m.setPosition(c.x * C + C / 2, y, c.y * C + C / 2);
+    return { m, x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C };
+  };
+
   for (const [key, { style, color, cells }] of byStyle) {
     const ceilMat = HP.graphics3d
       ? HP.graphics3d.ceilingMaterial(style, color)
@@ -4606,14 +4625,14 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
 
     if (style !== 'pergola') {
       // Interior ceiling: cast shadow to seal sunlight, no receiveShadow to eliminate shadow acne
-      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => cellPart(c, ceilY)), { cast: style !== 'glass', receive: false, lvlIdx, isCeil: true });
+      V.instanced(targetGroup, ceilQuad(), ceilMat, cells.map(c => ceilPart(c, ceilY)), { cast: style !== 'glass', receive: false, lvlIdx, isCeil: true });
 
       // Roof plane: ONLY for cells that do NOT have a second/higher floor stacked directly above them!
       if (style !== 'glass') {
         const roofCells = cells.filter(c => !hasFloorAbove(c.x, c.y));
         if (roofCells.length > 0) {
           for (const rc of roofCells) allRoofSet.add(rc.k);
-          V.instanced(targetGroup, floorQuad(), roofMat, roofCells.map(c => cellPart(c, ceilY + 0.3)), { cast: true, receive: true, lvlIdx, isRoof: true });
+          V.instanced(targetGroup, floorQuad(), roofMat, roofCells.map(c => ceilPart(c, ceilY + 0.3)), { cast: true, receive: true, lvlIdx, isRoof: true });
         }
       }
     }
@@ -4761,17 +4780,17 @@ W3._buildCeilingMeshes = function (targetGroup, lvl, lvlIdx, baseY, stairHoles, 
   if (allRoofSet.size > 0) {
     const isRoof = (cx, cy) => allRoofSet.has(cx + ',' + cy);
     const isExposed = (cx, cy) => !isRoof(cx, cy) && !hasFloorAbove(cx, cy);
-    const E = 2.0, y0 = ceilY - 1.15, y1 = ceilY + 0.29;
+    const E = 2.0, y0 = ceilY - 0.15, y1 = ceilY + 0.29;
     const eaveParts = [];
     for (const rk of allRoofSet) {
       const [rx, ry] = rk.split(',').map(Number);
       const x0 = rx * C, x1 = (rx + 1) * C, z0 = ry * C, z1 = (ry + 1) * C;
       const expN = isExposed(rx, ry - 1), expS = isExposed(rx, ry + 1);
       const expW = isExposed(rx - 1, ry), expE = isExposed(rx + 1, ry);
-      if (expN) eaveParts.push(boxPart({ x0: x0 - (expW ? E : 0), x1: x1 + (expE ? E : 0), z0: z0 - E, z1: z0 + 0.05, y0, y1 }));
-      if (expS) eaveParts.push(boxPart({ x0: x0 - (expW ? E : 0), x1: x1 + (expE ? E : 0), z0: z1 - 0.05, z1: z1 + E, y0, y1 }));
-      if (expW) eaveParts.push(boxPart({ x0: x0 - E, x1: x0 + 0.05, z0, z1, y0, y1 }));
-      if (expE) eaveParts.push(boxPart({ x0: x1 - 0.05, x1: x1 + E, z0, z1, y0, y1 }));
+      if (expN) eaveParts.push(boxPart({ x0: x0 - (expW ? E : 0), x1: x1 + (expE ? E : 0), z0: z0 - E, z1: z0 - 0.12, y0, y1 }));
+      if (expS) eaveParts.push(boxPart({ x0: x0 - (expW ? E : 0), x1: x1 + (expE ? E : 0), z0: z1 + 0.12, z1: z1 + E, y0, y1 }));
+      if (expW) eaveParts.push(boxPart({ x0: x0 - E, x1: x0 - 0.12, z0, z1, y0, y1 }));
+      if (expE) eaveParts.push(boxPart({ x0: x1 + 0.12, x1: x1 + E, z0, z1, y0, y1 }));
     }
     if (eaveParts.length) {
       V.instanced(targetGroup, unitBox(), roofMat, eaveParts, { cast: true, receive: true, lvlIdx });

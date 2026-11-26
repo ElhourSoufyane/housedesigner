@@ -3,22 +3,49 @@
 
 const MARGIN = 2;                       // cells of margin baked into static layer
 let staticLayer = null, staticDirty = true;
+let dynLayer = null, dynDirty = true, dynScale = 1, lastDynLevel = -1;
 let dpr = 1;
 const _inv = HP.invalidateRegions;
-HP.invalidateRegions = function () { staticDirty = true; belowDirty = true; _inv(); };
+HP._onSceneDirty = function () { dynDirty = true; HP._sceneRev = (HP._sceneRev || 0) + 1; };
+HP.invalidateRegions = function () { staticDirty = true; belowDirty = true; HP._onSceneDirty(); _inv(); };
 
 let groundLayer = null, groundDirty = true;
 let belowLayer = null, belowDirty = true, lastBelowLevel = -1;
 let floorLayer = null, floorDirty = true, lastFloorLevel = -1, lastRegionHash = '', lastPhotoFloors = null;
 HP.resetLayers = function () {
-  staticLayer = null; belowLayer = null; groundLayer = null; floorLayer = null;
-  groundDirty = true; belowDirty = true; staticDirty = true; floorDirty = true;
-  lastBelowLevel = -1; lastFloorLevel = -1; lastRegionHash = '';
+  staticLayer = null; dynLayer = null; belowLayer = null; groundLayer = null; floorLayer = null;
+  groundDirty = true; belowDirty = true; staticDirty = true; dynDirty = true; floorDirty = true;
+  lastBelowLevel = -1; lastDynLevel = -1; lastFloorLevel = -1; lastRegionHash = '';
+  HP._sceneRev = (HP._sceneRev || 0) + 1;
   _inv();
 };
 HP.invalidateFloors = function () {
-  floorDirty = true; staticDirty = true; _inv();
+  floorDirty = true; staticDirty = true; dynDirty = true; _inv();
 };
+
+function rebuildDyn() {
+  const C = HP.CELL, W = HP.GRID_W, H = HP.GRID_H;
+  dynScale = (W * H > 5000) ? 0.5 : Math.min(2, Math.max(1.5, dpr || 1));
+  const w = Math.ceil((W + MARGIN * 2) * C * dynScale),
+        h = Math.ceil((H + MARGIN * 2) * C * dynScale);
+  if (!dynLayer) dynLayer = document.createElement('canvas');
+  if (dynLayer.width !== w || dynLayer.height !== h) {
+    dynLayer.width = w; dynLayer.height = h;
+  }
+  const g = dynLayer.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, w, h);
+  g.save();
+  g.scale(dynScale, dynScale);
+  g.translate(MARGIN * C, MARGIN * C);
+  drawDoors(g);
+  drawWindows(g);
+  drawLights(g);
+  drawItems(g);
+  g.restore();
+  dynDirty = false;
+  lastDynLevel = HP.state ? HP.state.level : 0;
+}
 
 /* ================= STATIC LAYER ================= */
 let staticScale = 1;                                 // bake res factor — big plots bake at 0.5
@@ -1959,7 +1986,7 @@ function drawWalls(g) {
 
 /* doors and windows draw every frame, not baked into the static layer — toggling open/closed
    or inside/outside swing must not rebuild the whole cached scene (that was the split-second freeze) */
-function drawDoors(g) {
+function drawDoors(g, vb) {
   const C = HP.CELL, lvl = HP.cur();
   const isDoor = (d, x, y) => { const w = lvl.walls[d + ',' + x + ',' + y]; return w && w.f === 'door'; };
   const { regionOf } = HP.computeRegions();
@@ -1972,6 +1999,12 @@ function drawDoors(g) {
     else             { for (let y = s.y - 1; isDoor('v', s.x, y); y--) offset++; }
     if (offset % 2 === 1) continue;
     const pair = s.d === 'h' ? isDoor('h', s.x + 1, s.y) : isDoor('v', s.x, s.y + 1);
+    if (vb) {
+      const wx0 = s.x * C - C * 1.5, wy0 = s.y * C - C * 1.5;
+      const wx1 = (s.x + (s.d === 'h' && pair ? 2 : 1)) * C + C * 1.5;
+      const wy1 = (s.y + (s.d === 'v' && pair ? 2 : 1)) * C + C * 1.5;
+      if (wx1 < vb.x0 || wx0 > vb.x1 || wy1 < vb.y0 || wy0 > vb.y1) continue;
+    }
     const t = wallThick(s, regionOf) * C;
     // same body + gap + leaf the static pass used to draw
     g.fillStyle = '#2e3138';
@@ -2548,13 +2581,17 @@ function drawWindow(g, s, t) {
   }
 }
 
-function drawWindows(g) {
+function drawWindows(g, vb) {
   const C = HP.CELL, lvl = HP.cur();
   if (!lvl || !lvl.walls) return;
   const { regionOf } = HP.computeRegions();
   for (const k in lvl.walls) {
     if (lvl.walls[k].f !== 'window') continue;
     const s = HP.parseWallKey(k);
+    if (vb) {
+      const x = s.x * C, y = s.y * C;
+      if (x + C < vb.x0 || x - C > vb.x1 || y + C < vb.y0 || y - C > vb.y1) continue;
+    }
     const t = wallThick(s, regionOf) * C;
     drawWindow(g, s, t);
   }
@@ -2762,23 +2799,42 @@ function drawFences(g) {
 HP.drawFenceSeg = drawFenceSeg;
 
 /* ================= DYNAMIC ================= */
-function drawItems(g) {
+function drawItems(g, vb) {
   const list = HP.cur().furniture;
-  for (const it of list) { const d = HP.itemDef(it.type); if (d && !d.onTop && !d.hangs && it.type !== 'rangehood' && !(HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
-  for (const it of list) { const d = HP.itemDef(it.type); if (d && !d.onTop && !d.hangs && (HP.canSitOnSurface && HP.canSitOnSurface(it.type))) HP.drawItem(g, it); }
-  for (const it of list) { const d = HP.itemDef(it.type); if (d && d.onTop) HP.drawItem(g, it); }
-  for (const it of list) { if (it.type === 'rangehood') HP.drawItem(g, it); }
-  for (const it of list) { const d = HP.itemDef(it.type); if (d && d.hangs) HP.drawItem(g, it); }
+  const C = HP.CELL;
+  const b0 = [], b1 = [], b2 = [], b3 = [], b4 = [];
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i];
+    const d = HP.itemDef(it.type);
+    if (!d) continue;
+    if (vb) {
+      const f = HP.footprint(it);
+      const pad = C * 1.2;
+      if ((f.x + f.w) * C + pad < vb.x0 || f.x * C - pad > vb.x1 ||
+          (f.y + f.h) * C + pad < vb.y0 || f.y * C - pad > vb.y1) continue;
+    }
+    if (it.type === 'rangehood') b3.push(it);
+    else if (d.hangs) b4.push(it);
+    else if (d.onTop) b2.push(it);
+    else if (HP.canSitOnSurface && HP.canSitOnSurface(it.type)) b1.push(it);
+    else b0.push(it);
+  }
+  for (let i = 0; i < b0.length; i++) HP.drawItem(g, b0[i]);
+  for (let i = 0; i < b1.length; i++) HP.drawItem(g, b1[i]);
+  for (let i = 0; i < b2.length; i++) HP.drawItem(g, b2[i]);
+  for (let i = 0; i < b3.length; i++) HP.drawItem(g, b3[i]);
+  for (let i = 0; i < b4.length; i++) HP.drawItem(g, b4[i]);
 }
 
 /* warm light pools under lamps that are switched on (walk-mode interact).
    Drawn BEFORE items so the lamp sits inside its own glow — no floating dot. */
-function drawLights(g) {
+function drawLights(g, vb) {
   const C = HP.CELL;
   for (const it of HP.cur().furniture) {
     if (!it.on || !HP.isLamp || !HP.isLamp(it.type)) continue;
     const f = HP.footprint(it);
     const mx = (f.x + f.w / 2) * C, my = (f.y + f.h / 2) * C, Rr = C * 3.4;
+    if (vb && (mx + Rr < vb.x0 || mx - Rr > vb.x1 || my + Rr < vb.y0 || my - Rr > vb.y1)) continue;
     const gr = g.createRadialGradient(mx, my, 0, mx, my, Rr);
     gr.addColorStop(0, 'rgba(255,216,130,.45)');
     gr.addColorStop(0.4, 'rgba(255,216,130,.22)');
@@ -2992,6 +3048,9 @@ function frame(t) {
     if (HP.canvas.width !== cw || HP.canvas.height !== ch) {
       HP.canvas.width = cw; HP.canvas.height = ch;
     }
+    if ((HP.camera.zoom || 1) <= 1.8 && (dynDirty || lastDynLevel !== (HP.state ? HP.state.level : 0))) {
+      rebuildDyn();
+    }
     const ctx = HP.ctx, w = HP.canvas.clientWidth, h = HP.canvas.clientHeight;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = HP.shade(HP.state.bg || '#aebfa0', 0.82);   // far grass
@@ -3003,23 +3062,36 @@ function frame(t) {
   requestAnimationFrame(frame);
 }
 
-/* shared renderer: blits cached static layer + draws dynamic stuff.
+/* shared renderer: blits cached static + dynamic layers, or viewport-culled direct draw.
    In export mode draws static content directly (no cache needed). */
 HP.renderAll = function (g, cam, layer) {
+  const C = HP.CELL;
   g.save();
   g.translate(cam.w / 2, cam.h / 2);
   g.scale(cam.zoom, cam.zoom);
   g.translate(-cam.x, -cam.y);
   if (layer && !cam.export) {
-    g.drawImage(layer, -MARGIN * HP.CELL, -MARGIN * HP.CELL,
+    g.drawImage(layer, -MARGIN * C, -MARGIN * C,
       layer.width / staticScale, layer.height / staticScale);
   } else {
     drawGround(g); drawFloors(g); drawLabels(g); drawWalls(g); drawFences(g);
   }
-  drawDoors(g);
-  drawWindows(g);
-  drawLights(g);
-  drawItems(g);
+  if (dynLayer && !cam.export && (cam.zoom || 1) <= 1.8 && !dynDirty && lastDynLevel === (HP.state ? HP.state.level : 0)) {
+    g.drawImage(dynLayer, -MARGIN * C, -MARGIN * C,
+      dynLayer.width / dynScale, dynLayer.height / dynScale);
+  } else {
+    const pad = C * 4;
+    const vb = (cam && !cam.export && cam.w && cam.zoom) ? {
+      x0: cam.x - cam.w / (2 * cam.zoom) - pad,
+      y0: cam.y - cam.h / (2 * cam.zoom) - pad,
+      x1: cam.x + cam.w / (2 * cam.zoom) + pad,
+      y1: cam.y + cam.h / (2 * cam.zoom) + pad
+    } : null;
+    drawDoors(g, vb);
+    drawWindows(g, vb);
+    drawLights(g, vb);
+    drawItems(g, vb);
+  }
   if (!cam.export) drawOverlays(g);
   g.restore();
 };

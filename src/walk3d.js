@@ -41,17 +41,22 @@ function sitDown(target) {
   if (sitting) return;
   const it = target.it, def = target.def;
   const rot = (it.rot || 0) % 4;
-  // Three.js world forward: rot=0 -> +z (PI), rot=1 -> -x (PI/2), rot=2 -> -z (0), rot=3 -> +x (-PI/2)
-  const sitYaw = rot === 0 ? Math.PI : rot === 1 ? Math.PI / 2 : rot === 2 ? 0 : -Math.PI / 2;
   const type = (it.type || '').toLowerCase();
+  const isCar = /^car(_ev)?$|^suv$/i.test(type);
+  // Three.js world forward: chairs face +Z (rot=0 -> PI), vehicles face -Z (rot=0 -> 0)
+  const sitYaw = isCar
+    ? (rot === 0 ? 0 : rot === 1 ? -Math.PI / 2 : rot === 2 ? Math.PI : Math.PI / 2)
+    : (rot === 0 ? Math.PI : rot === 1 ? Math.PI / 2 : rot === 2 ? 0 : -Math.PI / 2);
   let seatOffset = -12;
-  if (/barstool|counterstool|stool/i.test(type)) seatOffset = -5;
+  if (isCar) seatOffset = -9;
+  else if (/barstool|counterstool|stool/i.test(type)) seatOffset = -5;
   else if (/beanbag|cushion|pouf|tatami|floor/i.test(type)) seatOffset = -19;
   else if (/bunk|daybed/i.test(type)) seatOffset = -10;
   else if (/bed/i.test(type)) seatOffset = -14;
 
   sitting = {
     it,
+    isCar,
     px, pz, yaw, pitch,
     sitYaw,
     seatOffset,
@@ -70,11 +75,14 @@ function standUp() {
   const s = sitting;
   const sitYaw = s.sitYaw !== undefined ? s.sitYaw : s.yaw;
   sitting = null;
-  // Step slightly forward away from chair center so player doesn't spawn inside chair geometry
+  // Step slightly forward away from chair center (or laterally out car driver door)
   const fx = -Math.sin(sitYaw), fz = -Math.cos(sitYaw);
   const distSq = Math.hypot(s.px - px, s.pz - pz);
   if (distSq > 12) {
     px = s.px; pz = s.pz;
+  } else if (s.isCar) {
+    const lx = -Math.sin(sitYaw + Math.PI / 2), lz = -Math.cos(sitYaw + Math.PI / 2);
+    px += lx * 26; pz += lz * 26;
   } else {
     px += fx * 14; pz += fz * 14;
   }
@@ -865,9 +873,19 @@ function isLineOfSightClear(ox, oy, oz, tx, ty, tz, ignoreObj) {
   const invDist = 1 / dist;
   const rx = dx * invDist, ry = dy * invDist, rz = dz * invDist;
   const boxes = HP.world3d?.colliders || HP.world3d?.staticColliders || [];
+  let ignFoot = null;
+  if (ignoreObj && ignoreObj.footprint) {
+    const C = HP.CELL || 28, f = ignoreObj.footprint;
+    ignFoot = {
+      x0: f.x * C - 1.5, x1: (f.x + f.w) * C + 1.5,
+      z0: f.y * C - 1.5, z1: (f.y + f.h) * C + 1.5,
+      y0: (ignoreObj.baseY || 0) - 2, y1: (ignoreObj.baseY || 0) + 56
+    };
+  }
   for (let i = 0; i < boxes.length; i++) {
     const b = boxes[i];
     if (b.mv !== undefined || (b.y1 - b.y0) < 20) continue;
+    if (ignFoot && b.tag !== 'wall' && b.tag !== 'corner' && b.x0 >= ignFoot.x0 && b.x1 <= ignFoot.x1 && b.z0 >= ignFoot.z0 && b.z1 <= ignFoot.z1 && b.y0 >= ignFoot.y0 && b.y1 <= ignFoot.y1) continue;
     if (tx >= b.x0 - 1.5 && tx <= b.x1 + 1.5 && tz >= b.z0 - 1.5 && tz <= b.z1 + 1.5 && ty >= b.y0 - 1.5 && ty <= b.y1 + 1.5) continue;
     if (rayHitsBox(ox, oy, oz, rx, ry, rz, dist, b)) return false;
   }
@@ -938,19 +956,22 @@ function nearestThing() {
   for (const sc of seatCandidates) {
     const it = sc.it;
     const itemBaseY = sc.baseY;
+    if (/^treehouse$/i.test(it.type) && feetY < itemBaseY + 42) continue;
     if (Math.abs(itemBaseY - feetY) > 60) continue;
     const sk = HP.seatKind ? HP.seatKind(it.type) : null;
     if (!sk) continue;
     const def = HP.itemDef(it.type);
     if (!def) continue;
     const spots = HP.itemSeatSpots ? HP.itemSeatSpots(it, def) : [];
+    const maxSeatDist = sk === 'lie' ? 66 : (/^car(_ev)?$|^suv$/i.test(it.type) ? 68 : 50);
+    const ignSeat = { footprint: HP.footprint(it), baseY: itemBaseY };
     for (const sp of spots) {
       const seatOffset = /barstool/i.test(it.type) ? 19 : 12;
       const sy = (/^treehouse$/i.test(it.type) ? Math.max(groundAt(sp.x, sp.z), 54) : itemBaseY) + seatOffset;
-      considerCandidate(sp.x, sy, sp.z, 50, () => ({
+      considerCandidate(sp.x, sy, sp.z, maxSeatDist, () => ({
         kind: 'seat', it, def, sk, spot: sp,
-        label: (sk === 'lie' ? 'Lie down' : 'Sit') + ' — ' + (def.name || it.type)
-      }));
+        label: (sk === 'lie' ? 'Lie down' : (/^car(_ev)?$|^suv$/i.test(it.type) ? 'Drive' : 'Sit')) + ' — ' + (def.name || it.type)
+      }), ignSeat);
     }
   }
 
@@ -985,10 +1006,10 @@ function nearestThing() {
     for (const c of HP.world3d.climbs) {
       const atTop = feetY >= (c.y1 - 10);
       const ladderMidX = (c.x0 + c.x1) / 2, ladderMidZ = (c.z0 + c.z1) / 2;
-      const targetX = atTop ? (c.deckSpot ? (c.deckSpot.x + ladderMidX) / 2 : ladderMidX) : ladderMidX;
-      const targetZ = atTop ? (c.deckSpot ? (c.deckSpot.z + ladderMidZ) / 2 : ladderMidZ) : ladderMidZ;
-      const cy = atTop ? c.y1 : ((c.y0 || 0) + 18);
-      considerCandidate(targetX, cy, targetZ, 65, () => ({
+      const targetX = ladderMidX;
+      const targetZ = ladderMidZ;
+      const cy = atTop ? (c.y1 + 24) : ((c.y0 || 0) + 18);
+      considerCandidate(targetX, cy, targetZ, 72, () => ({
         kind: 'climb', climb: c, atTop,
         label: atTop ? (c.labelDown || 'Climb down Treehouse') : (c.labelUp || 'Climb up to Treehouse Deck')
       }));

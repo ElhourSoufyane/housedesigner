@@ -38,7 +38,7 @@ S.start = function () {
   try {
     ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
-    master = master || (() => { const g = ctx.createGain(); g.gain.value = 0.42; g.connect(ctx.destination); return g; })();
+    master = master || (() => { const g = ctx.createGain(); g.gain.value = enabled ? 0.42 : 0; g.connect(ctx.destination); return g; })();
     noiseBuf = noiseBuf || makeNoise();
     if (!amb.wind) {
       amb.wind = loopNoise('lowpass', 280, 0.5);

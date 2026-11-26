@@ -23,7 +23,7 @@ HP.updateFloorUI = function () {
 };
 HP.zoomBtn = function (d) {
   const z = Math.max(HP.MIN_ZOOM, Math.min(HP.MAX_ZOOM, HP.camera.zoom * (d > 0 ? 1.25 : 0.8)));
-  HP.camera.zoom = z; HP.markDirty(); HP.updateZoomUI();
+  HP.camera.zoom = z; (HP.markCamDirty || HP.markDirty)(); HP.updateZoomUI();
 };
 HP.toggleGrid = function () {
   HP.showGrid = !HP.showGrid; HP.invalidateRegions(); HP.saveState();
@@ -1871,8 +1871,11 @@ function buildCatalog(filter) {
 
 /* ---------- preset picker ---------- */
 function presetCard(p) {
-  const d = document.createElement('button');
+  const d = document.createElement('div');
   d.className = 'preset-card';
+  d.setAttribute('role', 'button');
+  d.tabIndex = 0;
+  d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); d.click(); } };
   const cv = document.createElement('canvas');
   cv.width = 240; cv.height = 168;
   HP.presetPreview(cv, p.build());
@@ -1950,7 +1953,7 @@ HP.initUI = function () {
       HP.camera.zoom = Math.max(HP.MIN_ZOOM, Math.min(1.2, fit));
       HP.camera.x = HP.GRID_W * HP.CELL / 2;
       HP.camera.y = HP.GRID_H * HP.CELL / 2;
-      HP.markDirty();
+      (HP.markCamDirty || HP.markDirty)();
       HP.updateZoomUI();
       HP.status('Centered house');
     };
