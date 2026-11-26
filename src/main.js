@@ -25,7 +25,8 @@ HP.invalidateFloors = function () {
 
 function rebuildDyn() {
   const C = HP.CELL, W = HP.GRID_W, H = HP.GRID_H;
-  dynScale = (W * H > 5000) ? 0.5 : Math.min(2, Math.max(1.5, dpr || 1));
+  const touchUI = (HP.graphics3d && HP.graphics3d.touch) || (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches);
+  dynScale = (W * H > 5000) ? 0.5 : Math.min(touchUI ? 1.5 : 2, Math.max(touchUI ? 1.25 : 1.5, dpr || 1));
   const w = Math.ceil((W + MARGIN * 2) * C * dynScale),
         h = Math.ceil((H + MARGIN * 2) * C * dynScale);
   if (!dynLayer) dynLayer = document.createElement('canvas');
@@ -3101,7 +3102,8 @@ function boot() {
   HP.canvas = document.getElementById('view');
   HP.ctx = HP.canvas.getContext('2d');
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);   // dpr 3+ quadruples canvas memory — imperceptible gain
+    const touchUI = (HP.graphics3d && HP.graphics3d.touch) || (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches);
+    dpr = Math.min(window.devicePixelRatio || 1, touchUI ? 1.5 : 2);   // cap mobile/tablet & 3x retina canvas memory
     HP.canvas.width = HP.canvas.clientWidth * dpr;
     HP.canvas.height = HP.canvas.clientHeight * dpr;
     HP.markDirty();

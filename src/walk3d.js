@@ -386,26 +386,51 @@ K.boot = function (initialSpawn) {
     document.hidden ? HP.sound3d.stop() : HP.sound3d.resume();
   });
 
-  /* touch: left half = move stick, right half = look drag            */
+  /* touch: bottom-left stick pad = move, elsewhere = look drag + tap-to-interact */
+  let stickOx = 0, stickOy = 0, stickR = 48, lookTap = null;
   const T = e => {
     if (paused) return;
+    const sr = el.stickL ? el.stickL.getBoundingClientRect() : null;
     const stickHit = e.target && el.stickL && (e.target === el.stickL || (el.stickL.contains && el.stickL.contains(e.target)));
     for (const t of e.changedTouches) {
-      if ((e.type === 'touchstart' && (stickHit || (t.clientX < innerWidth / 2 && moveTouchId < 0))) || t.identifier === moveTouchId) {
-        if (e.type === 'touchstart' && moveTouchId < 0) moveTouchId = t.identifier;
+      const inStickHalo = sr && sr.width > 0 &&
+        t.clientX <= Math.min(innerWidth * 0.45, sr.right + 56) &&
+        t.clientY >= Math.max(innerHeight * 0.45, sr.top - 56);
+      if ((e.type === 'touchstart' && (stickHit || (inStickHalo && moveTouchId < 0))) || t.identifier === moveTouchId) {
+        if (e.type === 'touchstart' && moveTouchId < 0) {
+          moveTouchId = t.identifier;
+          stickR = (sr && sr.width ? sr.width / 2 : 48);
+          if (stickHit && sr && sr.width > 0) {
+            stickOx = sr.left + sr.width / 2;
+            stickOy = sr.top + sr.height / 2;
+          } else {
+            stickOx = t.clientX;
+            stickOy = t.clientY;
+          }
+        }
         if (t.identifier === moveTouchId) {
-          const r = el.stickL.getBoundingClientRect();
-          moveT.x = clamp((t.clientX - (r.left + r.width / 2)) / (r.width / 2), -1, 1);
-          moveT.y = clamp((t.clientY - (r.top + r.height / 2)) / (r.height / 2), -1, 1);
-          el.stickLn.style.transform = `translate(${moveT.x * 22}px,${moveT.y * 22}px)`;
+          let nx = (t.clientX - stickOx) / stickR;
+          let ny = (t.clientY - stickOy) / stickR;
+          const mag = Math.hypot(nx, ny);
+          if (mag < 0.10) {
+            moveT.x = 0; moveT.y = 0;
+          } else {
+            if (mag > 1) { nx /= mag; ny /= mag; }
+            moveT.x = nx; moveT.y = ny;
+          }
+          if (el.stickLn) el.stickLn.style.transform = `translate(${moveT.x * 22}px,${moveT.y * 22}px)`;
         }
       } else if (lookT.id === t.identifier || (e.type === 'touchstart' && lookT.id < 0)) {
-        if (e.type === 'touchstart') { lookT.id = t.identifier; lookT.lx = t.clientX; lookT.ly = t.clientY; }
-        else {
-          yaw   -= (t.clientX - lookT.lx) * 0.0045;
+        if (e.type === 'touchstart') {
+          lookT.id = t.identifier; lookT.lx = t.clientX; lookT.ly = t.clientY;
+          lookTap = { id: t.identifier, t: performance.now(), moved: 0 };
+        } else {
+          const dx = t.clientX - lookT.lx, dy = t.clientY - lookT.ly;
+          if (lookTap && lookTap.id === t.identifier) lookTap.moved += Math.hypot(dx, dy);
+          yaw   -= dx * 0.0050;
           yaw    = Math.atan2(Math.sin(yaw), Math.cos(yaw));
           if (sitting) yaw = clampSittingYaw(yaw, sitting.sitYaw);
-          pitch -= (t.clientY - lookT.ly) * 0.0045;
+          pitch -= dy * 0.0050;
           pitch = Math.max(-1.45, Math.min(1.45, pitch));
           lookT.lx = t.clientX; lookT.ly = t.clientY;
         }
@@ -414,19 +439,35 @@ K.boot = function (initialSpawn) {
     if (e.cancelable) e.preventDefault();
   };
   const TE = e => {
-    for (const t of e.changedTouches) {
-      if (t.identifier === moveTouchId) { moveTouchId = -1; moveT.x = moveT.y = 0; el.stickLn.style.transform = ''; }
-      if (t.identifier === lookT.id) lookT.id = -1;
+    if (HP.sound3d) {
+      HP.sound3d.start();
+      if (HP.sound3d.resume) HP.sound3d.resume();
     }
+    for (const t of e.changedTouches) {
+      if (t.identifier === moveTouchId) { moveTouchId = -1; moveT.x = moveT.y = 0; if (el.stickLn) el.stickLn.style.transform = ''; }
+      if (t.identifier === lookT.id) {
+        if (e.type === 'touchend' && !paused && started && lookTap && lookTap.id === t.identifier &&
+            lookTap.moved < 8 && (performance.now() - lookTap.t) < 260 && prompt) {
+          interact();
+        }
+        lookT.id = -1; lookTap = null;
+      }
+    }
+    if (e.cancelable) e.preventDefault();
   };
   el.canvas.addEventListener('touchstart', T, { passive: false });
   el.canvas.addEventListener('touchmove', T, { passive: false });
-  el.canvas.addEventListener('touchend', TE);
-  el.canvas.addEventListener('touchcancel', TE);
+  el.canvas.addEventListener('touchend', TE, { passive: false });
+  el.canvas.addEventListener('touchcancel', TE, { passive: false });
   el.stickL.addEventListener('touchstart', T, { passive: false });
   el.stickL.addEventListener('touchmove', T, { passive: false });
-  el.stickL.addEventListener('touchend', TE);
-  el.stickL.addEventListener('touchcancel', TE);
+  el.stickL.addEventListener('touchend', TE, { passive: false });
+  el.stickL.addEventListener('touchcancel', TE, { passive: false });
+  el.prompt.addEventListener('touchend', e => {
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+    interact();
+  }, { passive: false });
   el.prompt.addEventListener('click', () => interact());
   el.prompt.addEventListener('keydown', e => {
     if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); interact(); }

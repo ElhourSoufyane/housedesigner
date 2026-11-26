@@ -60,10 +60,11 @@ button { font-family: inherit; color: inherit; }
 
 /* ---------- TOP BAR ---------- */
 .topbar {
-  height: var(--tb-h); flex: none; z-index: 10;
+  height: calc(var(--tb-h) + env(safe-area-inset-top)); flex: none; z-index: 10;
   background: var(--panel);
   border-bottom: 2px solid var(--border);
-  display: flex; align-items: center; gap: 8px; padding: 0 14px;
+  display: flex; align-items: center; gap: 8px;
+  padding: env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left));
   overflow-x: auto; scrollbar-width: none;
 }
 .topbar::-webkit-scrollbar { display: none; }
@@ -152,10 +153,12 @@ button { font-family: inherit; color: inherit; }
 
 /* ---------- LEFT TOOL RAIL ---------- */
 .toolbar {
-  width: 64px; flex: none; z-index: 10;
+  width: calc(64px + env(safe-area-inset-left)); flex: none; z-index: 10;
   background: var(--panel);
   border-right: 2px solid var(--border);
-  display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 6px;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0 max(10px, env(safe-area-inset-bottom)) env(safe-area-inset-left);
+  gap: 6px;
   overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain;
 }
 .toolbar::-webkit-scrollbar { display: none; }
@@ -228,7 +231,7 @@ button { font-family: inherit; color: inherit; }
 #edit-panel .insp-section { padding: 12px 14px 14px; border-bottom: none; }
 
 #catalog-fab {
-  display: none; position: absolute; right: 14px; bottom: 44px; z-index: 30;
+  display: none; position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(44px, calc(env(safe-area-inset-bottom) + 38px)); z-index: 30;
   height: 44px; padding: 0 18px; border-radius: 22px; border: 2px solid var(--border);
   align-items: center; gap: 8px;
   background: var(--accent); color: var(--accent-ink);
@@ -269,11 +272,11 @@ button { font-family: inherit; color: inherit; }
   display: none; pointer-events: none;
 }
 #stairs-ui {
-  position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 20;
+  position: absolute; bottom: max(22px, calc(env(safe-area-inset-bottom) + 16px)); left: 50%; transform: translateX(-50%); z-index: 20;
   display: flex; gap: 10px;
 }
 #use-ui {
-  position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 20;
+  position: absolute; bottom: max(84px, calc(env(safe-area-inset-bottom) + 78px)); left: 50%; transform: translateX(-50%); z-index: 20;
   display: flex; gap: 10px;
 }
 #stairs-ui.hidden, #use-ui.hidden { display: none; }
@@ -454,10 +457,11 @@ button { font-family: inherit; color: inherit; }
 
 /* ---------- STATUS BAR ---------- */
 .statusbar {
-  height: 30px; flex: none; z-index: 10;
+  height: calc(30px + env(safe-area-inset-bottom)); flex: none; z-index: 10;
   background: var(--panel);
   border-top: 2px solid var(--border);
-  display: flex; align-items: center; gap: 20px; padding: 0 14px;
+  display: flex; align-items: center; gap: 20px;
+  padding: 0 max(14px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(14px, env(safe-area-inset-left));
   font-family: var(--mono); font-size: 11px; color: var(--text-dim);
   white-space: nowrap; overflow: hidden;
 }
@@ -512,7 +516,7 @@ button { font-family: inherit; color: inherit; }
 .panel-btn:active { transform: translate(2px,2px); box-shadow: none; }
 /* ---------- co-op panel ---------- */
 #coop-panel {
-  position: fixed; top: calc(var(--tb-h, 56px) + 8px); right: 12px; width: min(280px, 84vw);
+  position: fixed; top: calc(var(--tb-h, 56px) + env(safe-area-inset-top) + 8px); right: max(12px, env(safe-area-inset-right)); width: min(280px, 84vw);
   background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--sh-lg); z-index: 10000; overflow: hidden;
 }
@@ -570,24 +574,27 @@ body.playing #edit-panel { display: none; }
   #st-cursor, .statusbar .snap { display: none; }  /* keep status bar readable on phones */
 }
 
-/* ---------- MOBILE ---------- */
-@media (max-width: 820px) {
+/* ---------- MOBILE & TABLET COMPACT ---------- */
+@media (max-width: 820px), (pointer: coarse) and (max-height: 540px) {
   .topbar {
-    height: auto; min-height: 44px; flex-wrap: wrap; padding: 5px 8px; gap: 4px;
+    height: auto; min-height: calc(44px + env(safe-area-inset-top)); flex-wrap: wrap;
+    padding: max(5px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 5px max(8px, env(safe-area-inset-left));
+    gap: 4px;
   }
-  .toolbar { width: 56px; z-index: 42; }
-  .tool { width: 42px; height: 46px; }
+  .toolbar { width: calc(56px + env(safe-area-inset-left)); z-index: 42; }
+  .tool { width: 42px; height: 44px; }
   .tool .ic { width: 18px; height: 18px; }
   .tool .lbl { font-size: 8px; }
-  #edit-panel { top: 8px; right: 8px; width: min(240px, 74vw); max-height: 46%; z-index: 35; }
+  #edit-panel { top: 8px; right: max(8px, env(safe-area-inset-right)); width: min(240px, 74vw); max-height: 46%; z-index: 35; }
   body.insp-open #edit-panel { display: none; }
   body.insp-open #catalog-fab { display: none; }
   .inspector {
-    position: absolute; left: 56px; right: 0; bottom: 0; top: auto; width: auto; height: 50%;
+    position: absolute; left: calc(56px + env(safe-area-inset-left)); right: 0; bottom: 0; top: auto; width: auto; height: 50%;
     border-left: 2px solid var(--border); border-top: 2px solid var(--border); border-radius: 16px 0 0 0;
     transform: translateY(calc(100% + 16px)); transition: transform .28s var(--ease), visibility .28s; z-index: 40;
     box-shadow: 0 -10px 40px rgba(29,37,48,.3);
     background: var(--panel-2);
+    padding-bottom: env(safe-area-inset-bottom);
     visibility: hidden; pointer-events: none;
   }
   .inspector.open { transform: translateY(0); visibility: visible; pointer-events: auto; }
@@ -604,12 +611,12 @@ body.playing #edit-panel { display: none; }
     position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
     font-size: 15px; font-weight: 700; color: var(--text-dim);
   }
-  #catalog-fab { display: inline-flex; bottom: 14px; right: 12px; }
+  #catalog-fab { display: inline-flex; bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px)); right: max(12px, env(safe-area-inset-right)); }
   .logo { font-size: 12.5px; margin-right: 2px; }
   .logo span { display: none; }
   .logo .ic { width: 22px; height: 22px; }
-  .tbtn { padding: 0 7px; font-size: 11px; height: 28px; }
-  .statusbar { font-size: 10px; gap: 8px; padding: 0 8px; }
+  .tbtn { padding: 0 7px; font-size: 11px; height: 30px; }
+  .statusbar { font-size: 10px; gap: 8px; padding: 0 max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left)); }
   .statusbar > span:first-child { font-size: 10.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 1; }
   .statusbar .right { gap: 8px; flex: none; }
   .main { position: relative; }
@@ -1025,6 +1032,7 @@ html.in-3d, body.in-3d {
   border-radius: 10px;
   display: none;
   cursor: pointer;
+  z-index: 28;
 }
 #view3d-wrap #overlay {
   position: absolute;
@@ -1151,12 +1159,19 @@ html.in-3d, body.in-3d {
   #view3d-wrap #runBtn { display: flex; }
   #view3d-wrap #fps { bottom: auto; top: max(52px, calc(env(safe-area-inset-top) + 44px)); }
   #view3d-wrap #clock { bottom: auto; top: max(68px, calc(env(safe-area-inset-top) + 60px)); }
+  #view3d-wrap #coop-emotes { bottom: max(14px, env(safe-area-inset-bottom)); gap: 2px; padding: 3px 6px; }
+  #view3d-wrap #prompt { bottom: max(124px, calc(env(safe-area-inset-bottom) + 114px)); padding: 10px 18px; max-width: calc(100vw - 32px); text-align: center; }
 }
-@media (max-width: 600px) {
-  #view3d-wrap .hud-pill { padding: 5px 9px !important; font-size: 11.5px !important; min-height: 30px !important; }
+@media (max-width: 600px), (pointer: coarse) and (max-height: 480px) {
+  #view3d-wrap #topbar { top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); }
+  #view3d-wrap .topbar-left, #view3d-wrap .topbar-right { gap: 4px; }
+  #view3d-wrap .hud-pill { padding: 5px 8px !important; font-size: 11.5px !important; min-height: 30px !important; }
   #view3d-wrap .hud-pill.icon-only { width: 30px; height: 30px; }
   #view3d-wrap #hint { white-space: normal; max-width: calc(100vw - 24px); font-size: 11px; line-height: 1.35; bottom: 8px; }
-  #view3d-wrap #prompt { bottom: 144px; font-size: 13px; }
+  #view3d-wrap #stickL { width: 84px; height: 84px; left: max(14px, env(safe-area-inset-left)); bottom: max(20px, env(safe-area-inset-bottom)); }
+  #view3d-wrap #jumpBtn { width: 58px; height: 58px; right: max(14px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom)); font-size: 12px; }
+  #view3d-wrap #runBtn { width: 52px; height: 52px; right: max(14px, env(safe-area-inset-right)); bottom: max(90px, calc(env(safe-area-inset-bottom) + 68px)); font-size: 11px; }
+  #view3d-wrap #prompt { bottom: max(122px, calc(env(safe-area-inset-bottom) + 112px)); font-size: 13px; padding: 9px 15px; }
   #view3d-wrap #fps { bottom: auto; top: max(46px, calc(env(safe-area-inset-top) + 38px)); }
   #view3d-wrap #clock { bottom: auto; top: max(62px, calc(env(safe-area-inset-top) + 54px)); }
 }
@@ -1164,6 +1179,10 @@ html.in-3d, body.in-3d {
 #view3d-wrap.touch-controls #hint { display: none; }
 #view3d-wrap.touch-controls #jumpBtn { display: flex; }
 #view3d-wrap.touch-controls #runBtn { display: flex; }
+#view3d-wrap.touch-controls #coop-emotes { bottom: max(14px, env(safe-area-inset-bottom)); gap: 2px; padding: 3px 6px; }
+#view3d-wrap.touch-controls #prompt { bottom: max(124px, calc(env(safe-area-inset-bottom) + 114px)); padding: 10px 18px; }
+#view3d-wrap.touch-controls #fps { bottom: auto; top: max(52px, calc(env(safe-area-inset-top) + 44px)); }
+#view3d-wrap.touch-controls #clock { bottom: auto; top: max(68px, calc(env(safe-area-inset-top) + 60px)); }
 #view3d-wrap #coop-emotes {
   position: absolute;
   bottom: 40px;

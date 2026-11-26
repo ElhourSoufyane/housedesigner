@@ -47,7 +47,8 @@ G.init = function (r, onResize) {
   } catch (_) {}
   G.software = /swiftshader|llvmpipe|software|basic render/i.test(G.gpu);
   if (G.software) G.initialTier = 'low';
-  G.ceilingTier = G.software ? 'low' : 'high';
+  // Cap Auto promotion on mobile/tablet WebViews at Balanced ('medium') to avoid thermal throttling & iOS WebGL memory spikes
+  G.ceilingTier = G.software ? 'low' : (G.touch ? 'medium' : 'high');
   try { mode = localStorage.getItem('hp_3d_quality') || 'auto'; } catch (_) {}
   if (mode !== 'auto' && !presets[mode]) mode = 'auto';
   apply(mode === 'auto' ? startTier(G.initialTier) : mode);
@@ -94,13 +95,15 @@ G.setQuality = function (value) {
 G.sample = function (fps, seconds) {
   if (mode !== 'auto' || (typeof document !== 'undefined' && document.hidden)) return;
   if (settle > 0) { settle -= seconds; return; }
-  slow = fps < 40 ? slow + seconds : 0;
+  const lowFpsCutoff = G.touch ? 44 : 40;
+  const promoteSecs = G.touch ? 8 : 6;
+  slow = fps < lowFpsCutoff ? slow + seconds : 0;
   fast = fps > 57 ? fast + seconds : 0;
   const index = ORDER.indexOf(tier);
   const ceiling = G.ceilingTier || 'high';
   if (slow >= 2 && index > 0) apply(ORDER[index - 1]);
-  // Earns higher tier on sustained 60 fps (phones start Low and promote to Balanced/High; software stays Low).
-  else if (fast >= 6 && index < ORDER.indexOf(ceiling)) apply(ORDER[index + 1]);
+  // Earns higher tier on sustained 60 fps (phones start Low and promote to Balanced; software stays Low).
+  else if (fast >= promoteSecs && index < ORDER.indexOf(ceiling)) apply(ORDER[index + 1]);
 };
 /* cheap Lambert twin of a PBR material — same maps/colour/transparency;
    swapped in on Low so phones skip the PBR fragment shader entirely   */

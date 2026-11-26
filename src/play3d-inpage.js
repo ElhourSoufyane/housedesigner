@@ -257,17 +257,18 @@
     if (audit) audit.style.display = 'none';
     if (HP.world3d && HP.world3d.clearAudit) HP.world3d.clearAudit();
 
+    const isTouchUI = (HP.graphics3d && (HP.graphics3d.touch !== undefined ? HP.graphics3d.touch : (HP.graphics3d.isMobile && HP.graphics3d.isMobile(null, typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches)))) || false;
     const wrap = document.getElementById('view3d-wrap');
     if (wrap) {
       wrap.classList.remove('hidden');
-      if (HP.graphics3d && HP.graphics3d.touch) wrap.classList.add('touch-controls');
+      if (isTouchUI) wrap.classList.add('touch-controls');
     }
 
     const overlay = document.getElementById('overlay');
     if (overlay) {
       overlay.style.display = 'flex';
       const p = overlay.querySelector('p');
-      if (p) p.textContent = (HP.graphics3d && HP.graphics3d.touch) ? 'tap to enter your home' : 'click to explore your home in 3D';
+      if (p) p.textContent = isTouchUI ? 'tap to enter your home' : 'click to explore your home in 3D';
     }
 
     if (HP.preloadFloorTextures) HP.preloadFloorTextures();
@@ -288,6 +289,7 @@
       }
 
       HP.init3D(spawn);
+      if (wrap && HP.graphics3d && HP.graphics3d.touch) wrap.classList.add('touch-controls');
       if (HP.weather3d && HP.weather3d.syncUI) HP.weather3d.syncUI();
       if (HP.world3d && HP.world3d.camera) {
         const eyeH = (HP.world3d && HP.world3d.EYE) || 40;

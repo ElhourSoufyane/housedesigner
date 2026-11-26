@@ -124,7 +124,8 @@ HP.togglePlay = function () {
     if (HP.updateZoomUI) HP.updateZoomUI();
     if (btn) btn.innerHTML = '<svg class="ic"><use href="#i-stop"/></svg>Stop';
     if (hint) {
-      hint.textContent = ('ontouchstart' in window)
+      const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || (typeof matchMedia === 'function' && matchMedia('(pointer:coarse)').matches);
+      hint.textContent = hasTouch
         ? 'Drag anywhere to walk · tap the button to open doors & lamps'
         : 'WASD / arrows to walk · E to open doors & lamps · Esc to exit';
       hint.classList.remove('hidden');
@@ -176,7 +177,7 @@ HP.tickPlayer = function (dt) {
   HP.camera.y += (HP.player.y - HP.camera.y) * Math.min(1, dt * 8);
   checkStairs();
   checkUse();
-  HP.markDirty();
+  (HP.markCamDirty || HP.markDirty)();
 };
 
 /* ---------- interact: doors + lamps + seats near the player ---------- */

@@ -3,6 +3,7 @@
 (function () {
 const pointers = new Map();          // id -> {x,y}
 let pinch = null;
+let pinchActive = false;
 let placing = false;                 // pointer gesture inside placement mode
 let midPan = null;
 HP.spaceDown = false;
@@ -53,6 +54,7 @@ HP.initInput = function () {
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {                       // begin pinch
       midPan = null;
+      pinchActive = true;
       const [a, b] = [...pointers.values()];
       pinch = {
         d0: Math.hypot(a.x - b.x, a.y - b.y),
@@ -103,6 +105,7 @@ HP.initInput = function () {
       if (HP.updateZoomUI) HP.updateZoomUI();
       return;
     }
+    if (pinchActive) return;
     const p = evtPoint(e);
     if (HP.pending) { updateGhost(p); HP.trackPointer(p); return; }
     HP.tools[HP.tool].move(p);
@@ -112,8 +115,13 @@ HP.initInput = function () {
   function onUp(e) {
     if (HP.playing) return;
     pointers.delete(e.pointerId);
+    try { cv.releasePointerCapture(e.pointerId); } catch (_) {}
     if (midPan) { midPan = null; cv.style.cursor = HP.spaceDown ? 'grab' : ''; return; }
-    if (pinch) { if (pointers.size < 2) pinch = null; return; }
+    if (pinchActive) {
+      if (pointers.size < 2) pinch = null;
+      if (pointers.size === 0) pinchActive = false;
+      return;
+    }
     const p = evtPoint(e);
     if (HP.pending) {
       if (placing) {
