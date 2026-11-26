@@ -1,7 +1,7 @@
 {
-  "version": "1.3.43",
-  "build": 1795694398669,
-  "updatedAt": "2026-11-26T11:59:58.669Z",
+  "version": "1.3.44",
+  "build": 1795695377365,
+  "updatedAt": "2026-11-26T12:16:17.365Z",
   "notes": "Eliminated 3D transition freeze and in-game 6-8 FPS texture drop by making enter3D non-blocking, caching bump maps, and preventing mid-gameplay WebGL shader recompilation",
   "files": [
     "version.json",
@@ -193,11 +193,11 @@
     "textures/wood4.jpg"
   ],
   "hashes": {
-    "index.html": "378612eaafa3",
-    "play3d.html": "7dce86dc4a99",
-    "style.css": "4829da82503c",
+    "index.html": "0fbfbc95f5f5",
+    "play3d.html": "8fd1e1097bd1",
+    "style.css": "82e5a37a3f55",
     "manifest.json": "6b5cec7e7507",
-    "sw.js": "12bf71c76f13",
+    "sw.js": "fad6f276fc3a",
     "preload.js": "145efeb5844e",
     "electron-main.js": "bd1afa27bd27",
     "src/catalog.js": "b3ef2a16bdf4",
@@ -206,7 +206,7 @@
     "src/furniture3d.js": "6a7771e9e183",
     "src/geom3d.js": "ca36abbd8c20",
     "src/graphics3d.js": "3c6d593ba59a",
-    "src/grid.js": "79149c8a99fd",
+    "src/grid.js": "cc0fc03ca61f",
     "src/input.js": "de620af89413",
     "src/life3d.js": "20ed368ec5af",
     "src/main.js": "97df573da28d",
