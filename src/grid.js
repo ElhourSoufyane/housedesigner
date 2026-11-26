@@ -1,7 +1,7 @@
 /* grid.js — core constants, shared state, coordinate math */
 window.HP = {};
 
-HP.VERSION = 'v1.3.39';
+HP.VERSION = 'v1.3.40';
 HP.GRID_W = 64;          // cells wide  (32 m)
 HP.GRID_H = 44;          // cells tall  (22 m)
 HP.CELL   = 28;          // world px per cell (1 cell = 0.5 m)
@@ -174,15 +174,67 @@ HP.maxFurnitureId = function () {
 HP.wallKey  = (d, x, y) => d + ',' + x + ',' + y;
 HP.parseWallKey = k => { const p = k.split(','); return { d: p[0], x: +p[1], y: +p[2] }; };
 
+/* garage door openings (which may have wall segments removed beneath them)
+   act as closed room boundaries so the garage keeps its interior room,
+   ceiling, and roof when the user deletes wall segments for the door. */
+HP.garageDoorEdges = function (targetLvl) {
+  const lvl = targetLvl || HP.cur();
+  if (!lvl) return null;
+  const gds = (lvl.furniture || []).filter(it => /^garagedoor/i.test(it.type));
+  if (!gds.length) return null;
+  const walls = lvl.walls || {};
+  const sig = Object.keys(walls).length + ':' +
+    gds.map(it => it.id + ',' + it.x + ',' + it.y + ',' + (it.rot || 0) + ',' + (it.w || '') + ',' + (it.h || '')).join(';');
+  if (lvl._gdEdgeCache && lvl._gdEdgeSig === sig) return lvl._gdEdgeCache;
+  const edges = new Set();
+  for (const it of gds) {
+    const f = HP.footprint(it);
+    const horiz = ((it.rot || 0) % 2 === 0);
+    if (horiz) {
+      const gx0 = Math.round(f.x), gx1 = Math.round(f.x + f.w) - 1;
+      let bestY = Math.round(f.y), bestScore = -1;
+      for (let ty = Math.floor(f.y); ty <= Math.ceil(f.y + f.h); ty++) {
+        let sc = 0;
+        if (walls[HP.wallKey('h', gx0 - 1, ty)]) sc += 10;
+        if (walls[HP.wallKey('h', gx1 + 1, ty)]) sc += 10;
+        if (walls[HP.wallKey('v', gx0, ty - 1)] || walls[HP.wallKey('v', gx0, ty)]) sc += 6;
+        if (walls[HP.wallKey('v', gx1 + 1, ty - 1)] || walls[HP.wallKey('v', gx1 + 1, ty)]) sc += 6;
+        for (let cx = gx0; cx <= gx1; cx++) if (walls[HP.wallKey('h', cx, ty)]) sc += 2;
+        if (sc > bestScore) { bestScore = sc; bestY = ty; }
+      }
+      for (let cx = gx0; cx <= gx1; cx++) edges.add(HP.wallKey('h', cx, bestY));
+    } else {
+      const gy0 = Math.round(f.y), gy1 = Math.round(f.y + f.h) - 1;
+      let bestX = Math.round(f.x), bestScore = -1;
+      for (let tx = Math.floor(f.x); tx <= Math.ceil(f.x + f.w); tx++) {
+        let sc = 0;
+        if (walls[HP.wallKey('v', tx, gy0 - 1)]) sc += 10;
+        if (walls[HP.wallKey('v', tx, gy1 + 1)]) sc += 10;
+        if (walls[HP.wallKey('h', tx - 1, gy0)] || walls[HP.wallKey('h', tx, gy0)]) sc += 6;
+        if (walls[HP.wallKey('h', tx - 1, gy1 + 1)] || walls[HP.wallKey('h', tx, gy1 + 1)]) sc += 6;
+        for (let cy = gy0; cy <= gy1; cy++) if (walls[HP.wallKey('v', tx, cy)]) sc += 2;
+        if (sc > bestScore) { bestScore = sc; bestX = tx; }
+      }
+      for (let cy = gy0; cy <= gy1; cy++) edges.add(HP.wallKey('v', bestX, cy));
+    }
+  }
+  lvl._gdEdgeSig = sig;
+  lvl._gdEdgeCache = edges;
+  return edges;
+};
+
 /* is there a blocking wall on the edge between cell (x,y) and its neighbor? */
 HP.wallBetween = function (x, y, nx, ny, targetLvl) {
-  const w = (targetLvl && targetLvl.walls) || HP.cur().walls;
-  if (!w) return false;
-  if (nx === x + 1) return !!w[HP.wallKey('v', x + 1, y)];
-  if (nx === x - 1) return !!w[HP.wallKey('v', x, y)];
-  if (ny === y + 1) return !!w[HP.wallKey('h', x, y + 1)];
-  if (ny === y - 1) return !!w[HP.wallKey('h', x, y)];
-  return false;
+  const lvl = targetLvl || HP.cur();
+  const w = lvl && lvl.walls;
+  const gd = HP.garageDoorEdges(lvl);
+  let k = null;
+  if (nx === x + 1) k = HP.wallKey('v', x + 1, y);
+  else if (nx === x - 1) k = HP.wallKey('v', x, y);
+  else if (ny === y + 1) k = HP.wallKey('h', x, y + 1);
+  else if (ny === y - 1) k = HP.wallKey('h', x, y);
+  if (!k) return false;
+  return !!(w && w[k]) || !!(gd && gd.has(k));
 };
 
 /* ---------- coordinate transforms ---------- */
@@ -443,11 +495,17 @@ HP.canPlace = function (type, x, y, rot, ignore, sz) {
   const bw = (sz && sz.w) || d.w, bh = (sz && sz.h) || d.h;   // sz = unrotated size
   const w = (rot % 2 === 0) ? bw : bh, h = (rot % 2 === 0) ? bh : bw;
   if (x < 0 || y < 0 || x + w > HP.GRID_W || y + h > HP.GRID_H) return false;
-  // no wall may cross the interior of the footprint (flush against walls is ok)
+  // no wall may cross the interior of the footprint (flush against walls is ok;
+  // garage doors may straddle/align onto an inline exterior/partition wall)
+  const isGD = /^garagedoor/i.test(type);
+  const gdHoriz = ((rot % 2) === 0);
   for (const k in HP.cur().walls) {
     const s = HP.parseWallKey(k);
-    if (s.d === 'h') { if (s.x >= x && s.x < x + w && s.y > y && s.y < y + h) return false; }
-    else { if (s.x > x && s.x < x + w && s.y >= y && s.y < y + h) return false; }
+    if (s.d === 'h') {
+      if (s.x >= x && s.x < x + w && s.y > y && s.y < y + h && !(isGD && gdHoriz)) return false;
+    } else {
+      if (s.x > x && s.x < x + w && s.y >= y && s.y < y + h && !(isGD && !gdHoriz)) return false;
+    }
   }
   // keep door swings clear (floor/ceil → every cell the footprint overlaps)
   const dc = HP.doorCells();
@@ -695,8 +753,10 @@ HP.itemSubBoxes = function (type, bw, bh, H, it) {
       { x0: W / 2 - 0.24 * C, x1: W / 2, z0: -D / 2, z1: -D / 2 + 0.24 * C, y0: 0, y1: L.deckY },
       { x0: -W / 2, x1: -W / 2 + 0.24 * C, z0: D / 2 - 0.24 * C, z1: D / 2, y0: 0, y1: L.deckY },
       { x0: W / 2 - 0.24 * C, x1: W / 2, z0: D / 2 - 0.24 * C, z1: D / 2, y0: 0, y1: L.deckY },
-      // Elevated deck slab (y=50..54.0 - flush with feetY=54.0)
-      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2, y0: 50, y1: L.deckY },
+      // Elevated deck slab (split front south lip at stair throat so stairs never collide at y=50..54)
+      { x0: -W / 2, x1: W / 2, z0: -D / 2, z1: D / 2 - 9, y0: 50, y1: L.deckY },
+      { x0: -W / 2, x1: L.stairGapX0, z0: D / 2 - 9, z1: D / 2, y0: 50, y1: L.deckY },
+      { x0: L.stairGapX1, x1: W / 2, z0: D / 2 - 9, z1: D / 2, y0: 50, y1: L.deckY },
       // Cabin solid perimeter walls (full vertical height, open walk-in front doorway doorX0..doorX1)
       { x0: L.cabX0 - 2, x1: L.cabX1 + 2, z0: L.cabZ0 - 2.5, z1: L.cabZ0 + 2.5, y0: L.deckY, y1: L.wallTop },
       { x0: L.cabX0 - 2.5, x1: L.cabX0 + 2.5, z0: L.cabZ0, z1: L.cabZ1, y0: L.deckY, y1: L.wallTop },
@@ -981,8 +1041,8 @@ HP.treehouseLayout = function (bw = 6, bh = 6) {
   const cabZ1 = -D / 2 + cabRows * C - 0.10 * C;
   const doorHalfW = Math.min((cabX1 - cabX0) * 0.28, Math.max(15, 0.12 * W));
   const doorCx = (cabX0 + cabX1) * 0.5;
-  const stairCx = Math.max(cabX1 + (W / 2 - cabX1) * 0.55, 0.34 * W);
-  const stairHalfW = Math.min(0.11 * W, Math.max(10, (W / 2 - cabX1) * 0.38));
+  const stairHalfW = Math.min(0.11 * W, Math.max(9.5, (W / 2 - cabX1) * 0.34));
+  const stairCx = Math.min(W / 2 - stairHalfW - 3.5, Math.max(cabX1 + (W / 2 - cabX1) * 0.55, 0.34 * W));
   return {
     W, D, C, bw, bh,
     deckY: 54.0,
@@ -1001,8 +1061,8 @@ HP.treehouseLayout = function (bw = 6, bh = 6) {
     trunkR: Math.max(12, Math.min(22, 0.11 * Math.min(W, D))),
     stairCx,
     stairHalfW,
-    stairGapX0: stairCx - stairHalfW - 2,
-    stairGapX1: Math.min(W / 2 - 4, stairCx + stairHalfW + 2),
+    stairGapX0: stairCx - stairHalfW - 2.5,
+    stairGapX1: Math.min(W / 2 - 2, stairCx + stairHalfW + 2.5),
     lx0: stairCx - stairHalfW,
     lx1: stairCx + stairHalfW,
     lz0: D * 0.45,

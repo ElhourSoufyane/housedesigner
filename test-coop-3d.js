@@ -288,6 +288,24 @@ async function run() {
   HP.sync3d.handleData({ t: 'weather', weather: 'clear' }, dummyConn);
   assert('Global weather updated to clear on remote client', HP.weather === 'clear');
 
+  // 14. Elevated sitting avatar Y (Treehouse deck y=54), garage door sync & ceiling merge
+  HP.sync3d.handleData({ t: 'pos', x: 300, y: 54, z: 300, yaw: 0, s: 1, name: 'TreehouseGuest' }, dummyConn);
+  HP.sync3d.tick(0.2, 2.0, HP.world3d.camera);
+  assert('Elevated sitting avatar keeps elevated Y instead of dropping to 0', Math.abs(peerRecord.avatar.root.position.y - 54) < 1);
+
+  sentMsgs = [];
+  HP.sync3d.broadcastGarageDoor(0, 1);
+  assert('broadcastGarageDoor sends garagedoor packet', sentMsgs.some(m => m.t === 'garagedoor' && m.idx === 0 && m.target === 1));
+  HP.world3d.garageDoors = [{ target: 0, open: 0 }];
+  HP.sync3d.handleData({ t: 'garagedoor', idx: 0, target: 1 }, dummyConn);
+  assert('Remote garagedoor target updates cleanly', HP.world3d.garageDoors[0].target === 1);
+
+  const ceilState = JSON.parse(JSON.stringify(HP.state));
+  ceilState.levels[0].ceilings = { '3,3': 'wood' };
+  ceilState.levels[0].roomCeilings = { r1: 'plaster' };
+  HP.sync.applyState({ t: 'state', rev: Date.now(), origin: 'partner-1', state: ceilState, nextId: 103 }, dummyConn);
+  assert('Ceilings synced via Lamport delta merge', HP.state.levels[0].ceilings['3,3'] === 'wood');
+
   console.log(`\nResults: ${pass} passed, ${fail} failed.`);
   if (fail > 0) process.exit(1);
   process.exit(0);

@@ -337,8 +337,38 @@ F.builder = function (group) {
     geom.setIndex(new THREE.BufferAttribute(new Uint16Array(indices), 1));
     return geom;
   }
+  function createWedgeGeometry() {
+    const positions = [], normals = [], uvs = [], indices = [];
+    const addQuad = (p0, p1, p2, p3, n) => {
+      const b = positions.length / 3;
+      positions.push(...p0, ...p1, ...p2, ...p3);
+      normals.push(...n, ...n, ...n, ...n);
+      uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+      indices.push(b, b + 1, b + 2, b, b + 2, b + 3);
+    };
+    const addTri = (p0, p1, p2, n) => {
+      const b = positions.length / 3;
+      positions.push(...p0, ...p1, ...p2);
+      normals.push(...n, ...n, ...n);
+      uvs.push(0, 0, 1, 0, 1, 1);
+      indices.push(b, b + 1, b + 2);
+    };
+    addQuad([-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5], [0, 0, 1]);
+    addQuad([-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [0, -1, 0]);
+    const sn = [0, Math.SQRT1_2, -Math.SQRT1_2];
+    addQuad([-0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, -0.5, -0.5], [-0.5, -0.5, -0.5], sn);
+    addTri([-0.5, -0.5, -0.5], [-0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-1, 0, 0]);
+    addTri([0.5, -0.5, 0.5], [0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [1, 0, 0]);
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    geom.setIndex(new THREE.BufferAttribute(new Uint16Array(indices), 1));
+    return geom;
+  }
   const geometries = {
     box: new THREE.BoxGeometry(1, 1, 1),
+    wedge: createWedgeGeometry(),
     cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, segments),
     openCylinder: new THREE.CylinderGeometry(0.43, 0.50, 1, segments, 1, true),
     cylinderX: new THREE.CylinderGeometry(0.5, 0.5, 1, segments).rotateZ(Math.PI / 2),
@@ -489,6 +519,12 @@ F.builder = function (group) {
   const cyl = (k, x, y, z, w, h, d, c) => part('cylinder', k, x, y, z, w, h, d, c);
   const cylX = (k, x, y, z, w, h, d, c, detail, mat) => part('cylinderX', k, x, y, z, w, h, d, c, detail, mat);
   const cylZ = (k, x, y, z, w, h, d, c, detail, mat) => part('cylinderZ', k, x, y, z, w, h, d, c, detail, mat);
+  const wheelX = (k, x, y, z, wNorm, diamPx, c, detail, mat) =>
+    part('cylinderX', k, x, y, z, wNorm, diamPx / height, diamPx / depth, c, detail, mat);
+  const wheelZ = (k, x, y, z, diamPx, dNorm, c, detail, mat) =>
+    part('cylinderZ', k, x, y, z, diamPx / width, diamPx / height, dNorm, c, detail, mat);
+  const wedge = (k, x, y, z, w, h, d, c, detail, mat) => part('wedge', k, x, y, z, w, h, d, c, detail, mat);
+  const wedgeBack = (k, x, y, z, w, h, d, c, detail, mat) => partRot('wedge', k, x, y, z, w, h, d, Math.PI, c, detail, mat);
   function legs(top, thick) {
     for (const x of [-0.36, 0.36]) for (const z of [-0.34, 0.34])
       box('wood', x, top / 2, z, thick || 0.07, top, thick || 0.07);
@@ -2163,9 +2199,9 @@ F.builder = function (group) {
         // Central aerodynamic frame chassis
         box('dark', 0, 0.35, 0, 0.14, 0.55, 0.65, '#1e2124');
         box('glow', 0, 0.35, 0, 0.145, 0.08, 0.45, '#ef4444');              // red performance accent
-        // Heavy perimeter flywheel at front (spinning upright around X axis)
-        cylX('metal', 0, 0.38, -0.22, 0.08, 0.44, 0.44, '#d1d5db');          // chrome flywheel disc
-        cylX('dark', 0, 0.38, -0.22, 0.09, 0.20, 0.20, '#111827');           // flywheel hub
+        // Heavy perimeter flywheel at front (true circular disc around X axis)
+        wheelX('metal', 0, 0.38, -0.22, 0.08, 15.8, '#d1d5db');         // chrome flywheel disc
+        wheelX('dark', 0, 0.38, -0.22, 0.09, 7.2, '#111827');           // flywheel hub
         // Steel seat post & ergonomic racing saddle
         cyl('metal', 0, 0.62, 0.22, 0.06, 0.35, 0.06, '#94a3b8');
         box('dark', 0, 0.78, 0.20, 0.26, 0.08, 0.36, '#181b1e');            // contoured saddle
@@ -2200,8 +2236,8 @@ F.builder = function (group) {
         // Olympic 45lb Barbell racked on J-hooks
         cylX('metal', 0, 0.88, -0.34, 1.30, 0.035, 0.035, '#cbd5e1');        // 7ft bar across X
         for (const bx of [-0.52, 0.52]) {
-          cylX('dark', bx, 0.88, -0.34, 0.05, 0.36, 0.36, '#181b1e');        // 45lb bumper plates
-          cylX('metal', bx > 0 ? bx + 0.04 : bx - 0.04, 0.88, -0.34, 0.03, 0.06, 0.06, '#c9a44e'); // spring collar
+          wheelX('dark', bx, 0.88, -0.34, 0.05, 11.5, '#181b1e');       // 45lb bumper plates
+          wheelX('metal', bx > 0 ? bx + 0.04 : bx - 0.04, 0.88, -0.34, 0.03, 2.2, '#c9a44e'); // spring collar
         }
         // 3. Vertical Support Risers & Steel Pad Subframe (Connecting spine to pads!)
         // Front vertical riser post from spine (y=0.08) to seat frame (y=0.34)
@@ -2353,9 +2389,9 @@ F.builder = function (group) {
         box('dark', 0, 0.04, -0.38, 0.62, 0.08, 0.10, '#15171a');
         box('dark', 0, 0.04, 0.38, 0.56, 0.08, 0.10, '#15171a');
         box('metal', 0, 0.06, 0, 0.12, 0.08, 0.84, '#1e293b', true);
-        // 2. Large rear flywheel housing (spinning upright around X axis)
-        cylX('dark', 0, 0.32, 0.26, 0.26, 0.52, 0.52, '#181b1e');
-        cylX('metal', 0, 0.32, 0.26, 0.27, 0.26, 0.26, '#38bdf8', true);      // cyan flywheel hub accent
+        // 2. Large rear flywheel housing (true circle around X axis)
+        wheelX('dark', 0, 0.32, 0.26, 0.26, 22.8, '#181b1e');
+        wheelX('metal', 0, 0.32, 0.26, 0.27, 11.4, '#38bdf8', true);     // cyan flywheel hub accent
         // 3. Oversized ribbed non-slip foot pedal platforms
         box('dark', -0.22, 0.22, 0.04, 0.18, 0.06, 0.38, '#1e293b');
         box('dark', 0.22, 0.22, -0.08, 0.18, 0.06, 0.38, '#1e293b');
@@ -3057,10 +3093,10 @@ F.builder = function (group) {
       /* ---------------- MUSIC & INSTRUMENTS (7 ITEMS) ---------------- */
       } else if (/^drums$/i.test(t)) {
         // Complete 5-Piece Acoustic Drum Kit (2x2 footprint, bass drum with pedal, snare, 2 rack toms, floor tom, hi-hat, ride & crash cymbals, throne)
-        // 1. Large 22-inch Bass Drum at center
-        cylZ('fabric', 0, 0.36, -0.05, 0.68, 0.68, 0.44, color || '#991b1b');  // burgundy wrap shell along Z
-        cylZ('ceramic', 0, 0.36, 0.18, 0.64, 0.64, 0.02, '#f8fafc');           // resonant front head
-        cylZ('metal', 0, 0.36, 0.19, 0.69, 0.69, 0.03, '#cbd5e1', true);      // chrome hoop
+        // 1. Large 22-inch Bass Drum at center (true circular shell along Z)
+        wheelZ('fabric', 0, 0.36, -0.05, 24.5, 0.44, color || '#991b1b'); // burgundy wrap shell along Z
+        wheelZ('ceramic', 0, 0.36, 0.18, 23.0, 0.02, '#f8fafc');          // resonant front head
+        wheelZ('metal', 0, 0.36, 0.19, 25.0, 0.03, '#cbd5e1', true);      // chrome hoop
         // 2. 14-inch Snare Drum on chrome basket stand
         cyl('metal', -0.32, 0.28, 0.26, 0.04, 0.54, 0.04, '#cbd5e1', true);  // snare tripod
         cyl('metal', -0.32, 0.54, 0.26, 0.42, 0.18, 0.42, '#cbd5e1', true);   // chrome snare shell
@@ -3290,15 +3326,13 @@ F.builder = function (group) {
       } else if (/^bicycle$/i.test(t)) {
         // High-End Commuter Road Bicycle (1x2 footprint, hydroformed alloy diamond frame, 700c spoked wheels, drop/flat bars, chain drive, kickstand)
         const frameCol = color || '#2563eb';
-        // 1. Front and Rear 700c Wheels (Rubber tire, double-wall rim, center axle hub)
-        // Front Wheel at z = -0.38, y = 0.32
-        cylX('dark', 0, 0.32, -0.38, 0.038, 0.62, 0.62, '#181b1e');            // rubber tire
-        cylX('metal', 0, 0.32, -0.38, 0.028, 0.54, 0.54, '#cbd5e1');           // aluminum rim
-        cylX('metal', 0, 0.32, -0.38, 0.065, 0.08, 0.08, '#94a3b8');           // center front hub
-        // Rear Wheel at z = 0.38, y = 0.32
-        cylX('dark', 0, 0.32, 0.38, 0.038, 0.62, 0.62, '#181b1e');             // rubber tire
-        cylX('metal', 0, 0.32, 0.38, 0.028, 0.54, 0.54, '#cbd5e1');            // aluminum rim
-        cylX('metal', 0, 0.32, 0.38, 0.075, 0.09, 0.09, '#94a3b8');            // center rear hub & cassette
+        // 1. Front and Rear 700c Wheels (true circular tires/rims/hubs)
+        wheelX('dark', 0, 0.32, -0.38, 0.038, 19.8, '#181b1e');           // rubber tire
+        wheelX('metal', 0, 0.32, -0.38, 0.028, 17.3, '#cbd5e1');          // aluminum rim
+        wheelX('metal', 0, 0.32, -0.38, 0.065, 2.6, '#94a3b8');           // center front hub
+        wheelX('dark', 0, 0.32, 0.38, 0.038, 19.8, '#181b1e');            // rubber tire
+        wheelX('metal', 0, 0.32, 0.38, 0.028, 17.3, '#cbd5e1');           // aluminum rim
+        wheelX('metal', 0, 0.32, 0.38, 0.075, 2.9, '#94a3b8');            // center rear hub & cassette
         // 2. Rigid Front Fork connecting front wheel axle to head tube
         for (const sx of [-0.035, 0.035]) {
           boxSlope('metal', sx, 0.32, -0.38, 0, 0.58, -0.28, 0.03, 0.03, frameCol); // fork blade
@@ -3336,7 +3370,7 @@ F.builder = function (group) {
         box('dark', 0, 0.79, 0.11, 0.14, 0.04, 0.26, '#181b1e');               // contoured saddle
         box('dark', 0, 0.775, 0.02, 0.06, 0.03, 0.10, '#181b1e');              // saddle nose
         // 6. Drivetrain: Chainring, Cranks, Pedals & Leaning Kickstand
-        cylX('metal', 0.04, 0.28, 0.06, 0.015, 0.15, 0.15, '#64748b');         // large front chainring
+        wheelX('metal', 0.04, 0.28, 0.06, 0.015, 4.8, '#64748b');         // large front chainring
         // Left & right crank arms and pedals
         boxSlope('metal', 0.05, 0.28, 0.06, 0.05, 0.18, 0.12, 0.02, 0.03, '#cbd5e1');
         box('dark', 0.08, 0.18, 0.12, 0.06, 0.02, 0.07, '#181b1e');            // right pedal
@@ -3593,15 +3627,13 @@ F.builder = function (group) {
       } else if (/^motorcycle$/i.test(t)) {
         // Modern Naked Cafe Racer Motorcycle (Trellis frame, sculpted gas tank, V-twin engine, spoked wheels, clip-on bars, LED headlight, swingarm & kickstand)
         const motoCol = color || '#ef4444';
-        // 1. Front and Rear High-Performance Wheels with Drilled Disc Brakes
-        // Front Wheel at z = -0.26, y = 0.26
-        cylX('dark', 0, 0.26, -0.26, 0.11, 0.48, 0.48, '#181b1e');             // front tire
-        cylX('metal', 0, 0.26, -0.26, 0.06, 0.36, 0.36, '#cbd5e1');            // aluminum rim & rotor
-        cylX('metal', 0, 0.26, -0.26, 0.14, 0.08, 0.08, '#334155');            // front axle hub
-        // Rear Wheel at z = 0.26, y = 0.26
-        cylX('dark', 0, 0.26, 0.26, 0.14, 0.48, 0.48, '#181b1e');              // rear fat tire
-        cylX('metal', 0, 0.26, 0.26, 0.08, 0.36, 0.36, '#cbd5e1');             // rear rim & sprocket
-        cylX('metal', 0, 0.26, 0.26, 0.16, 0.09, 0.09, '#334155');             // rear axle hub
+        // 1. Front and Rear High-Performance Wheels (true circular wheels & rotor)
+        wheelX('dark', 0, 0.26, -0.26, 0.11, 16.4, '#181b1e');            // front tire
+        wheelX('metal', 0, 0.26, -0.26, 0.06, 12.2, '#cbd5e1');           // aluminum rim & rotor
+        wheelX('metal', 0, 0.26, -0.26, 0.14, 2.8, '#334155');            // front axle hub
+        wheelX('dark', 0, 0.26, 0.26, 0.14, 16.4, '#181b1e');             // rear fat tire
+        wheelX('metal', 0, 0.26, 0.26, 0.08, 12.2, '#cbd5e1');            // rear rim & sprocket
+        wheelX('metal', 0, 0.26, 0.26, 0.16, 3.1, '#334155');             // rear axle hub
         // 2. Inverted Front Suspension Fork connecting wheel axle to triple clamps
         for (const sx of [-0.07, 0.07]) {
           boxSlope('metal', sx, 0.26, -0.26, sx, 0.58, -0.16, 0.034, 0.034, '#c9a44e'); // gold stanchion
@@ -3638,8 +3670,8 @@ F.builder = function (group) {
         cylX('metal', 0, 0.64, -0.15, 0.36, 0.026, 0.026, '#1e293b');           // clip-on handlebars
         box('dark', -0.17, 0.64, -0.15, 0.05, 0.034, 0.034, '#0f172a');         // left grip
         box('dark', 0.17, 0.64, -0.15, 0.05, 0.034, 0.034, '#0f172a');          // right grip
-        cylZ('metal', 0, 0.54, -0.28, 0.13, 0.13, 0.06, '#0f172a');             // 7" round headlight
-        cylZ('glow', 0, 0.54, -0.312, 0.11, 0.11, 0.01, '#fef08a');             // LED projector lens
+        wheelZ('metal', 0, 0.54, -0.28, 4.4, 0.06, '#0f172a');            // 7" round headlight
+        wheelZ('glow', 0, 0.54, -0.312, 3.8, 0.01, '#fef08a');            // LED projector lens
         // Leaning steel kickstand down to floor
         boxSlope('dark', -0.05, 0.24, 0.04, -0.13, 0.01, 0.08, 0.025, 0.025, '#181b1e');
 
@@ -3878,9 +3910,9 @@ F.builder = function (group) {
 
       } else if (/^scooter$/i.test(t)) {
         // Foldable Electric Commuter Scooter (Aluminum deck, 8.5" pneumatic tires, T-handlebars, LED headlight)
-        // 1. Front and rear pneumatic tires (standing upright rolling along Z)
-        cylX('dark', 0, 0.14, -0.36, 0.08, 0.28, 0.28, '#181b1e');             // front tire
-        cylX('dark', 0, 0.14, 0.36, 0.08, 0.28, 0.28, '#181b1e');              // rear tire
+        // 1. Front and rear pneumatic tires (true circular tires)
+        wheelX('dark', 0, 0.14, -0.36, 0.08, 8.4, '#181b1e');             // front tire
+        wheelX('dark', 0, 0.14, 0.36, 0.08, 8.4, '#181b1e');              // rear tire
         // Low aluminum standing deck with grip tape
         box('metal', 0, 0.14, 0, 0.24, 0.06, 0.62, color || '#1e293b', true);
         box('dark', 0, 0.172, 0, 0.20, 0.005, 0.54, '#0f172a');               // grip tape
@@ -3909,15 +3941,15 @@ F.builder = function (group) {
 
       } else if (/^ridemower$/i.test(t)) {
         // Heavy-Duty Lawn Tractor Ride-On Mower (1x2 footprint, high-back seat, steering wheel, cutting deck, turf tires)
-        // 1. 4 Wide turf-saver tires standing upright
-        cylX('dark', -0.38, 0.18, 0.28, 0.14, 0.36, 0.36, '#181b1e');          // rear fat tire left
-        cylX('dark', 0.38, 0.18, 0.28, 0.14, 0.36, 0.36, '#181b1e');           // rear fat tire right
-        cylX('metal', -0.38, 0.18, 0.28, 0.15, 0.18, 0.18, '#facc15', true);   // yellow rim left
-        cylX('metal', 0.38, 0.18, 0.28, 0.15, 0.18, 0.18, '#facc15', true);    // yellow rim right
-        cylX('dark', -0.34, 0.13, -0.32, 0.10, 0.26, 0.26, '#181b1e');         // front tire left
-        cylX('dark', 0.34, 0.13, -0.32, 0.10, 0.26, 0.26, '#181b1e');          // front tire right
-        cylX('metal', -0.34, 0.13, -0.32, 0.11, 0.12, 0.12, '#facc15', true);  // front rim left
-        cylX('metal', 0.34, 0.13, -0.32, 0.11, 0.12, 0.12, '#facc15', true);   // front rim right
+        // 1. 4 Wide turf-saver tires (true circular tires & rims)
+        wheelX('dark', -0.38, 0.18, 0.28, 0.14, 11.5, '#181b1e');         // rear fat tire left
+        wheelX('dark', 0.38, 0.18, 0.28, 0.14, 11.5, '#181b1e');          // rear fat tire right
+        wheelX('metal', -0.38, 0.18, 0.28, 0.15, 5.8, '#facc15', true);   // yellow rim left
+        wheelX('metal', 0.38, 0.18, 0.28, 0.15, 5.8, '#facc15', true);    // yellow rim right
+        wheelX('dark', -0.34, 0.13, -0.32, 0.10, 8.3, '#181b1e');         // front tire left
+        wheelX('dark', 0.34, 0.13, -0.32, 0.10, 8.3, '#181b1e');          // front tire right
+        wheelX('metal', -0.34, 0.13, -0.32, 0.11, 3.8, '#facc15', true);  // front rim left
+        wheelX('metal', 0.34, 0.13, -0.32, 0.11, 3.8, '#facc15', true);   // front rim right
         // 2. Heavy steel chassis & green/yellow hood
         box('ceramic', 0, 0.42, -0.16, 0.62, 0.34, 0.58, color || '#16a34a'); // engine hood
         box('dark', 0, 0.38, -0.445, 0.54, 0.20, 0.02, '#181b1e');            // front black grille
@@ -3928,7 +3960,7 @@ F.builder = function (group) {
         // 3. Ergonomic high-back driver seat & steering wheel
         box('dark', 0, 0.56, 0.22, 0.44, 0.28, 0.40, '#1e293b');              // padded vinyl seat
         cyl('metal', 0, 0.58, -0.02, 0.03, 0.24, 0.03, '#1e293b', true);      // steering column
-        cylZ('dark', 0, 0.68, -0.04, 0.26, 0.26, 0.03, '#181b1e');             // upright angled steering wheel!
+        wheelZ('dark', 0, 0.68, -0.04, 7.6, 0.03, '#181b1e');             // round steering wheel
 
       
       /* ---------------- OUTDOOR & PATIO (34 ITEMS) ---------------- */
@@ -4333,9 +4365,9 @@ F.builder = function (group) {
 
       } else if (/^wheelbarrow$/i.test(t)) {
         // Heavy-Duty Contractor Wheelbarrow with Potting Soil (1x2 footprint, height 16px)
-        // 1. Front pneumatic wheel & axle bracket (+Z)
-        cylX('dark', 0, 0.32, 0.38, 0.08, 0.62, 0.62, '#181b1e');
-        cylX('metal', 0, 0.32, 0.38, 0.09, 0.28, 0.28, '#cbd5e1');
+        // 1. Front pneumatic wheel & axle bracket (+Z) (true circular tire)
+        wheelX('dark', 0, 0.32, 0.38, 0.08, 9.9, '#181b1e');
+        wheelX('metal', 0, 0.32, 0.38, 0.09, 4.5, '#cbd5e1');
         box('metal', 0, 0.32, 0.38, 0.14, 0.04, 0.06, '#334155');
         // 2. Tubular steel chassis extending back to wooden handles (-Z)
         boxSlope('metal', -0.16, 0.28, 0.36, -0.24, 0.55, -0.42, 0.04, 0.04, '#475569');
@@ -4377,10 +4409,10 @@ F.builder = function (group) {
 
       } else if (/^mower$/i.test(t)) {
         // High-Wheel Walk-Behind Gas Rotary Lawn Mower with Grass Catcher (1x1 footprint, height 22px)
-        // 1. 4 Durable rubber lawn wheels
+        // 1. 4 Durable rubber lawn wheels (true circular wheels)
         for (const [wx, wz] of [[-0.38, -0.28], [0.38, -0.28], [-0.38, 0.28], [0.38, 0.28]]) {
-          cylX('dark', wx, 0.18, wz, 0.08, 0.34, 0.34, '#181b1e');
-          cylX('metal', wx, 0.18, wz, 0.09, 0.14, 0.14, '#e2e8f0');
+          wheelX('dark', wx, 0.18, wz, 0.08, 7.5, '#181b1e');
+          wheelX('metal', wx, 0.18, wz, 0.09, 3.2, '#e2e8f0');
         }
         // 2. Heavy stamped steel cutting deck chassis
         box('metal', 0, 0.22, 0, 0.72, 0.16, 0.78, color || '#5d8a5d');
@@ -5251,22 +5283,30 @@ F.builder = function (group) {
           }
         }
 
-        // Front-Right Access Stairs descending from (L.stairCx, deckY, D/2 - 2) -> (L.stairCx, 0, L.lz1)
-        const sTopZ = D / 2 - 2, sBotZ = L.lz1;
+        // Front-Right Access Stairs descending cleanly from (L.stairCx, deckY, D/2 - 0.5) -> (L.stairCx, 0, L.lz1)
+        const sTopZ = D / 2 - 0.5, sBotZ = L.lz1;
         const stMat = style === 0 ? steelDark : railWood;
         const stKind = style === 0 ? 'metal' : 'wood';
-        pSlopeYZ(stKind, L.lx0, 0, sBotZ, deckY - 1, sTopZ, 1.6, 2.6, stMat);
-        pSlopeYZ(stKind, L.lx1, 0, sBotZ, deckY - 1, sTopZ, 1.6, 2.6, stMat);
+        pSlopeYZ(stKind, L.lx0, 0.5, sBotZ, deckY - 1.2, sTopZ, 1.8, 2.8, stMat);
+        pSlopeYZ(stKind, L.lx1, 0.5, sBotZ, deckY - 1.2, sTopZ, 1.8, 2.8, stMat);
         const treadW = Math.max(8, (L.lx1 - L.lx0) - 1.6);
-        for (let st = 1; st <= 10; st++) {
+        for (let st = 1; st <= 11; st++) {
           const sf = st / 11;
-          pBox('wood', L.stairCx, sf * deckY, sBotZ - sf * (sBotZ - sTopZ), treadW, 1.4, 3.0, deckWood);
+          const tz = sBotZ - sf * (sBotZ - sTopZ);
+          const ty = sf * (deckY - 0.7);
+          pBox('wood', L.stairCx, ty, tz, treadW, 1.4, 3.2, deckWood);
+          pBox(stKind, L.stairCx, ty - (deckY - 0.7) / 22, tz + 1.3, treadW * 0.94, (deckY - 0.7) / 11, 0.8, HP.shade(deckTrim, 0.92), true);
         }
-        // Angled stair handrails
-        pSlopeYZ(stKind, L.lx0 - 0.5, 16, sBotZ, deckY + 18, sTopZ, 1.3, 1.3, railWood);
-        pSlopeYZ(stKind, L.lx1 + 0.5, 16, sBotZ, deckY + 18, sTopZ, 1.3, 1.3, railWood);
-        pBox(stKind, L.lx0 - 0.5, 9, sBotZ, 1.6, 18, 1.6, stMat);
-        pBox(stKind, L.lx1 + 0.5, 9, sBotZ, 1.6, 18, 1.6, stMat);
+        // Angled stair handrails + sturdy posts + spindles joining deck rim seamlessly
+        pSlopeYZ(stKind, L.lx0 - 0.4, 18, sBotZ, deckY + 20.2, sTopZ, 1.5, 1.5, railWood);
+        pSlopeYZ(stKind, L.lx1 + 0.4, 18, sBotZ, deckY + 20.2, sTopZ, 1.5, 1.5, railWood);
+        for (const frac of [0, 0.5, 1]) {
+          const pyBot = frac * deckY;
+          const pH = 18 + frac * 2.2;
+          const pzPos = sBotZ - frac * (sBotZ - sTopZ);
+          pBox(stKind, L.lx0 - 0.4, pyBot + pH * 0.5, pzPos, 1.6, pH, 1.6, stMat);
+          pBox(stKind, L.lx1 + 0.4, pyBot + pH * 0.5, pzPos, 1.6, pH, 1.6, stMat);
+        }
 
         // =========================================================================
         // 3. ARCHITECTURAL CABIN STRUCTURES BY STYLE (Full Headroom Vertical Walls)
@@ -5706,194 +5746,193 @@ F.builder = function (group) {
         cylX('fabric', 0.14, 0.44, -0.22, 0.05, 0.145, 0.145, '#ffffff');
 
       } else if (/^car$/i.test(t)) {
-        // Modern Aerodynamic Luxury Sedan Automobile (2x4 footprint, alloy wheels, LED lights, gloss windows)
+        // Real-Blueprint Luxury Sport Sedan (BMW 3/5-Series proportions: 53W x 41H x 109L)
         const carCol = color || '#2563eb';
-        // 1. 4 Perfectly circular alloy wheels with disc brakes & red calipers
-        for (const sx of [-0.44, 0.44]) {
-          for (const sz of [-0.27, 0.27]) {
-            cylX('dark', sx, 0.225, sz, 0.095, 0.450, 0.108, '#181b20');
-            cylX('metal', sx > 0 ? sx + 0.015 : sx - 0.015, 0.225, sz, 0.075, 0.320, 0.077, '#e2e8f0', true);
-            cylX('metal', sx > 0 ? sx + 0.025 : sx - 0.025, 0.225, sz, 0.035, 0.120, 0.029, '#94a3b8');
-            cylX('metal', sx > 0 ? sx - 0.010 : sx + 0.010, 0.225, sz, 0.025, 0.260, 0.062, '#64748b', true);
-            box('ceramic', sx > 0 ? sx - 0.010 : sx + 0.010, 0.270, sz + (sz > 0 ? 0.020 : -0.020), 0.030, 0.120, 0.030, '#dc2626');
+        const glassCol = '#192938';
+        // 1. Machined 5-spoke silver alloy wheels sitting flush in clean arch pockets (17.5px tire diam)
+        for (const sx of [-0.415, 0.415]) {
+          const out = sx > 0 ? 1 : -1;
+          for (const sz of [-0.305, 0.305]) {
+            wheelX('dark', sx, 0.214, sz, 0.095, 17.5, '#14171c');
+            wheelX('metal', sx + out * 0.032, 0.214, sz, 0.040, 12.2, '#dce3ec', true);
+            wheelX('dark', sx + out * 0.042, 0.214, sz, 0.024, 9.6, '#0f172a');
+            wheelX('metal', sx + out * 0.050, 0.214, sz, 0.020, 4.0, '#e2e8f0', true);
+            box('metal', sx + out * 0.049, 0.214, sz, 0.014, 0.26, 0.022, '#e2e8f0', true);
+            box('metal', sx + out * 0.049, 0.214, sz, 0.014, 0.042, 0.13, '#e2e8f0', true);
+            box('ceramic', sx - out * 0.005, 0.255, sz + (sz > 0 ? 0.016 : -0.016), 0.022, 0.09, 0.024, '#dc2626');
+            box('dark', sx * 0.87, 0.24, sz, 0.125, 0.24, 0.175, '#0b0e13');
           }
         }
-        // 2. Chassis floor pan & dark contact shadow under vehicle
-        part('shadow', 'dark', 0, 0.01, 0, 0.88, 1, 0.94, '#090a0f');
-        box('dark', 0, 0.12, 0, 0.82, 0.08, 0.88, '#181b1e');
-        box('dark', -0.42, 0.16, 0, 0.06, 0.10, 0.52, '#27272a');
-        box('dark', 0.42, 0.16, 0, 0.06, 0.10, 0.52, '#27272a');
-
-        // 3. Sculpted lower chassis body & beltline (main body color)
-        box('ceramic', 0, 0.32, 0, 0.86, 0.22, 0.94, carCol);
-        box('ceramic', 0, 0.28, -0.46, 0.84, 0.22, 0.08, carCol); // front bumper
-        box('ceramic', 0, 0.40, -0.26, 0.80, 0.06, 0.34, carCol); // hood
-        box('ceramic', 0, 0.42, 0.36, 0.82, 0.08, 0.22, carCol);  // trunk lid
-        box('ceramic', 0, 0.28, 0.46, 0.84, 0.22, 0.08, carCol);  // rear bumper
-
-        // 4. Front Fascia: radiator grille, lower splitter, projector headlights
-        box('dark', 0, 0.26, -0.495, 0.50, 0.14, 0.02, '#0f172a');
-        box('metal', 0, 0.26, -0.492, 0.52, 0.16, 0.015, '#cbd5e1', true);
-        box('dark', 0, 0.12, -0.48, 0.82, 0.04, 0.04, '#181b1e');
-        box('glow', -0.32, 0.34, -0.492, 0.16, 0.08, 0.02, '#ffffff');
-        box('glow', 0.32, 0.34, -0.492, 0.16, 0.08, 0.02, '#ffffff');
-        box('glass', -0.32, 0.34, -0.498, 0.17, 0.09, 0.01, '#e0f2fe');
-        box('glass', 0.32, 0.34, -0.498, 0.17, 0.09, 0.01, '#e0f2fe');
-
-        // 5. Greenhouse Cabin, Tinted Glass & Roof
-        box('ceramic', 0, 0.70, 0.04, 0.70, 0.04, 0.40, carCol);
-        box('glass', 0, 0.71, 0.04, 0.52, 0.03, 0.30, '#0f172a');
-        box('ceramic', -0.34, 0.55, -0.10, 0.06, 0.28, 0.14, carCol);
-        box('ceramic', 0.34, 0.55, -0.10, 0.06, 0.28, 0.14, carCol);
-        box('dark', -0.35, 0.55, 0.04, 0.04, 0.26, 0.06, '#181b1e');
-        box('dark', 0.35, 0.55, 0.04, 0.04, 0.26, 0.06, '#181b1e');
-        box('ceramic', -0.34, 0.55, 0.20, 0.06, 0.28, 0.12, carCol);
-        box('ceramic', 0.34, 0.55, 0.20, 0.06, 0.28, 0.12, carCol);
-        box('glass', 0, 0.56, -0.12, 0.68, 0.24, 0.12, '#38bdf8');
-        box('glass', 0, 0.56, 0.22, 0.68, 0.24, 0.12, '#38bdf8');
-        box('glass', -0.36, 0.55, 0.04, 0.02, 0.22, 0.34, '#38bdf8');
-        box('glass', 0.36, 0.55, 0.04, 0.02, 0.22, 0.34, '#38bdf8');
-
-        // 6. Visible Interior: dashboard, steering wheel, front bucket seats, rear bench
-        box('dark', 0, 0.46, -0.08, 0.66, 0.10, 0.12, '#181b1e');
-        cyl('dark', -0.20, 0.52, -0.04, 0.12, 0.02, 0.12, '#27272a');
-        for (const sx of [-0.20, 0.20]) {
-          box('fabric', sx, 0.38, 0.04, 0.24, 0.12, 0.18, '#1e293b');
-          box('fabric', sx, 0.52, 0.12, 0.24, 0.20, 0.08, '#1e293b');
-          box('fabric', sx, 0.64, 0.12, 0.14, 0.08, 0.06, '#1e293b');
+        // 2. Contact shadow + chassis pan + front splitter
+        part('shadow', 'dark', 0, 0.008, 0, 0.90, 1, 0.96, '#090a0f');
+        box('dark', 0, 0.125, 0, 0.82, 0.075, 0.90, '#14171c');
+        box('dark', 0, 0.095, -0.47, 0.85, 0.038, 0.055, '#0f1318');
+        // 3. Smooth uninterrupted lower body (bumpers + rocker + continuous beltline over wheel wells)
+        box('ceramic', 0, 0.295, 0, 0.87, 0.30, 0.42, carCol);                     // center doors between arches
+        box('ceramic', 0, 0.285, -0.44, 0.87, 0.28, 0.095, carCol);                 // front bumper
+        box('ceramic', 0, 0.30, 0.44, 0.87, 0.30, 0.095, carCol);                   // rear bumper
+        box('ceramic', 0, 0.515, 0.01, 0.87, 0.15, 0.935, carCol);                  // continuous shoulder beltline
+        box('dark', -0.425, 0.145, 0, 0.04, 0.065, 0.43, '#181b20');
+        box('dark', 0.425, 0.145, 0, 0.04, 0.065, 0.43, '#181b20');
+        // Sloped hood (rising from front grille to cowl z=-0.16) & rear decklid (z=+0.32..+0.46)
+        wedge('ceramic', 0, 0.615, -0.315, 0.84, 0.055, 0.31, carCol);
+        box('ceramic', 0, 0.59, 0.395, 0.83, 0.055, 0.14, carCol);
+        // 4. Watertight Sloped Greenhouse Cabin (ZERO triangular holes! Glass + exact pillars)
+        wedge('glass', 0, 0.77, -0.095, 0.71, 0.38, 0.15, glassCol);                // windshield + front quarter glass
+        box('glass', 0, 0.77, 0.08, 0.71, 0.38, 0.20, glassCol);                    // center side/cabin glass
+        wedgeBack('glass', 0, 0.77, 0.255, 0.71, 0.38, 0.15, glassCol);             // rear glass + C-pillar glass
+        box('ceramic', 0, 0.968, 0.08, 0.72, 0.036, 0.21, carCol);                  // flush roof
+        box('glass', 0, 0.988, 0.07, 0.50, 0.012, 0.15, '#101b27');                 // sunroof
+        for (const sx of [-0.352, 0.352]) {
+          boxSlopeYZ('ceramic', sx, 0.58, -0.17, 0.96, -0.02, 0.034, 0.032, carCol); // A-pillar
+          boxSlopeYZ('ceramic', sx, 0.96, 0.18, 0.58, 0.33, 0.052, 0.034, carCol);   // C-pillar
+          box('dark', sx, 0.77, 0.065, 0.022, 0.37, 0.040, '#181b20');               // B-pillar
+          box('dark', sx, 0.585, 0.08, 0.018, 0.022, 0.49, '#181b20');               // window sill trim
         }
-        box('fabric', 0, 0.40, 0.24, 0.66, 0.14, 0.16, '#1e293b');
-
-        // 7. Aerodynamic Side Mirrors & Door Handles
+        // 5. Interior dashboard + seats (visible gently through smoked glass) + mirrors + handles
+        box('dark', 0, 0.58, -0.06, 0.60, 0.09, 0.10, '#14181e');
+        for (const sx of [-0.18, 0.18]) {
+          box('fabric', sx, 0.65, 0.10, 0.20, 0.22, 0.06, '#1e293b');
+        }
         for (const sx of [-0.46, 0.46]) {
-          box('ceramic', sx, 0.52, -0.08, 0.08, 0.06, 0.06, carCol);
-          box('metal', sx, 0.52, -0.05, 0.07, 0.05, 0.01, '#e2e8f0', true);
-          box('metal', sx > 0 ? sx - 0.02 : sx + 0.02, 0.44, -0.02, 0.02, 0.03, 0.08, '#cbd5e1', true);
-          box('metal', sx > 0 ? sx - 0.02 : sx + 0.02, 0.44, 0.14, 0.02, 0.03, 0.08, '#cbd5e1', true);
+          box('ceramic', sx, 0.61, -0.10, 0.07, 0.058, 0.052, carCol);
+          box('metal', sx > 0 ? sx - 0.02 : sx + 0.02, 0.51, -0.01, 0.016, 0.028, 0.065, '#cbd5e1', true);
+          box('metal', sx > 0 ? sx - 0.02 : sx + 0.02, 0.51, 0.13, 0.016, 0.028, 0.065, '#cbd5e1', true);
         }
-
-        // 8. Rear Fascia: full-width LED light bar, license plate, diffuser, dual exhausts
-        box('glow', 0, 0.42, 0.485, 0.80, 0.06, 0.02, '#ef4444');
-        box('glass', 0, 0.42, 0.492, 0.82, 0.07, 0.01, '#7f1d1d');
-        box('dark', 0, 0.30, 0.485, 0.28, 0.10, 0.02, '#181b1e');
-        box('fabric', 0, 0.30, 0.495, 0.24, 0.08, 0.01, '#f8fafc');
-        box('dark', 0, 0.14, 0.47, 0.76, 0.08, 0.04, '#181b1e');
-        cylZ('metal', -0.28, 0.14, 0.48, 0.06, 0.06, 0.08, '#e2e8f0', true);
-        cylZ('metal', 0.28, 0.14, 0.48, 0.06, 0.06, 0.08, '#e2e8f0', true);
+        // 6. Front BMW-style grille + sharp LED headlights + rear slim LED lightbar & twin exhausts
+        box('dark', 0, 0.275, -0.490, 0.44, 0.145, 0.016, '#0b1017');
+        box('metal', 0, 0.275, -0.486, 0.465, 0.165, 0.012, '#cbd5e1', true);
+        box('ceramic', 0, 0.275, -0.492, 0.035, 0.145, 0.018, carCol);
+        box('glow', -0.31, 0.37, -0.488, 0.16, 0.065, 0.016, '#f8fafc');
+        box('glow', 0.31, 0.37, -0.488, 0.16, 0.065, 0.016, '#f8fafc');
+        box('glow', -0.30, 0.51, 0.488, 0.20, 0.050, 0.014, '#dc2626');
+        box('glow', 0.30, 0.51, 0.488, 0.20, 0.050, 0.014, '#dc2626');
+        box('dark', 0, 0.36, 0.490, 0.24, 0.105, 0.014, '#181b1e');
+        box('fabric', 0, 0.36, 0.496, 0.21, 0.082, 0.008, '#f8fafc');
+        box('dark', 0, 0.155, 0.472, 0.76, 0.09, 0.038, '#14171c');
+        wheelZ('metal', -0.26, 0.155, 0.488, 3.6, 0.065, '#cbd5e1', true);
+        wheelZ('metal', 0.26, 0.155, 0.488, 3.6, 0.065, '#cbd5e1', true);
 
       } else if (/^car_ev$/i.test(t)) {
-        // Luxury Aerodynamic Fastback Electric Vehicle (Tesla Model S / Porsche Taycan Style, 2x4 footprint, 28px tall)
+        // Real-Blueprint Electric Fastback (Porsche Taycan / Model S: 53W x 39H x 109L)
         const evCol = color || '#f8fafc';
-        // 1. 4 Aerodynamic low-drag turbine alloy wheels with scarlet Brembo brake calipers
-        for (const sx of [-0.44, 0.44]) {
-          for (const sz of [-0.27, 0.27]) {
-            cylX('dark', sx, 0.230, sz, 0.095, 0.460, 0.110, '#181b20');
-            cylX('metal', sx > 0 ? sx + 0.015 : sx - 0.015, 0.230, sz, 0.080, 0.340, 0.082, '#64748b', true);
-            cylX('dark', sx > 0 ? sx + 0.022 : sx - 0.022, 0.230, sz, 0.050, 0.180, 0.045, '#0f172a');
-            box('ceramic', sx > 0 ? sx - 0.010 : sx + 0.010, 0.275, sz + (sz > 0 ? 0.020 : -0.020), 0.030, 0.120, 0.030, '#ef4444');
+        const glassCol = '#182838';
+        for (const sx of [-0.415, 0.415]) {
+          const out = sx > 0 ? 1 : -1;
+          for (const sz of [-0.305, 0.305]) {
+            wheelX('dark', sx, 0.220, sz, 0.095, 17.2, '#14171c');
+            wheelX('metal', sx + out * 0.032, 0.220, sz, 0.040, 12.2, '#d4dce6', true);
+            wheelX('dark', sx + out * 0.042, 0.220, sz, 0.024, 9.2, '#0f172a');
+            wheelX('metal', sx + out * 0.050, 0.220, sz, 0.020, 4.4, '#e2e8f0', true);
+            box('metal', sx + out * 0.049, 0.220, sz, 0.014, 0.25, 0.020, '#e2e8f0', true);
+            box('metal', sx + out * 0.049, 0.220, sz, 0.014, 0.040, 0.125, '#e2e8f0', true);
+            box('ceramic', sx - out * 0.005, 0.26, sz + (sz > 0 ? 0.016 : -0.016), 0.022, 0.09, 0.024, '#ef4444');
+            box('dark', sx * 0.87, 0.24, sz, 0.125, 0.24, 0.175, '#0b0e13');
           }
         }
-        part('shadow', 'dark', 0, 0.01, 0, 0.90, 1, 0.96, '#090a0f');
-        box('dark', 0, 0.11, 0, 0.84, 0.08, 0.90, '#181b1e');
-        // 2. Sleek sculpted fastback body & hood
-        box('ceramic', 0, 0.32, 0, 0.86, 0.22, 0.94, evCol);
-        box('ceramic', 0, 0.28, -0.46, 0.84, 0.22, 0.08, evCol);
-        box('ceramic', 0, 0.38, -0.26, 0.82, 0.06, 0.34, evCol);
-        box('ceramic', 0, 0.39, 0.36, 0.82, 0.08, 0.22, evCol);
-        box('ceramic', 0, 0.28, 0.46, 0.84, 0.22, 0.08, evCol);
-        // 3. Front Fascia: flush aerodynamic nose cone & full-width illuminated LED lightbar
-        box('glow', 0, 0.34, -0.495, 0.78, 0.04, 0.015, '#ffffff');
-        box('glow', -0.34, 0.34, -0.492, 0.12, 0.07, 0.02, '#38bdf8');
-        box('glow',  0.34, 0.34, -0.492, 0.12, 0.07, 0.02, '#38bdf8');
-        box('dark', 0, 0.18, -0.490, 0.54, 0.08, 0.02, '#0f172a'); // lower active aero intake
-        // 4. Sweeping Panoramic All-Glass Roof & Cabin
-        box('ceramic', 0, 0.68, 0.04, 0.70, 0.04, 0.42, evCol);
-        box('glass', 0, 0.69, 0.04, 0.58, 0.03, 0.34, '#0f172a'); // full glass roof
-        box('glass', 0, 0.54, -0.12, 0.68, 0.24, 0.12, '#38bdf8'); // windshield
-        box('glass', 0, 0.54,  0.22, 0.68, 0.24, 0.12, '#38bdf8'); // rear glass
-        box('glass', -0.36, 0.53, 0.04, 0.02, 0.22, 0.36, '#38bdf8');
-        box('glass',  0.36, 0.53, 0.04, 0.02, 0.22, 0.36, '#38bdf8');
-        // 5. Minimalist Tech Interior: floating 15-inch center touchscreen & vegan leather seats
-        box('dark', 0, 0.44, -0.08, 0.66, 0.08, 0.10, '#1e293b');
-        box('glow', 0, 0.48, -0.03, 0.16, 0.10, 0.02, '#38bdf8'); // center touchscreen display
-        cyl('dark', -0.20, 0.50, -0.04, 0.10, 0.02, 0.10, '#0f172a'); // steering yoke
-        for (const sx of [-0.20, 0.20]) {
-          box('fabric', sx, 0.36, 0.04, 0.24, 0.12, 0.18, '#0f172a');
-          box('fabric', sx, 0.50, 0.12, 0.24, 0.20, 0.08, '#0f172a');
+        part('shadow', 'dark', 0, 0.008, 0, 0.90, 1, 0.96, '#090a0f');
+        box('dark', 0, 0.125, 0, 0.82, 0.075, 0.90, '#14171c');
+        box('dark', 0, 0.095, -0.47, 0.85, 0.038, 0.055, '#0f1318');
+        box('ceramic', 0, 0.295, 0, 0.87, 0.30, 0.42, evCol);
+        box('ceramic', 0, 0.285, -0.44, 0.87, 0.28, 0.095, evCol);
+        box('ceramic', 0, 0.30, 0.44, 0.87, 0.30, 0.095, evCol);
+        box('ceramic', 0, 0.51, 0.01, 0.87, 0.145, 0.935, evCol);
+        box('dark', -0.425, 0.145, 0, 0.04, 0.065, 0.43, '#181b20');
+        box('dark', 0.425, 0.145, 0, 0.04, 0.065, 0.43, '#181b20');
+        wedge('ceramic', 0, 0.605, -0.325, 0.84, 0.055, 0.30, evCol);
+
+        // Sweeping Watertight Fastback All-Glass Canopy (front -0.18..0, center 0..+0.17, fastback +0.17..+0.40)
+        wedge('glass', 0, 0.76, -0.095, 0.71, 0.38, 0.17, glassCol);
+        box('glass', 0, 0.76, 0.08, 0.71, 0.38, 0.18, glassCol);
+        wedgeBack('glass', 0, 0.76, 0.285, 0.71, 0.38, 0.23, glassCol);
+        box('ceramic', 0, 0.955, 0.08, 0.72, 0.036, 0.19, evCol);
+        box('glass', 0, 0.976, 0.08, 0.58, 0.014, 0.15, '#0f1c28');
+        for (const sx of [-0.352, 0.352]) {
+          boxSlopeYZ('ceramic', sx, 0.575, -0.18, 0.955, -0.01, 0.034, 0.032, evCol);
+          boxSlopeYZ('ceramic', sx, 0.955, 0.17, 0.575, 0.40, 0.046, 0.034, evCol);
+          box('dark', sx, 0.76, 0.06, 0.022, 0.37, 0.038, '#181b20');
+          box('dark', sx, 0.58, 0.11, 0.018, 0.022, 0.57, '#181b20');
         }
-        // 6. Rear Full-Width Neon Scarlet LED Lightbar & Diffuser
-        box('glow', 0, 0.40, 0.490, 0.82, 0.04, 0.015, '#ef4444');
-        box('glass', 0, 0.40, 0.495, 0.84, 0.05, 0.01, '#7f1d1d');
-        box('dark', 0, 0.15, 0.48, 0.78, 0.08, 0.03, '#0f172a'); // rear aero diffuser
-        // Cyan charge port indicator on rear-left quarter panel
-        box('glow', -0.435, 0.38, 0.32, 0.02, 0.04, 0.04, '#38bdf8');
+        box('glow', 0, 0.50, -0.490, 0.74, 0.038, 0.015, '#ffffff');
+        box('glow', -0.33, 0.50, -0.488, 0.11, 0.062, 0.016, '#38bdf8');
+        box('glow', 0.33, 0.50, -0.488, 0.11, 0.062, 0.016, '#38bdf8');
+        box('dark', 0, 0.21, -0.490, 0.52, 0.095, 0.016, '#0b1017');
+        for (const sx of [-0.455, 0.455]) {
+          box('ceramic', sx, 0.60, -0.10, 0.07, 0.056, 0.05, evCol);
+        }
+        box('glow', 0, 0.515, 0.488, 0.80, 0.042, 0.014, '#ef4444');
+        box('dark', 0, 0.16, 0.48, 0.76, 0.095, 0.03, '#0f172a');
+        box('glow', -0.435, 0.49, 0.32, 0.016, 0.042, 0.036, '#38bdf8');
+
       } else if (/^suv$/i.test(t)) {
-        // High-Riding Luxury SUV / Crossover (2x4 footprint, 34px tall, all-terrain tires, roof rails)
+        // Real-Blueprint Full-Size Luxury SUV (Range Rover / BMW X5: 53W x 47H x 109L, muscular wide stance)
         const suvCol = color || '#1e293b';
-        // 1. Chunky all-terrain tires (diameter 15px, h=15/34=0.441, d=15/125=0.120)
-        for (const sx of [-0.44, 0.44]) {
-          for (const sz of [-0.27, 0.27]) {
-            cylX('dark', sx, 0.240, sz, 0.105, 0.441, 0.120, '#14171a');
-            cylX('metal', sx > 0 ? sx + 0.018 : sx - 0.018, 0.240, sz, 0.080, 0.300, 0.082, '#cbd5e1', true);
-            cylX('dark', sx > 0 ? sx + 0.026 : sx - 0.026, 0.240, sz, 0.040, 0.120, 0.033, '#0f172a');
-            cylX('metal', sx > 0 ? sx - 0.010 : sx + 0.010, 0.240, sz, 0.025, 0.250, 0.068, '#64748b', true);
-            box('ceramic', sx > 0 ? sx - 0.010 : sx + 0.010, 0.280, sz + (sz > 0 ? 0.020 : -0.020), 0.030, 0.120, 0.030, '#eab308');
+        const glassCol = '#192938';
+        for (const sx of [-0.415, 0.415]) {
+          const out = sx > 0 ? 1 : -1;
+          for (const sz of [-0.305, 0.305]) {
+            wheelX('dark', sx, 0.222, sz, 0.102, 20.8, '#14171c');
+            wheelX('metal', sx + out * 0.034, 0.222, sz, 0.042, 14.4, '#d4dce6', true);
+            wheelX('dark', sx + out * 0.044, 0.222, sz, 0.025, 11.2, '#0f172a');
+            wheelX('metal', sx + out * 0.052, 0.222, sz, 0.022, 4.6, '#e2e8f0', true);
+            box('metal', sx + out * 0.051, 0.222, sz, 0.015, 0.27, 0.024, '#e2e8f0', true);
+            box('metal', sx + out * 0.051, 0.222, sz, 0.015, 0.044, 0.14, '#e2e8f0', true);
+            box('ceramic', sx - out * 0.005, 0.265, sz + (sz > 0 ? 0.016 : -0.016), 0.024, 0.095, 0.026, '#eab308');
+            box('dark', sx * 0.87, 0.25, sz, 0.125, 0.25, 0.18, '#0b0e13');
           }
         }
-        part('shadow', 'dark', 0, 0.01, 0, 0.90, 1, 0.94, '#090a0f');
-        box('dark', 0, 0.14, 0, 0.84, 0.08, 0.88, '#14171a');
-        // Tubular chrome running boards / side steps
-        box('metal', -0.45, 0.14, 0, 0.04, 0.03, 0.54, '#cbd5e1', true);
-        box('metal', 0.45, 0.14, 0, 0.04, 0.03, 0.54, '#cbd5e1', true);
+        part('shadow', 'dark', 0, 0.008, 0, 0.90, 1, 0.96, '#090a0f');
+        box('dark', 0, 0.155, 0, 0.82, 0.075, 0.90, '#14171c');
+        box('metal', -0.445, 0.155, 0, 0.04, 0.032, 0.43, '#cbd5e1', true);
+        box('metal', 0.445, 0.155, 0, 0.04, 0.032, 0.43, '#cbd5e1', true);
 
-        // 2. Muscular SUV Body with protective overfenders & beltline
-        box('dark', 0, 0.24, 0, 0.88, 0.14, 0.94, '#181b20');
-        box('ceramic', 0, 0.38, 0, 0.86, 0.24, 0.94, suvCol);
-        box('ceramic', 0, 0.32, -0.46, 0.84, 0.24, 0.08, suvCol);
-        box('ceramic', 0, 0.46, -0.26, 0.82, 0.08, 0.34, suvCol);
-        box('ceramic', 0, 0.46, 0.36, 0.82, 0.14, 0.22, suvCol);
-        box('ceramic', 0, 0.32, 0.46, 0.84, 0.24, 0.08, suvCol);
+        // Continuous lower body + black rocker cladding + seamless beltline shoulder
+        box('ceramic', 0, 0.33, 0, 0.88, 0.27, 0.41, suvCol);
+        box('ceramic', 0, 0.315, -0.44, 0.88, 0.25, 0.095, suvCol);
+        box('ceramic', 0, 0.33, 0.44, 0.88, 0.27, 0.095, suvCol);
+        box('dark', 0, 0.20, 0, 0.885, 0.075, 0.42, '#181b20');
+        box('ceramic', 0, 0.525, 0.0, 0.88, 0.15, 0.94, suvCol);
+        wedge('ceramic', 0, 0.625, -0.32, 0.85, 0.055, 0.30, suvCol);
 
-        // 3. Bold Geometric Front Grille & Lighting
-        box('dark', 0, 0.30, -0.495, 0.58, 0.18, 0.02, '#0f172a');
-        box('metal', 0, 0.30, -0.492, 0.60, 0.20, 0.015, '#cbd5e1', true);
-        box('metal', 0, 0.15, -0.485, 0.44, 0.05, 0.03, '#94a3b8', true);
-        box('glow', -0.33, 0.38, -0.492, 0.16, 0.09, 0.02, '#ffffff');
-        box('glow', 0.33, 0.38, -0.492, 0.16, 0.09, 0.02, '#ffffff');
-        box('glass', -0.33, 0.38, -0.498, 0.17, 0.10, 0.01, '#e0f2fe');
-        box('glass', 0.33, 0.38, -0.498, 0.17, 0.10, 0.01, '#e0f2fe');
+        // Bold Front SUV Grille, Aluminum Skid Plate & Slim Matrix Headlights
+        box('dark', 0, 0.35, -0.490, 0.52, 0.19, 0.016, '#0b1017');
+        box('metal', 0, 0.35, -0.486, 0.54, 0.21, 0.012, '#cbd5e1', true);
+        box('metal', 0, 0.17, -0.485, 0.42, 0.05, 0.025, '#94a3b8', true);
+        box('glow', -0.32, 0.44, -0.488, 0.16, 0.075, 0.016, '#ffffff');
+        box('glow', 0.32, 0.44, -0.488, 0.16, 0.075, 0.016, '#ffffff');
 
-        // 4. Upright Greenhouse Cabin, Roof Rails & Glass
-        box('ceramic', 0, 0.76, 0.06, 0.72, 0.04, 0.44, suvCol);
-        box('glass', 0, 0.77, 0.06, 0.56, 0.03, 0.34, '#0f172a');
+        // Upright Commanding 2-Box SUV Greenhouse (front -0.17..-0.02, long roof -0.02..+0.33, raked liftgate +0.33..+0.45)
+        wedge('glass', 0, 0.77, -0.095, 0.74, 0.37, 0.15, glassCol);
+        box('glass', 0, 0.77, 0.155, 0.74, 0.37, 0.35, glassCol);
+        wedgeBack('glass', 0, 0.77, 0.39, 0.74, 0.37, 0.12, glassCol);
+        box('ceramic', 0, 0.962, 0.155, 0.75, 0.036, 0.36, suvCol);
+        box('glass', 0, 0.982, 0.14, 0.54, 0.014, 0.26, '#111c28');
         for (const sx of [-0.34, 0.34]) {
-          box('metal', sx, 0.81, 0.06, 0.03, 0.04, 0.44, '#cbd5e1', true);
+          box('metal', sx, 0.992, 0.15, 0.028, 0.032, 0.36, '#cbd5e1', true);
         }
-        box('dark', 0, 0.81, -0.06, 0.68, 0.02, 0.03, '#1e293b');
-        box('dark', 0, 0.81, 0.18, 0.68, 0.02, 0.03, '#1e293b');
-        box('glass', 0, 0.62, -0.12, 0.70, 0.26, 0.12, '#38bdf8');
-        box('glass', 0, 0.62, 0.26, 0.70, 0.26, 0.10, '#38bdf8');
-        box('glass', -0.37, 0.60, 0.06, 0.02, 0.24, 0.38, '#38bdf8');
-        box('glass', 0.37, 0.60, 0.06, 0.02, 0.24, 0.38, '#38bdf8');
-        box('ceramic', 0, 0.76, 0.38, 0.72, 0.04, 0.10, suvCol);
-
-        // 5. Interior Details
-        box('dark', 0, 0.50, -0.08, 0.68, 0.12, 0.14, '#181b1e');
-        cyl('dark', -0.22, 0.58, -0.04, 0.13, 0.02, 0.13, '#27272a');
-        for (const sx of [-0.22, 0.22]) {
-          box('fabric', sx, 0.42, 0.04, 0.25, 0.14, 0.18, '#1e293b');
-          box('fabric', sx, 0.58, 0.12, 0.25, 0.22, 0.08, '#1e293b');
-          box('fabric', sx, 0.71, 0.12, 0.15, 0.08, 0.06, '#1e293b');
+        box('dark', 0, 0.992, 0.04, 0.68, 0.018, 0.026, '#1e293b');
+        box('dark', 0, 0.992, 0.24, 0.68, 0.018, 0.026, '#1e293b');
+        for (const sx of [-0.372, 0.372]) {
+          boxSlopeYZ('ceramic', sx, 0.59, -0.17, 0.955, -0.02, 0.034, 0.032, suvCol);
+          boxSlopeYZ('ceramic', sx, 0.955, 0.33, 0.59, 0.45, 0.055, 0.034, suvCol);
+          box('dark', sx, 0.77, 0.04, 0.022, 0.36, 0.038, '#181b20');
+          box('dark', sx, 0.77, 0.21, 0.022, 0.36, 0.038, '#181b20');
+          box('dark', sx, 0.595, 0.14, 0.018, 0.022, 0.61, '#181b20');
         }
-
-        // 6. Rear Liftgate, Taillights & Dual Exhaust
-        box('glow', 0, 0.46, 0.485, 0.82, 0.07, 0.02, '#ef4444');
-        box('glass', 0, 0.46, 0.492, 0.84, 0.08, 0.01, '#7f1d1d');
-        box('dark', 0, 0.34, 0.485, 0.30, 0.10, 0.02, '#181b1e');
-        box('fabric', 0, 0.34, 0.495, 0.26, 0.08, 0.01, '#f8fafc');
-        box('dark', 0, 0.16, 0.47, 0.80, 0.10, 0.04, '#181b1e');
-        box('metal', -0.30, 0.16, 0.48, 0.10, 0.05, 0.04, '#cbd5e1', true);
-        box('metal', 0.30, 0.16, 0.48, 0.10, 0.05, 0.04, '#cbd5e1', true);
+        box('dark', 0, 0.59, -0.06, 0.64, 0.10, 0.10, '#14181e');
+        for (const sx of [-0.20, 0.20]) {
+          box('fabric', sx, 0.70, 0.12, 0.22, 0.24, 0.07, '#1e293b');
+        }
+        for (const sx of [-0.465, 0.465]) {
+          box('ceramic', sx, 0.62, -0.10, 0.075, 0.058, 0.052, suvCol);
+        }
+        // Flush sleek rear lightbar, license plate & dual chrome exhausts
+        box('glow', 0, 0.53, 0.488, 0.80, 0.048, 0.014, '#dc2626');
+        box('dark', 0, 0.39, 0.488, 0.26, 0.105, 0.014, '#181b1e');
+        box('fabric', 0, 0.39, 0.494, 0.23, 0.082, 0.008, '#f8fafc');
+        box('dark', 0, 0.175, 0.472, 0.78, 0.105, 0.038, '#14171c');
+        box('metal', -0.28, 0.175, 0.486, 0.10, 0.05, 0.036, '#cbd5e1', true);
+        box('metal', 0.28, 0.175, 0.486, 0.10, 0.05, 0.036, '#cbd5e1', true);
 
       } else if (/^garagedoor/i.test(t)) {
         // Overhead Sectional Garage Door (Full height 58px frame, guide tracks, ceiling rails, torsion spring, motor)

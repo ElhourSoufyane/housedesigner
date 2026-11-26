@@ -14,7 +14,8 @@ let frames = 0, lastFps = 0, fpsT = 0;
 let prompt = null;
 let velX = 0, velZ = 0, stride = 0, stepIx = 0;   // walk feel
 let groundY = 0, wasIn = false;                  // wading: floor under us
-let airY = 0, airV = 0, airborne = false, feetY = 0;  // jump
+let airY = 0, airV = 0, airborne = false, feetY = 0;  // jump / ledge fall
+let landDip = 0, landVel = 0;                     // subtle spring landing cushion
 let sitting = null;
 Object.defineProperty(HP, 'playerSitting3d', { get: () => !!sitting });
 
@@ -115,6 +116,9 @@ function groundAt(x, z) {
     }
   }
   // House level floors (Second Floor, Third Floor, etc.)
+  const onClimbHere = HP.world3d && HP.world3d.climbs && HP.world3d.climbs.some(
+    c => x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1);
+  const catchTol = onClimbHere ? 12 : 3.5;
   const C = HP.CELL;
   const cx = Math.floor(x / C), cz = Math.floor(z / C);
   const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
@@ -123,7 +127,7 @@ function groundAt(x, z) {
     const grids = HP.world3d.floorGrids;
     for (let l = grids.length - 1; l >= 1; l--) {
       const bY = l * WALL_H;
-      if (feetY >= bY - 14) {
+      if (feetY >= bY - catchTol) {
         if (grids[l] && grids[l][cz * gw + cx]) {
           if (bY > y) y = bY;
           break;
@@ -135,7 +139,7 @@ function groundAt(x, z) {
   if (HP.world3d && HP.world3d.elevatedDecks) {
     for (const d of HP.world3d.elevatedDecks) {
       if (x >= d.x0 && x <= d.x1 && z >= d.z0 && z <= d.z1) {
-        if (feetY >= d.deckY - 14) {
+        if (feetY >= d.deckY - catchTol) {
           if (d.deckY > y) y = d.deckY;
         }
       }
@@ -168,6 +172,7 @@ K.enter = function (start) {
   groundY = (start.feetY !== undefined) ? start.feetY : (wa0 ? wa0.floorY : groundAt(px, pz));
   wasIn = !!wa0;
   airY = airV = 0; airborne = false; feetY = groundY;
+  landDip = 0; landVel = 0;
   yaw = start.yaw || 0; pitch = start.pitch !== undefined ? start.pitch : 0;
   K.camElevate = start.elevate !== undefined ? start.elevate : 0;
   if (HP.world3d && HP.world3d.camera) {
@@ -210,6 +215,7 @@ K.teleport = function (x, z, targetYaw, targetY, targetPitch, targetElevate) {
   sitting = null;
   px = x; pz = z;
   airY = airV = 0; airborne = false;
+  landDip = 0; landVel = 0;
   if (targetY !== undefined) {
     groundY = targetY;
   } else {
@@ -423,7 +429,7 @@ K.boot = function (initialSpawn) {
   scheduleTick();
 };
 
-const GRAV = 320, JUMP = 124;                    // ~24px apex ≈ 0.85m hop
+const GRAV = 340, JUMP = 114;                    // ~19px realistic hop, crisp gravity fall
 function doJump() {
   if (airborne || !started) return;
   if (sitting) { standUp(); return; }
@@ -866,7 +872,7 @@ function isLineOfSightClear(ox, oy, oz, tx, ty, tz, ignoreObj) {
     if (rayHitsBox(ox, oy, oz, rx, ry, rz, dist, b)) return false;
   }
   for (const d of (HP.world3d?.doorPivots || [])) {
-    if (d === ignoreObj || d.window || d.doorStyle === 'archway' || !d.leaf || d.open >= 0.25) continue;
+    if (d === ignoreObj || (ignoreObj && d.a && d.a === ignoreObj.a) || d.window || d.doorStyle === 'archway' || !d.leaf || d.open >= 0.25) continue;
     if (rayHitsBox(ox, oy, oz, rx, ry, rz, dist, {
       x0: d.a.x0, x1: d.a.x1, z0: d.a.z0, z1: d.a.z1,
       y0: d.ly0 !== undefined ? d.ly0 : 0, y1: d.ly1 !== undefined ? d.ly1 : 60
@@ -1036,6 +1042,10 @@ function interact() {
     if (HP.sound3d) {
       gd.target === 1 ? HP.sound3d.door(true, false) : HP.sound3d.door(false, false);
     }
+    if (HP.sync3d && HP.sync3d.broadcastGarageDoor && HP.world3d && HP.world3d.garageDoors) {
+      const idx = HP.world3d.garageDoors.indexOf(gd);
+      if (idx >= 0) HP.sync3d.broadcastGarageDoor(idx, gd.target);
+    }
     return;
   }
   if (d.kind === 'seat') {
@@ -1138,27 +1148,60 @@ function tick(t) {
         px = nx; pz = nz;
       }
     }
-    /* step down into / climb out of the basin — a smooth fall, not a
-       teleport, so it reads as stepping into water                  */
+    /* ground tracking + authentic gravity falling when dropping off ledges */
     const wa = waterAt(px, pz);
+    const prevFeetY = feetY;
     const tgtY = groundAt(px, pz);
     const onClimb = !wa && HP.world3d && HP.world3d.climbs && HP.world3d.climbs.some(
       c => px >= c.x0 && px <= c.x1 && pz >= c.z0 && pz <= c.z1);
-    if (onClimb) {
+    if (airborne) {
+      if (tgtY > groundY) {
+        if (prevFeetY >= tgtY - 3.5) {
+          airY = Math.max(0, prevFeetY - tgtY);
+          groundY = tgtY;
+        }
+      } else if (tgtY < groundY) {
+        airY += groundY - tgtY;
+        groundY = tgtY;
+      }
+    } else if (onClimb) {
       groundY = tgtY;
+    } else if (tgtY < groundY) {
+      const dropH = groundY - tgtY;
+      if (dropH > 6 && !wa) {
+        airY = dropH;
+        airV = -15;
+        airborne = true;
+        groundY = tgtY;
+      } else {
+        groundY += (tgtY - groundY) * Math.min(1, dt * 12);
+        if (Math.abs(tgtY - groundY) < 0.05) groundY = tgtY;
+      }
     } else {
-      groundY += (tgtY - groundY) * Math.min(1, dt * 4.5);
+      groundY += (tgtY - groundY) * Math.min(1, dt * 16);
       if (Math.abs(tgtY - groundY) < 0.05) groundY = tgtY;
     }
     const wading = !!wa && feetY < -8;
     if (wading !== wasIn) { if (HP.sound3d) HP.sound3d.splash(wading); wasIn = wading; }
-    /* jump: gravity pulls you back to whatever you're standing on   */
+    /* jump & gravity pull */
     if (airborne) {
       airY += airV * dt; airV -= GRAV * dt;
       if (airY <= 0) {
-        airY = 0; airborne = false;
+        const impact = Math.abs(airV);
+        airY = 0; airV = 0; airborne = false;
+        if (impact > 125) {
+          landDip = -Math.min(5.5, (impact - 115) * 0.03);
+          landVel = 0;
+        }
         if (HP.sound3d) HP.sound3d.step(floorMat(), true);   // landing thud/splash
       }
+    }
+    if (landDip < -0.02 || Math.abs(landVel) > 0.05) {
+      landVel += (-landDip * 280 - landVel * 32) * dt;
+      landDip += landVel * dt;
+      if (Math.abs(landDip) < 0.02 && Math.abs(landVel) < 0.5) { landDip = 0; landVel = 0; }
+    } else {
+      landDip = 0; landVel = 0;
     }
     feetY = groundY + airY;
     const speed = Math.hypot(velX, velZ);
@@ -1176,7 +1219,7 @@ function tick(t) {
     const cam = HP.world3d.camera;
     if (!K.fly) {                                        /* debug: free camera */
       const elev = K.camElevate || 0;
-      const vert = sitting ? (sitting.seatOffset || -12) : bobY;
+      const vert = sitting ? (sitting.seatOffset || -12) : (bobY + landDip);
       cam.position.set(px, HP.world3d.EYE + feetY + vert + elev, pz);
       cam.rotation.y = yaw; cam.rotation.x = pitch;
       cam.rotation.z = Math.sin(stride) * 0.011 * Math.min(1, speed / RUN);  // sprint sway

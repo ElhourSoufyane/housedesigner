@@ -300,6 +300,10 @@
       if (HP.world3d) HP.world3d.buildLevel();
 
       if (HP.walk3d) HP.walk3d.resume(spawn);
+      if (HP.sync && HP.sync.conns && HP.sync.conns.length && HP.sync.mode !== 'host' &&
+          HP.sync3d && HP.sync3d.requestWorld) {
+        HP.sync3d.requestWorld();
+      }
     };
 
     if (typeof requestAnimationFrame !== 'undefined') {

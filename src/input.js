@@ -131,6 +131,7 @@ HP.initInput = function () {
           HP.cur().furniture.push(it);
           HP.autoConnect(it);                        // modular pieces join what they touch
           HP.selected = it;
+          if (/^garagedoor/i.test(it.type)) HP.invalidateRegions();
           HP.saveState(); HP.status('Placed ' + HP.pending.def.name + ' — tap again for more, or Esc/right-click to stop');
           HP.refreshContext();
         } else if (HP.ghost) {

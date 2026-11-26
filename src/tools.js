@@ -123,6 +123,7 @@ const selectTool = {
         for (const m of drag.members)
           if (HP.itemDef(m.type).hangs)
             m.hang = HP.hangSide(m.type, m.x, m.y, m.rot, m.w ? { w: m.w, h: m.h } : null);
+        if (drag.members.some(m => /^garagedoor/i.test(m.type))) HP.invalidateRegions();
         HP.saveState();
       }
     } else if (drag.kind === 'marquee') {
@@ -481,6 +482,7 @@ HP.rotateActive = function () {
   } else {
     HP.pushUndoSnap(snap);
     if (HP.itemDef(it.type).hangs) it.hang = HP.hangSide(it.type, it.x, it.y, it.rot);
+    if (/^garagedoor/i.test(it.type)) HP.invalidateRegions();
   }
   HP.saveState(); HP.markDirty(); HP.refreshContext();
 };
@@ -562,6 +564,7 @@ HP.deleteSelected = function () {
   const members = HP.selSet();                      // marquee set or connected piece
   HP.cur().furniture = HP.cur().furniture.filter(f => !members.includes(f));
   HP.selected = null; HP.selectedSet = [];
+  if (members.some(m => /^garagedoor/i.test(m.type))) HP.invalidateRegions();
   HP.saveState(); HP.markDirty(); HP.refreshContext();
 };
 

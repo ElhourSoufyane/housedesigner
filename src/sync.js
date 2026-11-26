@@ -110,11 +110,14 @@ function renderPanel() {
     $('#coop-name').value = myName;
     $('#coop-name').oninput = e => { myName = e.target.value.trim(); localStorage.setItem('hd_name', myName); };
     $('#coop-host').onclick = () => hostGame();
-    $('#coop-join').onclick = () => {
-      const code = ($('#coop-code').value || '').trim().toUpperCase();
+    const joincode = $('#coop-code');
+    const doJoin = () => {
+      const code = (joincode.value || '').trim().toUpperCase();
       if (code.length < 3) { $('#coop-hint').textContent = 'Enter the room code your partner sees.'; return; }
       joinGame(code);
     };
+    $('#coop-join').onclick = doJoin;
+    if (joincode) joincode.onkeydown = e => { if (e.key === 'Enter') doJoin(); };
     const rb = $('#coop-restore');
     if (rb) rb.onclick = restoreSolo;
     return;
@@ -268,7 +271,7 @@ function stampDelta() {
   const sent = lastSentState || { levels: [] };
   HP.state.levels.forEach((cl, i) => {
     const sl = sent.levels[i] || {};
-    for (const d of ['walls', 'floors', 'fences', 'roomNames']) {
+    for (const d of ['walls', 'floors', 'fences', 'roomNames', 'ceilings', 'roomCeilings']) {
       const cd = cl[d] || {}, sd = sl[d] || {}, m = stMap(i, d);
       for (const k in cd)
         if (!mergedTags.has(tag(i, d, k)) && JSON.stringify(cd[k]) !== JSON.stringify(sd[k]))
@@ -304,7 +307,7 @@ function mergeRemote(cur, base, inc, incStamps, baseStamps) {
   if (cur.levels.length < inc.levels.length) {
     staticChanged = true;
     while (cur.levels.length < inc.levels.length)
-      cur.levels.push({ walls: {}, floors: {}, roomNames: {}, furniture: [], fences: {} });
+      cur.levels.push({ walls: {}, floors: {}, roomNames: {}, ceilings: {}, roomCeilings: {}, furniture: [], fences: {} });
   } else if (base && base.levels && inc.levels.length < base.levels.length && cur.levels.length > inc.levels.length) {
     while (cur.levels.length > inc.levels.length && cur.levels.length > 1) {
       const topIdx = cur.levels.length - 1;
@@ -329,7 +332,7 @@ function mergeRemote(cur, base, inc, incStamps, baseStamps) {
   for (let i = 0; i < inc.levels.length; i++) {
     const cl = cur.levels[i], bl = base && base.levels[i] || {}, il = inc.levels[i];
     const iS = incStamps && incStamps[i] || {}, bS = baseStamps && baseStamps[i] || {};
-    for (const d of ['walls', 'floors', 'fences', 'roomNames']) {
+    for (const d of ['walls', 'floors', 'fences', 'roomNames', 'ceilings', 'roomCeilings']) {
       const cd = cl[d] || (cl[d] = {}), bd = bl[d] || {}, id = il[d] || {};
       const isd = iS[d] || {}, bsd = bS[d] || {}, md = stMap(i, d);
       for (const k in bd)
@@ -631,9 +634,9 @@ function setupConn(c) {
         for (const other of conns) if (other !== c) { try { other.send(d); } catch (e) {} }
       }
     }
-    else if (d.t === 'door' || d.t === 'door_toggle' || d.t === 'door_push' || d.t === 'interact' || d.t === 'time' || d.t === 'weather' || d.t === 'lamp' || d.t === 'mover' || d.t === 'emote') {
+    else if (d.t === 'door' || d.t === 'door_toggle' || d.t === 'door_push' || d.t === 'garagedoor' || d.t === 'interact' || d.t === 'time' || d.t === 'weather' || d.t === 'lamp' || d.t === 'mover' || d.t === 'emote' || d.t === 'world_req') {
       if (HP.sync3d && HP.sync3d.handleData) HP.sync3d.handleData(d, c);
-      if (mode === 'host') {
+      if (mode === 'host' && d.t !== 'world_req') {
         for (const other of conns) if (other !== c) { try { other.send(d); } catch (e) {} }
       }
     }

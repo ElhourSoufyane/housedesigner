@@ -298,7 +298,7 @@ const H3D = [
   [/^archway/i, 74],
   [/lamppost/i, 56],
   [/planter$/i, 22],
-  [/car_ev/i, 28],
+  [/car_ev/i, 39],
   [/lamparc/i, 52],
   [/lamptorch/i, 50],
   [/floorlamp/i, 48],
@@ -418,8 +418,8 @@ const H3D = [
   [/potting/i, 32],
   [/birdhouse/i, 32],
   [/birdfeeder/i, 32],
-  [/car$/i, 30],
-  [/suv$/i, 34],
+  [/car$/i, 41],
+  [/suv$/i, 47],
   [/garagedoor/i, 60],
   [/fountain/i, 28],
   [/rabbithutch/i, 28],
@@ -2598,6 +2598,7 @@ W3.buildLevel = function () {
   /* ---- precompute stairs and openings across all levels ---- */
   const stairCeilingOpenings = allLevels.map(() => new Set());
   const stairFloorOpenings = allLevels.map(() => new Set());
+  const stairMeta = allLevels.map(() => ({ landings: new Set(), axisOf: {} }));
   const stairClimbs = [];
 
   allLevels.forEach((curLvl, lIdx) => {
@@ -2618,6 +2619,9 @@ W3.buildLevel = function () {
                               (rot === 3 && fx === f.x);
           if (!isTopLanding) {
             stairFloorOpenings[lIdx + 1].add(k);
+            stairMeta[lIdx + 1].axisOf[k] = (rot === 0 || rot === 2) ? 'z' : 'x';
+          } else {
+            stairMeta[lIdx + 1].landings.add(k);
           }
         }
       }
@@ -2657,6 +2661,7 @@ W3.buildLevel = function () {
   });
   W3.stairFloorOpenings = stairFloorOpenings;
   W3.stairCeilingOpenings = stairCeilingOpenings;
+  W3.stairMeta = stairMeta;
   W3.stairClimbs = stairClimbs;
 
   /* ---- pools: recessed basins carved 1m into the ground (ground level 0) ---- */
@@ -3216,7 +3221,7 @@ W3.buildLevel = function () {
 
     mark('doors_' + lIdx);
 
-    W3._buildFloorMeshes(flg, curLvl, bY, stairFloorOpenings[lIdx]);
+    W3._buildFloorMeshes(flg, curLvl, bY, stairFloorOpenings[lIdx], stairMeta[lIdx], allStaticColliders, allLevels[lIdx - 1]);
     mark('floors_' + lIdx);
     W3._buildCeilingMeshes(sg, curLvl, lIdx, bY, stairCeilingOpenings[lIdx], env);
     mark('ceilings_' + lIdx);
@@ -4017,9 +4022,10 @@ function buildTreehouseClimbModel(it, f, C, elevatedDecks, climbs) {
   });
   const rot = it.rot || 0;
   const tcx = (f.x + f.w / 2) * C, tcz = (f.y + f.h / 2) * C;
+  const topLipZ = L.D * 0.5 - 10;
   const corners = [
-    { x: L.lx0, z: L.lz0 }, { x: L.lx1, z: L.lz0 },
-    { x: L.lx1, z: L.lz1 }, { x: L.lx0, z: L.lz1 }
+    { x: L.lx0 - 1.5, z: topLipZ }, { x: L.lx1 + 1.5, z: topLipZ },
+    { x: L.lx1 + 1.5, z: L.lz1 + 3 }, { x: L.lx0 - 1.5, z: L.lz1 + 3 }
   ];
   const rotateSpot = pt => {
     let rx = pt.x, rz = pt.z;
@@ -4035,18 +4041,19 @@ function buildTreehouseClimbModel(it, f, C, elevatedDecks, climbs) {
   const maxZ = Math.max(...rotCorners.map(p => p.z));
 
   const deckPt = { x: L.stairCx, z: 0.36 * L.D };
-  const gndPt  = { x: L.stairCx, z: 0.76 * L.D };
+  const gndPt  = { x: L.stairCx, z: L.lz1 + 5 };
   const deckSpot = rotateSpot(deckPt);
   const groundSpot = rotateSpot(gndPt);
+  const treadSpan = Math.max(14, (L.lz1 - (L.D * 0.5 - 2)) / 0.82);
 
-  let ax = 'z', dir = -1, from = maxZ, run = maxZ - minZ;
-  if (rot === 1) { ax = 'x'; dir = 1; from = minX; run = maxX - minX; }
-  else if (rot === 2) { ax = 'z'; dir = 1; from = minZ; run = maxZ - minZ; }
-  else if (rot === 3) { ax = 'x'; dir = -1; from = maxX; run = maxX - minX; }
+  let ax = 'z', dir = -1, from = maxZ - 3, run = treadSpan;
+  if (rot === 1) { ax = 'x'; dir = 1; from = minX + 3; run = treadSpan; }
+  else if (rot === 2) { ax = 'z'; dir = 1; from = minZ + 3; run = treadSpan; }
+  else if (rot === 3) { ax = 'x'; dir = -1; from = maxX - 3; run = treadSpan; }
 
   climbs.push({
-    x0: minX - 2, x1: maxX + 2,
-    z0: minZ - 2, z1: maxZ + 2,
+    x0: minX, x1: maxX,
+    z0: minZ, z1: maxZ,
     y0: 0, y1: L.deckY,
     ax, dir, from, run,
     deckSpot, groundSpot
@@ -4333,7 +4340,7 @@ function cellPart(c, y) {
   return { m, x0: c.x * C, z0: c.y * C, x1: (c.x + 1) * C, z1: (c.y + 1) * C };
 }
 
-W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new Set()) {
+W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new Set(), stairMeta = null, outColliders = null, prevLvl = null) {
   const C = HP.CELL, V = HP.cull3d;
   let pools = W3.pools;
   if (!pools && baseY === 0) {
@@ -4419,27 +4426,81 @@ W3._buildFloorMeshes = function (targetGroup, lvl, baseY = 0, stairHoles = new S
   }
   if (baseY > 0 && stairHoles && stairHoles.size > 0) {
     const holeSet = stairHoles;
+    const landings = (stairMeta && stairMeta.landings) || new Set();
+    const axisOf = (stairMeta && stairMeta.axisOf) || {};
+    const lvlWalls = (lvl && lvl.walls) || {};
+    const prevWalls = (prevLvl && prevLvl.walls) || {};
     const hasFloorAt = (cx, cy) => {
       if (cx < 0 || cy < 0 || cx >= gw || cy >= gh) return false;
       const nk = cx + ',' + cy;
       if (holeSet.has(nk)) return false;
       return grid[cy * gw + cx] === 1 || !!(lvl.floors && lvl.floors[nk]);
     };
-    const rimParts = [];
+    const rimParts = [], railWoodParts = [], railIronParts = [];
     const ry0 = baseY - 0.35, ry1 = baseY + 0.08, rt = 1.0;
+    const guardEdges = [
+      { dx: 0, dy: -1, wKey: (hx, hy) => 'h,' + hx + ',' + hy, isH: true,  zPos: (hx, hy) => hy * C },
+      { dx: 0, dy:  1, wKey: (hx, hy) => 'h,' + hx + ',' + (hy + 1), isH: true,  zPos: (hx, hy) => (hy + 1) * C },
+      { dx: -1, dy: 0, wKey: (hx, hy) => 'v,' + hx + ',' + hy, isH: false, xPos: (hx, hy) => hx * C },
+      { dx:  1, dy: 0, wKey: (hx, hy) => 'v,' + (hx + 1) + ',' + hy, isH: false, xPos: (hx, hy) => (hx + 1) * C }
+    ];
     for (const hk of holeSet) {
       const [hx, hy] = hk.split(',').map(Number);
       const x0 = hx * C, x1 = (hx + 1) * C, z0 = hy * C, z1 = (hy + 1) * C;
+      const stAxis = axisOf[hk] || 'z';
       if (hasFloorAt(hx, hy - 1)) rimParts.push(boxPart({ x0, x1, z0, z1: z0 + rt, y0: ry0, y1: ry1 }));
       if (hasFloorAt(hx, hy + 1)) rimParts.push(boxPart({ x0, x1, z0: z1 - rt, z1, y0: ry0, y1: ry1 }));
       if (hasFloorAt(hx - 1, hy)) rimParts.push(boxPart({ x0, x1: x0 + rt, z0, z1, y0: ry0, y1: ry1 }));
       if (hasFloorAt(hx + 1, hy)) rimParts.push(boxPart({ x0: x1 - rt, x1, z0, z1, y0: ry0, y1: ry1 }));
+
+      for (const e of guardEdges) {
+        const nx = hx + e.dx, ny = hy + e.dy, nk = nx + ',' + ny;
+        if (holeSet.has(nk) || landings.has(nk)) continue;
+        const wk = e.wKey(hx, hy);
+        const adjFloor = hasFloorAt(nx, ny);
+        const hasPrevWall = !!prevWalls[wk];
+        if (!adjFloor && !hasPrevWall) continue;
+        if (lvlWalls[wk]) continue; // already guarded by an upper-floor wall
+        const isParallelWalkEdge = (e.isH && stAxis === 'z') || (!e.isH && stAxis === 'x');
+        // Bottom-entry threshold edge stays open high above Floor 1 headroom (y0=baseY-1) so players walk in underneath cleanly;
+        // parallel side walls extend below baseY (-18px) so jumping mid-stair never hops over Floor 1's adjacent wall!
+        const colY0 = isParallelWalkEdge ? (baseY - 1.5) : (baseY - 18);
+        if (outColliders) {
+          outColliders.push(e.isH
+            ? { x0, x1, z0: e.zPos(hx, hy) - 1.6, z1: e.zPos(hx, hy) + 1.6, y0: colY0, y1: baseY + 46, tag: 'stairguard' }
+            : { x0: e.xPos(hx, hy) - 1.6, x1: e.xPos(hx, hy) + 1.6, z0, z1, y0: colY0, y1: baseY + 46, tag: 'stairguard' });
+        }
+        if (adjFloor) {
+          const rH = 26;
+          if (e.isH) {
+            const rz = e.zPos(hx, hy);
+            railWoodParts.push(boxPart({ x0, x1, z0: rz - 1.3, z1: rz + 1.3, y0: baseY + rH - 2, y1: baseY + rH }));
+            for (const pxPos of [x0 + 1.5, x0 + C * 0.5, x1 - 1.5]) {
+              railIronParts.push(boxPart({ x0: pxPos - 0.7, x1: pxPos + 0.7, z0: rz - 0.7, z1: rz + 0.7, y0: baseY, y1: baseY + rH - 2 }));
+            }
+          } else {
+            const rx = e.xPos(hx, hy);
+            railWoodParts.push(boxPart({ x0: rx - 1.3, x1: rx + 1.3, z0, z1, y0: baseY + rH - 2, y1: baseY + rH }));
+            for (const pzPos of [z0 + 1.5, z0 + C * 0.5, z1 - 1.5]) {
+              railIronParts.push(boxPart({ x0: rx - 0.7, x1: rx + 0.7, z0: pzPos - 0.7, z1: pzPos + 0.7, y0: baseY, y1: baseY + rH - 2 }));
+            }
+          }
+        }
+      }
     }
     if (rimParts.length) {
       const rimMat = HP.graphics3d
         ? HP.graphics3d.material('wood', '#cbbba3')
         : new THREE.MeshLambertMaterial({ color: 0xcbbba3 });
       V.instanced(targetGroup, unitBox(), rimMat, rimParts, { receive: true, lvlIdx: curLvlIdx });
+    }
+    if (railWoodParts.length) {
+      const rwMat = HP.graphics3d ? HP.graphics3d.material('wood', '#8c5a32') : new THREE.MeshLambertMaterial({ color: 0x8c5a32 });
+      V.instanced(targetGroup, unitBox(), rwMat, railWoodParts, { cast: true, receive: true, lvlIdx: curLvlIdx });
+    }
+    if (railIronParts.length) {
+      const riMat = HP.graphics3d ? HP.graphics3d.material('metal', '#1e293b') : new THREE.MeshLambertMaterial({ color: 0x1e293b });
+      V.instanced(targetGroup, unitBox(), riMat, railIronParts, { cast: true, receive: true, lvlIdx: curLvlIdx });
     }
   }
   return cells;
@@ -4729,7 +4790,7 @@ W3.updateFloors = function () {
   const V = HP.cull3d;
   const nextFLG = new THREE.Group();
   allLevels.forEach((lv, lIdx) => {
-    if (lv) W3._buildFloorMeshes(nextFLG, lv, lIdx * WALL_H, W3.stairFloorOpenings && W3.stairFloorOpenings[lIdx]);
+    if (lv) W3._buildFloorMeshes(nextFLG, lv, lIdx * WALL_H, W3.stairFloorOpenings && W3.stairFloorOpenings[lIdx], W3.stairMeta && W3.stairMeta[lIdx], null, allLevels[lIdx - 1]);
   });
 
   if (W3.floorGroup) {

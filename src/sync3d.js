@@ -341,9 +341,7 @@
       cur.s = tgt.s;
       cur.v += (tgt.v - cur.v) * lerpFactor;
 
-      const WALL_H = (HP.geom3d && HP.geom3d.WALL_H) || 74;
-      const floorBaseY = Math.floor(Math.max(0, cur.y) / WALL_H) * WALL_H;
-      const renderY = cur.s ? ((cur.y - floorBaseY) > 15 ? floorBaseY : cur.y) : cur.y;
+      const renderY = cur.y;
       av.root.position.set(cur.x, renderY, cur.z);
       av.root.rotation.y = cur.yaw + Math.PI;
       av.headGroup.rotation.x = -Math.max(-0.85, Math.min(0.85, cur.pitch * 0.65));
@@ -456,6 +454,11 @@
       applyDoorToggle(d);
     } else if (d.t === 'door_push') {
       applyDoorPush(d);
+    } else if (d.t === 'garagedoor') {
+      applyGarageDoor(d);
+    } else if (d.t === 'world_req') {
+      const isHost = S3.mode === 'host' || (HP.sync && HP.sync.mode === 'host');
+      if (isHost && conn) syncWorldStateTo(conn);
     } else if (d.t === 'interact') {
       applyInteractState(d);
     } else if (d.t === 'time') {
@@ -486,13 +489,28 @@
   }
   S3.handleData = (d, conn) => handleData(d, conn);
 
+  async function unpackMsg3d(d) {
+    if (!d || d.t !== 'z') return d;
+    try {
+      const s = await new Response(
+        new Blob([d.d]).stream().pipeThrough(new DecompressionStream('gzip'))
+      ).text();
+      return JSON.parse(s);
+    } catch (e) {
+      return null;
+    }
+  }
+
   function setupConn(c) {
     c.on('open', () => {
       S3.conns.push(c);
       c.send({ t: 'hello', name: S3.myName });
       updateCoopPill();
     });
-    c.on('data', d => handleData(d, c));
+    c.on('data', async raw => {
+      const d = (raw && raw.t === 'z') ? await unpackMsg3d(raw) : raw;
+      if (d) handleData(d, c);
+    });
     const onDrop = () => {
       S3.conns = S3.conns.filter(x => x !== c);
       removePeer(c.peer);
@@ -510,6 +528,14 @@
       HP.world3d.doorPivots.forEach((d, idx) => {
         if (d.latched || d.open > 0.05) {
           conn.send({ t: 'door_toggle', indices: [idx], latched: !!d.latched });
+        }
+      });
+    }
+    // Sync overhead garage doors
+    if (HP.world3d && HP.world3d.garageDoors) {
+      HP.world3d.garageDoors.forEach((gd, idx) => {
+        if (gd.target > 0.5 || gd.open > 0.05) {
+          conn.send({ t: 'garagedoor', idx, target: gd.target });
         }
       });
     }
@@ -563,6 +589,12 @@
       dp.vel = d.vel || 1.2;
       dp.holdT = d.holdT || 3.5;
     }
+  }
+
+  function applyGarageDoor(d) {
+    if (!HP.world3d || !HP.world3d.garageDoors) return;
+    const gd = HP.world3d.garageDoors[d.idx];
+    if (gd) gd.target = d.target ? 1 : 0;
   }
 
   function applyInteractState(d) {
@@ -653,6 +685,14 @@
     if (!HP.world3d || !HP.world3d.doorPivots) return;
     const idx = HP.world3d.doorPivots.indexOf(d);
     if (idx >= 0) sendAll({ t: 'door_push', idx, vel: d.vel, holdT: d.holdT });
+  };
+
+  S3.broadcastGarageDoor = function (idx, target) {
+    sendAll({ t: 'garagedoor', idx, target });
+  };
+
+  S3.requestWorld = function () {
+    sendAll({ t: 'world_req', name: S3.myName });
   };
 
   S3.broadcastInteract = function (d) {
@@ -890,10 +930,10 @@
       modal.querySelector('#coop3d-host-btn').onclick = () => {
         S3.host();
       };
-      modal.querySelector('#coop3d-join-btn').onclick = () => {
-        const c = modal.querySelector('#coop3d-code-input').value;
-        S3.join(c);
-      };
+      const codeInp = modal.querySelector('#coop3d-code-input');
+      const doJoin = () => S3.join(codeInp.value);
+      modal.querySelector('#coop3d-join-btn').onclick = doJoin;
+      if (codeInp) codeInp.onkeydown = e => { if (e.key === 'Enter') doJoin(); };
     }
     const closeBtn = modal.querySelector('#coop3d-close');
     if (closeBtn) closeBtn.onclick = () => { modal.style.display = 'none'; };
