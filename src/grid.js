@@ -1,7 +1,7 @@
 /* grid.js — core constants, shared state, coordinate math */
 window.HP = {};
 
-HP.VERSION = 'v1.3.49';
+HP.VERSION = 'v1.3.50';
 HP.GRID_W = 64;          // cells wide  (32 m)
 HP.GRID_H = 44;          // cells tall  (22 m)
 HP.CELL   = 28;          // world px per cell (1 cell = 0.5 m)
@@ -357,44 +357,126 @@ HP.WALL_PAINTS = [
 HP.wallColor = '';       // '' = default plaster; else '#rrggbb'
 HP.wallMode  = 'draw';   // 'draw' | 'room' | 'wall'
 
-/* paint all interior wall faces bounding room region `r` */
-HP.paintRoomWalls = function (r, col) {
-  if (!r || !r.cells) return 0;
-  const walls = HP.cur().walls;
-  let n = 0;
-  const setSide = (k, side) => {
-    const w = walls[k]; if (!w) return;
-    if (col) w[side] = col; else delete w[side];
-    n++;
-  };
+/* iterate every wall edge facing room region `r` with its inward side ('a' or 'b') */
+HP.forEachRoomWallEdge = function (r, fn) {
+  if (!r || !r.cells) return;
+  const walls = HP.cur() && HP.cur().walls;
+  if (!walls) return;
   for (const [x, y] of r.cells) {
-    setSide(HP.wallKey('h', x, y),     'cb');   // north edge: room is on +y (cb) side
-    setSide(HP.wallKey('h', x, y + 1), 'ca');   // south edge: room is on -y (ca) side
-    setSide(HP.wallKey('v', x, y),     'cb');   // west edge:  room is on +x (cb) side
-    setSide(HP.wallKey('v', x + 1, y), 'ca');   // east edge:  room is on -x (ca) side
+    const edges = [
+      [HP.wallKey('h', x, y),     'b'], // north edge: room is on +y (b) side
+      [HP.wallKey('h', x, y + 1), 'a'], // south edge: room is on -y (a) side
+      [HP.wallKey('v', x, y),     'b'], // west edge:  room is on +x (b) side
+      [HP.wallKey('v', x + 1, y), 'a'], // east edge:  room is on -x (a) side
+    ];
+    for (const [k, side] of edges) {
+      const w = walls[k];
+      if (w) fn(k, side, w);
+    }
   }
+};
+
+HP.wallSideStyle = function (w, side) {
+  if (!w) return 'plaster';
+  const s = side === 'a' ? (w.sa || w.style) : (w.sb || w.style);
+  return s || 'plaster';
+};
+
+HP.setWallSideStyle = function (w, side, st) {
+  if (!w) return;
+  const style = st || 'plaster';
+  if (side === 'both') {
+    w.style = style;
+    delete w.sa;
+    delete w.sb;
+    return;
+  }
+  const curA = HP.wallSideStyle(w, 'a');
+  const curB = HP.wallSideStyle(w, 'b');
+  const nextA = side === 'a' ? style : curA;
+  const nextB = side === 'b' ? style : curB;
+  if (nextA === nextB) {
+    w.style = nextA;
+    delete w.sa;
+    delete w.sb;
+  } else {
+    w.sa = nextA;
+    w.sb = nextB;
+    delete w.style;
+  }
+};
+
+HP.setWallSideColor = function (w, side, col) {
+  if (!w) return;
+  const setFace = (prop) => {
+    if (col) w[prop] = col;
+    else delete w[prop];
+  };
+  if (side === 'both') {
+    setFace('ca');
+    setFace('cb');
+    if (col) w.c = col; else delete w.c;
+  } else if (side === 'a') {
+    setFace('ca');
+    delete w.c;
+  } else if (side === 'b') {
+    setFace('cb');
+    delete w.c;
+  }
+};
+
+/* paint interior wall faces bounding room region `r` (or both sides if `bothSides`) */
+HP.paintRoomWalls = function (r, col, bothSides) {
+  if (!r || !r.cells) return 0;
+  let n = 0;
+  HP.forEachRoomWallEdge(r, (k, side, w) => {
+    HP.setWallSideColor(w, bothSides ? 'both' : side, col);
+    n++;
+  });
   return n;
 };
 HP.roomWallColor = function (r) {
-  if (!r || !r.cells) return '';
-  const walls = HP.cur().walls;
-  for (const [x, y] of r.cells) {
-    for (const [k, s] of [[HP.wallKey('h', x, y), 'cb'], [HP.wallKey('h', x, y + 1), 'ca'],
-                          [HP.wallKey('v', x, y), 'cb'], [HP.wallKey('v', x + 1, y), 'ca']]) {
-      if (walls[k] && walls[k][s]) return walls[k][s];
-    }
+  let found = '';
+  HP.forEachRoomWallEdge(r, (k, side, w) => {
+    if (found) return;
+    const col = w[side === 'a' ? 'ca' : 'cb'];
+    if (col) found = col;
+  });
+  return found;
+};
+HP.roomWallStyle = function (r) {
+  let found = 'plaster';
+  let picked = false;
+  HP.forEachRoomWallEdge(r, (k, side, w) => {
+    if (picked) return;
+    const st = HP.wallSideStyle(w, side);
+    if (st && st !== 'plaster') { found = st; picked = true; }
+  });
+  return found;
+};
+HP.setRoomWallStyle = function (r, style, bothSides) {
+  if (!r || !r.cells) return 0;
+  let n = 0;
+  HP.forEachRoomWallEdge(r, (k, side, w) => {
+    HP.setWallSideStyle(w, bothSides ? 'both' : side, style);
+    n++;
+  });
+  if (HP.invalidateRegions) HP.invalidateRegions();
+  if (HP.markDirty) HP.markDirty();
+  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) {
+    HP.world3d.buildLevel();
   }
-  return '';
+  return n;
 };
 /* paint the face of the nearest wall segment on the cursor's side */
 HP.paintWallAt = function (wx, wy, col) {
   const k = HP.nearestWallSeg(wx, wy, 0.75);
   if (!k) return null;
   const s = HP.parseWallKey(k), w = HP.cur().walls[k];
-  const side = s.d === 'h' ? (wy < s.y * HP.CELL ? 'ca' : 'cb')
-                           : (wx < s.x * HP.CELL ? 'ca' : 'cb');
-  if (col) w[side] = col; else delete w[side];
-  return k + ':' + side;
+  const side = s.d === 'h' ? (wy < s.y * HP.CELL ? 'a' : 'b')
+                           : (wx < s.x * HP.CELL ? 'a' : 'b');
+  HP.setWallSideColor(w, side, col);
+  return k + ':c' + side;
 };
 HP.fenceType = 'wood';
 HP.fencePreview = null;      // segments being dragged by the fence tool

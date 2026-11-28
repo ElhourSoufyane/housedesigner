@@ -723,5 +723,65 @@ t('Escape resume also preserves position', pos().x === beforePause.x && pos().z 
   HP.wallStyle = savedWallStyle;
 }
 
+// Per-side interior-only wall color & material isolation
+{
+  const prevCur = HP.cur;
+  const prevState = HP.state;
+  const dualLvl = {
+    walls: {
+      'h,4,4': { f: null }, 'h,5,4': { f: null },
+      'h,4,6': { f: null }, 'h,5,6': { f: null },
+      'v,4,4': { f: null }, 'v,4,5': { f: null },
+      'v,6,4': { f: null }, 'v,6,5': { f: null }
+    },
+    floors: {}, furniture: []
+  };
+  HP.state = { level: 0, levels: [dualLvl], w: 64, h: 44 };
+  HP.cur = () => dualLvl;
+  HP.invalidateRegions();
+  const room = HP.regionAt(4, 4);
+  t('dual-side test enclosed room found', !!room);
+
+  // Default (Only Inside) material change keeps exterior faces plaster
+  HP.setRoomWallStyle(room, 'brick', false);
+  t('north wall inward face cb/sb is brick', HP.wallSideStyle(dualLvl.walls['h,4,4'], 'b') === 'brick');
+  t('north wall exterior face sa stays plaster', HP.wallSideStyle(dualLvl.walls['h,4,4'], 'a') === 'plaster');
+  t('south wall inward face sa is brick', HP.wallSideStyle(dualLvl.walls['h,4,6'], 'a') === 'brick');
+  t('south wall exterior face sb stays plaster', HP.wallSideStyle(dualLvl.walls['h,4,6'], 'b') === 'plaster');
+  t('roomWallStyle reads interior brick', HP.roomWallStyle(room) === 'brick');
+
+  // Default (Only Inside) color paint keeps exterior faces unpainted
+  HP.paintRoomWalls(room, '#9cb29b', false);
+  t('north wall inward cb is sage', dualLvl.walls['h,4,4'].cb === '#9cb29b');
+  t('north wall exterior ca stays unset', !dualLvl.walls['h,4,4'].ca);
+  t('east wall inward ca is sage', dualLvl.walls['v,6,4'].ca === '#9cb29b');
+  t('east wall exterior cb stays unset', !dualLvl.walls['v,6,4'].cb);
+
+  // 3D build puts split wall and corner halves into both brick and plaster meshes
+  W3.buildLevel();
+  const isWallMat = (m, style) => {
+    const base = W3._wallMats && W3._wallMats[style];
+    if (!base) return false;
+    return m === base || (HP.graphics3d && HP.graphics3d.companion && m === HP.graphics3d.companion(base));
+  };
+  let brickCount = 0, plasterCount = 0;
+  if (W3.staticGroup && W3._wallMats) {
+    W3.staticGroup.traverse(o => {
+      if (!o.isInstancedMesh) return;
+      if (isWallMat(o.material, 'brick')) brickCount += o.count;
+      if (isWallMat(o.material, 'plaster')) plasterCount += o.count;
+    });
+  }
+  t('3D scene builds both brick (inside) and plaster (outside) meshes', brickCount > 0 && plasterCount > 0, `brick=${brickCount} plaster=${plasterCount}`);
+
+  // Explicit bothSides = true updates both faces
+  HP.setRoomWallStyle(room, 'stone', true);
+  t('bothSides style sets w.style=stone', dualLvl.walls['h,4,4'].style === 'stone' && !dualLvl.walls['h,4,4'].sa);
+
+  HP.state = prevState;
+  HP.cur = prevCur;
+  HP.invalidateRegions();
+}
+
 console.log(`\n${fail ? 'FAILURES: ' + fail : 'ALL PASS'} (${pass} checks)`);
 process.exit(fail ? 1 : 0);

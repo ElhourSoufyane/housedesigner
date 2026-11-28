@@ -1775,42 +1775,13 @@ function wallThick(seg, regionOf) {                    // exterior → thicker
   return (out(seg.x - 1, seg.y) || out(seg.x, seg.y)) ? 0.44 : 0.3;
 }
 
-function drawWallCore(g, s, t, w) {
-  const C = HP.CELL, ca = w && w.ca, cb = w && w.cb;
-  const style = (w && w.style) || 'plaster';
-  const painted = !!(ca || cb);
-  const styled = painted || style !== 'plaster';
-  const ti = Math.max(styled ? 5.2 : 2, t - (styled ? 3.8 : 8));
-  const styleDefCol = style === 'brick' ? '#8c382a' :
-                      style === 'brick_white' ? '#f4f1ea' :
-                      style === 'stone' ? '#8a857b' :
-                      style === 'wood' ? '#be9866' :
-                      style === 'tile' ? '#e6e2da' :
-                      style === 'concrete' ? '#9aa1a8' :
-                      style === 'marble' ? '#f4f7fb' :
-                      style === 'shiplap' ? '#f5f5f2' :
-                      style === 'glass' ? '#d8eef6' : '#f5f3ec';
+const WALL_STYLE_DEF_COLS = {
+  brick: '#8c382a', brick_white: '#f4f1ea', stone: '#8a857b', wood: '#be9866',
+  tile: '#e6e2da', concrete: '#9aa1a8', marble: '#f4f7fb', shiplap: '#f5f5f2',
+  glass: '#d8eef6', plaster: '#f5f3ec'
+};
 
-  let rx, ry, rw, rh;
-  if (!painted || ca === cb) {
-    g.fillStyle = ca || styleDefCol;
-    if (s.d === 'h') { rx = s.x * C + 2; ry = s.y * C - ti / 2; rw = C - 3.4; rh = ti; }
-    else { rx = s.x * C - ti / 2; ry = s.y * C + 2; rw = ti; rh = C - 3.4; }
-    g.fillRect(rx, ry, rw, rh);
-  } else {
-    const h = ti / 2;
-    if (s.d === 'h') {
-      rx = s.x * C + 2; ry = s.y * C - h; rw = C - 3.4; rh = ti;
-      g.fillStyle = ca || styleDefCol; g.fillRect(rx, ry, rw, h);
-      g.fillStyle = cb || styleDefCol; g.fillRect(rx, s.y * C, rw, h);
-    } else {
-      rx = s.x * C - h; ry = s.y * C + 2; rw = ti; rh = C - 3.4;
-      g.fillStyle = ca || styleDefCol; g.fillRect(rx, ry, h, rh);
-      g.fillStyle = cb || styleDefCol; g.fillRect(s.x * C, ry, h, rh);
-    }
-  }
-
-  // Architectural hatching & patterns per style (no costly canvas clip)
+function drawWallPattern(g, s, rx, ry, rw, rh, style) {
   if (style === 'brick' || style === 'brick_white') {
     const isH = s.d === 'h';
     const isWhite = style === 'brick_white';
@@ -1842,7 +1813,6 @@ function drawWallCore(g, s, t, w) {
     g.lineWidth = 0.8;
     g.strokeRect(rx, ry, rw, rh);
   } else if (style === 'concrete') {
-    // Board-formed concrete with horizontal plank seams and form-tie holes
     g.strokeStyle = 'rgba(70, 75, 80, 0.4)';
     g.lineWidth = 0.8;
     g.beginPath();
@@ -1852,7 +1822,6 @@ function drawWallCore(g, s, t, w) {
       g.moveTo(rx + rw / 2, ry); g.lineTo(rx + rw / 2, ry + rh);
     }
     g.stroke();
-    // Tie-rod rivet holes
     g.fillStyle = '#4a5054';
     if (s.d === 'h') {
       for (let x = rx + 5; x < rx + rw; x += 11) {
@@ -1864,30 +1833,27 @@ function drawWallCore(g, s, t, w) {
       }
     }
   } else if (style === 'marble') {
-    // Polished Calacatta marble diagonal veining
     g.strokeStyle = 'rgba(90, 108, 130, 0.55)';
     g.lineWidth = 0.9;
     g.beginPath();
     if (s.d === 'h') {
-      g.moveTo(rx + 4, ry); g.lineTo(rx + 14, ry + rh);
-      g.moveTo(rx + 18, ry); g.lineTo(rx + 26, ry + rh);
+      g.moveTo(rx + 4, ry); g.lineTo(rx + Math.min(14, rw), ry + rh);
+      if (rw > 18) { g.moveTo(rx + 18, ry); g.lineTo(rx + Math.min(26, rw), ry + rh); }
     } else {
-      g.moveTo(rx, ry + 4); g.lineTo(rx + rw, ry + 14);
-      g.moveTo(rx, ry + 18); g.lineTo(rx + rw, ry + 26);
+      g.moveTo(rx, ry + 4); g.lineTo(rx + rw, ry + Math.min(14, rh));
+      if (rh > 18) { g.moveTo(rx, ry + 18); g.lineTo(rx + rw, ry + Math.min(26, rh)); }
     }
     g.stroke();
-    // Gold vein accent
     g.strokeStyle = 'rgba(202, 138, 4, 0.5)';
     g.lineWidth = 0.8;
     g.beginPath();
     if (s.d === 'h') {
-      g.moveTo(rx + 8, ry); g.lineTo(rx + 16, ry + rh);
+      g.moveTo(rx + 8, ry); g.lineTo(rx + Math.min(16, rw), ry + rh);
     } else {
-      g.moveTo(rx, ry + 8); g.lineTo(rx + rw, ry + 16);
+      g.moveTo(rx, ry + 8); g.lineTo(rx + rw, ry + Math.min(16, rh));
     }
     g.stroke();
   } else if (style === 'shiplap') {
-    // Horizontal painted wood shiplap nickel-gap grooves
     g.strokeStyle = 'rgba(38, 38, 38, 0.52)';
     g.lineWidth = 0.9;
     g.beginPath();
@@ -1946,6 +1912,45 @@ function drawWallCore(g, s, t, w) {
     if (s.d === 'h') { g.moveTo(rx, ry + rh / 2); g.lineTo(rx + rw, ry + rh / 2); }
     else { g.moveTo(rx + rw / 2, ry); g.lineTo(rx + rw / 2, ry + rh); }
     g.stroke();
+  }
+}
+
+function drawWallCore(g, s, t, w) {
+  const C = HP.CELL, ca = w && w.ca, cb = w && w.cb;
+  const sa = HP.wallSideStyle ? HP.wallSideStyle(w, 'a') : ((w && (w.sa || w.style)) || 'plaster');
+  const sb = HP.wallSideStyle ? HP.wallSideStyle(w, 'b') : ((w && (w.sb || w.style)) || 'plaster');
+  const painted = !!(ca || cb);
+  const styled = painted || sa !== 'plaster' || sb !== 'plaster';
+  const ti = Math.max(styled ? 5.2 : 2, t - (styled ? 3.8 : 8));
+  const defColA = WALL_STYLE_DEF_COLS[sa] || WALL_STYLE_DEF_COLS.plaster;
+  const defColB = WALL_STYLE_DEF_COLS[sb] || WALL_STYLE_DEF_COLS.plaster;
+
+  if (sa === sb && (!painted || ca === cb)) {
+    const rx = s.d === 'h' ? s.x * C + 2 : s.x * C - ti / 2;
+    const ry = s.d === 'h' ? s.y * C - ti / 2 : s.y * C + 2;
+    const rw = s.d === 'h' ? C - 3.4 : ti;
+    const rh = s.d === 'h' ? ti : C - 3.4;
+    g.fillStyle = ca || defColA;
+    g.fillRect(rx, ry, rw, rh);
+    drawWallPattern(g, s, rx, ry, rw, rh, sa);
+    return;
+  }
+
+  const h = ti / 2;
+  if (s.d === 'h') {
+    const rx = s.x * C + 2, rw = C - 3.4;
+    const ryA = s.y * C - h, ryB = s.y * C;
+    g.fillStyle = ca || defColA; g.fillRect(rx, ryA, rw, h);
+    drawWallPattern(g, s, rx, ryA, rw, h, sa);
+    g.fillStyle = cb || defColB; g.fillRect(rx, ryB, rw, h);
+    drawWallPattern(g, s, rx, ryB, rw, h, sb);
+  } else {
+    const ry = s.y * C + 2, rh = C - 3.4;
+    const rxA = s.x * C - h, rxB = s.x * C;
+    g.fillStyle = ca || defColA; g.fillRect(rxA, ry, h, rh);
+    drawWallPattern(g, s, rxA, ry, h, rh, sa);
+    g.fillStyle = cb || defColB; g.fillRect(rxB, ry, h, rh);
+    drawWallPattern(g, s, rxB, ry, h, rh, sb);
   }
 }
 
@@ -3010,10 +3015,21 @@ function drawOverlays(g) {
       const y0 = (isH ? s.y - 0.25 : s.y) * C - 2;
       const bw = (isH ? C : 0.5 * C) + 4;
       const bh = (isH ? 0.5 * C : C) + 4;
+      if (sw.side === 'a' || sw.side === 'b') {
+        g.fillStyle = 'rgba(34, 197, 94, 0.28)';
+        if (isH) {
+          g.fillRect(s.x * C, sw.side === 'a' ? s.y * C - 0.25 * C - 1 : s.y * C, C, 0.25 * C + 1);
+        } else {
+          g.fillRect(sw.side === 'a' ? s.x * C - 0.25 * C - 1 : s.x * C, s.y * C, 0.25 * C + 1, C);
+        }
+      }
       g.strokeStyle = '#22c55e'; g.lineWidth = 2.5; g.setLineDash([5, 3]);
       g.strokeRect(x0, y0, bw, bh);
       g.setLineDash([]);
-      const badgeText = (rec.style || 'plaster').toUpperCase();
+      const sa = HP.wallSideStyle ? HP.wallSideStyle(rec, 'a') : (rec.sa || rec.style || 'plaster');
+      const sb = HP.wallSideStyle ? HP.wallSideStyle(rec, 'b') : (rec.sb || rec.style || 'plaster');
+      const activeSt = sw.side === 'a' ? sa : sw.side === 'b' ? sb : (sa === sb ? sa : sa + '/' + sb);
+      const badgeText = activeSt.toUpperCase();
       g.font = 'bold 9px "Segoe UI", sans-serif';
       const tw = g.measureText(badgeText).width + 8;
       const bx = isH ? (s.x + 0.5) * C : (s.x * C + 0.25 * C + tw / 2 + 5);

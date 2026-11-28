@@ -1201,7 +1201,7 @@ const WALL_DOOR_THEMES = DOOR_STYLE_THEMES;
 HP.WALL_DOOR_THEMES = DOOR_STYLE_THEMES;
 
 function resolveDoorWallStyle(lvl, a) {
-  if (!lvl || !lvl.walls) return { style: 'plaster', ca: '#f4efe4', cb: '#f4efe4' };
+  if (!lvl || !lvl.walls) return { style: 'plaster', sa: 'plaster', sb: 'plaster', ca: '#f4efe4', cb: '#f4efe4' };
   const k = a ? a.k : null;
   const isH = a ? a.d === 'h' : false;
   const seg = k ? HP.parseWallKey(k) : null;
@@ -1226,6 +1226,19 @@ function resolveDoorWallStyle(lvl, a) {
     return isExt ? '#e9e2d2' : '#f4efe4';
   };
 
+  const readStyles = (w) => {
+    if (!w) return null;
+    const sa = w.sa || w.style || w._resolvedStyle;
+    const sb = w.sb || w.style || w._resolvedStyle;
+    if (!sa && !sb) return null;
+    const aSt = sa || 'plaster', bSt = sb || 'plaster';
+    return {
+      sa: aSt,
+      sb: bSt,
+      style: aSt === bSt ? aSt : (aSt !== 'plaster' ? aSt : bSt)
+    };
+  };
+
   let selfPaint = null;
   if (k) {
     const keys = [k];
@@ -1235,10 +1248,13 @@ function resolveDoorWallStyle(lvl, a) {
     for (const key of keys) {
       const w = lvl.walls[key];
       if (!w) continue;
-      if (w.style || w._resolvedStyle) {
-        const st = w.style || w._resolvedStyle;
-        const defC = getDefColor(st);
-        return { style: st, ca: w.ca || w._resolvedCa || defC, cb: w.cb || w._resolvedCb || defC };
+      const stObj = readStyles(w);
+      if (stObj) {
+        return {
+          style: stObj.style, sa: stObj.sa, sb: stObj.sb,
+          ca: w.ca || w._resolvedCa || getDefColor(stObj.sa),
+          cb: w.cb || w._resolvedCb || getDefColor(stObj.sb)
+        };
       }
       if (!selfPaint && (w.ca || w._resolvedCa || w.cb || w._resolvedCb)) {
         selfPaint = { ca: w.ca || w._resolvedCa, cb: w.cb || w._resolvedCb };
@@ -1269,13 +1285,12 @@ function resolveDoorWallStyle(lvl, a) {
         const nw = lvl.walls[nk];
         if (!nw) break;
 
-        if (nw.style || nw._resolvedStyle) {
-          const st = nw.style || nw._resolvedStyle;
-          const defC = getDefColor(st);
+        const stObj = readStyles(nw);
+        if (stObj) {
           return {
-            style: st,
-            ca: (selfPaint && selfPaint.ca) || nw.ca || nw._resolvedCa || defC,
-            cb: (selfPaint && selfPaint.cb) || nw.cb || nw._resolvedCb || defC
+            style: stObj.style, sa: stObj.sa, sb: stObj.sb,
+            ca: (selfPaint && selfPaint.ca) || nw.ca || nw._resolvedCa || getDefColor(stObj.sa),
+            cb: (selfPaint && selfPaint.cb) || nw.cb || nw._resolvedCb || getDefColor(stObj.sb)
           };
         }
         if (nw.ca || nw._resolvedCa || nw.cb || nw._resolvedCb) {
@@ -1289,7 +1304,7 @@ function resolveDoorWallStyle(lvl, a) {
   const defStyle = 'plaster';
   const defC = getDefColor(defStyle);
   return {
-    style: defStyle,
+    style: defStyle, sa: defStyle, sb: defStyle,
     ca: (selfPaint && selfPaint.ca) || defC,
     cb: (selfPaint && selfPaint.cb) || defC
   };
@@ -1340,21 +1355,27 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
   const ws = resolveDoorWallStyle(lvl, a);
   const wallStyle = ws.style;
   const wallCol = ws.ca;
+  const sa = ws.sa || wallStyle;
+  const sb = ws.sb || wallStyle;
 
-  let frameMat, wallMat;
+  const getMatFor = (st, col) => (HP.world3d && HP.world3d.getWallMat)
+    ? HP.world3d.getWallMat(st)
+    : (HP.graphics3d ? HP.graphics3d.worldUV(HP.graphics3d.material(st, col).clone(), (HP.CELL || 28) * 2) : null);
+
+  let frameMat, wallMat, wallMatA, wallMatB;
   if (doorStyle === 'archway') {
     const isStone = (wallStyle === 'brick' || wallStyle === 'brick_white' || wallStyle === 'stone' || wallStyle === 'concrete');
     const casingKind = isStone ? 'stone' : theme.frameKind;
     const casingColor = isStone ? (ws.ca || '#ede8df') : theme.frameColor;
     frameMat = HP.graphics3d ? HP.graphics3d.material(casingKind, casingColor) : new THREE.MeshLambertMaterial({ color: 0xede8df });
-    wallMat = (HP.world3d && HP.world3d.getWallMat)
-      ? HP.world3d.getWallMat(wallStyle)
-      : (HP.graphics3d ? HP.graphics3d.worldUV(HP.graphics3d.material(wallStyle, wallCol).clone(), (HP.CELL || 28) * 2) : frameMat);
+    wallMat = getMatFor(wallStyle, wallCol) || frameMat;
+    wallMatA = getMatFor(sa, ws.ca) || frameMat;
+    wallMatB = getMatFor(sb, ws.cb) || frameMat;
   } else if (doorStyle === 'arched') {
     frameMat = HP.graphics3d ? HP.graphics3d.material(theme.frameKind, theme.frameColor) : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
-    wallMat = (HP.world3d && HP.world3d.getWallMat)
-      ? HP.world3d.getWallMat(wallStyle)
-      : (HP.graphics3d ? HP.graphics3d.worldUV(HP.graphics3d.material(wallStyle, wallCol).clone(), (HP.CELL || 28) * 2) : frameMat);
+    wallMat = getMatFor(wallStyle, wallCol) || frameMat;
+    wallMatA = getMatFor(sa, ws.ca) || frameMat;
+    wallMatB = getMatFor(sb, ws.cb) || frameMat;
   } else {
     frameMat = HP.graphics3d ? HP.graphics3d.material(theme.frameKind, theme.frameColor) : new THREE.MeshLambertMaterial({ color: 0x5c4033 });
   }
@@ -1421,9 +1442,6 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
     leftSpShape.lineTo(-R, dh);
     leftSpShape.lineTo(-R, sy);
     leftSpShape.closePath();
-    const lSpGeo = toOrientedExtrudeGeo(leftSpShape, wThick, isH);
-    lSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
-    spandrelGeos.push(lSpGeo);
 
     const rightSpShape = new THREE.Shape();
     rightSpShape.moveTo(R, sy);
@@ -1436,9 +1454,32 @@ function buildDoorFrame(a, s0, s1, parentGroup) {
       rightSpShape.lineTo(u, y);
     }
     rightSpShape.closePath();
-    const rSpGeo = toOrientedExtrudeGeo(rightSpShape, wThick, isH);
-    rSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
-    spandrelGeos.push(rSpGeo);
+
+    if (sa === sb) {
+      const lSpGeo = toOrientedExtrudeGeo(leftSpShape, wThick, isH);
+      lSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
+      spandrelGeos.push(lSpGeo);
+
+      const rSpGeo = toOrientedExtrudeGeo(rightSpShape, wThick, isH);
+      rSpGeo.translate(isH ? midU : wMid, 0, isH ? wMid : midU);
+      spandrelGeos.push(rSpGeo);
+    } else {
+      const halfT = wThick / 2;
+      for (const [off, mat] of [[-wThick / 4, wallMatA], [wThick / 4, wallMatB]]) {
+        const geos = [];
+        for (const sh of [leftSpShape, rightSpShape]) {
+          const sg2 = toOrientedExtrudeGeo(sh, halfT, isH);
+          sg2.translate(isH ? midU : wMid + off, 0, isH ? wMid + off : midU);
+          geos.push(sg2);
+        }
+        const mergedHalf = mergeGeometries(geos);
+        if (mergedHalf) {
+          const spMesh = new THREE.Mesh(mergedHalf, mat || frameMat);
+          spMesh.castShadow = spMesh.receiveShadow = true;
+          group.add(spMesh);
+        }
+      }
+    }
 
     // Arch casing trim bands on both wall faces with architectural reveal (CCW)
     const archCasingShape = new THREE.Shape();
@@ -2903,29 +2944,31 @@ W3.buildLevel = function () {
           const ci = Math.floor(((s0 + s1) / 2) / C);
           const wk = b.d + ',' + (isH ? ci : b.line) + ',' + (isH ? b.line : ci);
           const w = curLvl.walls[wk];
-          let st = (w && (w.style || w._resolvedStyle));
+          let sa = w && (w.sa || w.style || w._resolvedStyle);
+          let sb = w && (w.sb || w.style || w._resolvedStyle);
           let ca = w && (w.ca || w._resolvedCa), cb = w && (w.cb || w._resolvedCb);
           if (w && (w.f === 'door' || w.f === 'window')) {
             const ws = resolveDoorWallStyle(curLvl, { k: wk, d: b.d, dbl: false, ext: b.ext });
-            if (!st) st = ws.style;
+            if (!sa) sa = ws.sa || ws.style;
+            if (!sb) sb = ws.sb || ws.style;
             if (!ca) ca = ws.ca;
             if (!cb) cb = ws.cb;
           }
-          st = st || 'plaster';
-          const sDefC = styleDefaultCol(st, b.ext);
-          ca = ca || sDefC;
-          cb = cb || sDefC;
-          const sb = adjWallBox(isH ? { ...b, x0: s0, x1: s1 } : { ...b, z0: s0, z1: s1 }, st);
-          if (ca === cb) {
-            addWallPart(st, boxPart(sb, ca));
+          sa = sa || 'plaster';
+          sb = sb || 'plaster';
+          ca = ca || styleDefaultCol(sa, b.ext);
+          cb = cb || styleDefaultCol(sb, b.ext);
+          const segBox = isH ? { ...b, x0: s0, x1: s1 } : { ...b, z0: s0, z1: s1 };
+          if (sa === sb && ca === cb) {
+            addWallPart(sa, boxPart(adjWallBox(segBox, sa), ca));
           } else if (isH) {
-            const zm = (sb.z0 + sb.z1) / 2;
-            addWallPart(st, boxPart({ ...sb, z1: zm }, ca));
-            addWallPart(st, boxPart({ ...sb, z0: zm }, cb));
+            const zm = (segBox.z0 + segBox.z1) / 2;
+            addWallPart(sa, boxPart(adjWallBox({ ...segBox, z1: zm }, sa), ca));
+            addWallPart(sb, boxPart(adjWallBox({ ...segBox, z0: zm }, sb), cb));
           } else {
-            const xm = (sb.x0 + sb.x1) / 2;
-            addWallPart(st, boxPart({ ...sb, x1: xm }, ca));
-            addWallPart(st, boxPart({ ...sb, x0: xm }, cb));
+            const xm = (segBox.x0 + segBox.x1) / 2;
+            addWallPart(sa, boxPart(adjWallBox({ ...segBox, x1: xm }, sa), ca));
+            addWallPart(sb, boxPart(adjWallBox({ ...segBox, x0: xm }, sb), cb));
           }
         }
         continue;
@@ -2935,21 +2978,31 @@ W3.buildLevel = function () {
         const hR = curLvl.walls['h,' + b.vx + ',' + b.vy];
         const vT = curLvl.walls['v,' + b.vx + ',' + (b.vy - 1)];
         const vB = curLvl.walls['v,' + b.vx + ',' + b.vy];
-        const st = (hL && hL.style) || (hR && hR.style) || (vT && vT.style) || (vB && vB.style) || 'plaster';
-        const sDefC = styleDefaultCol(st, b.ext);
-        const cNW = (hL && hL.ca) || (vT && vT.ca) || sDefC;
-        const cNE = (hR && hR.ca) || (vT && vT.cb) || sDefC;
-        const cSW = (hL && hL.cb) || (vB && vB.ca) || sDefC;
-        const cSE = (hR && hR.cb) || (vB && vB.cb) || sDefC;
-        const cbBox = adjWallBox(b, st);
-        if (cNW === cNE && cNW === cSW && cNW === cSE) {
-          addWallPart(st, boxPart(cbBox, cNW));
+        const sideSt = (w, side) => !w ? null : (side === 'a' ? (w.sa || w.style) : (w.sb || w.style));
+        const sideCl = (w, side) => !w ? null : (side === 'a' ? w.ca : w.cb);
+        const pickQuad = (p1, s1, p2, s2, f1, fs1, f2, fs2) => {
+          const st1 = sideSt(p1, s1), st2 = sideSt(p2, s2);
+          const st = (st1 && st1 !== 'plaster' ? st1 : (st2 && st2 !== 'plaster' ? st2 : (st1 || st2)))
+                  || (p1 || p2 ? 'plaster' : null)
+                  || sideSt(f1, fs1) || sideSt(f2, fs2) || 'plaster';
+          const c = sideCl(p1, s1) || sideCl(p2, s2)
+                 || (!(p1 || p2) ? (sideCl(f1, fs1) || sideCl(f2, fs2)) : null)
+                 || styleDefaultCol(st, b.ext);
+          return { st, c };
+        };
+        const qNW = pickQuad(hL, 'a', vT, 'a', hR, 'a', vB, 'a');
+        const qNE = pickQuad(hR, 'a', vT, 'b', hL, 'a', vB, 'b');
+        const qSW = pickQuad(hL, 'b', vB, 'a', hR, 'b', vT, 'a');
+        const qSE = pickQuad(hR, 'b', vB, 'b', hL, 'b', vT, 'b');
+        if (qNW.st === qNE.st && qNW.st === qSW.st && qNW.st === qSE.st &&
+            qNW.c === qNE.c && qNW.c === qSW.c && qNW.c === qSE.c) {
+          addWallPart(qNW.st, boxPart(adjWallBox(b, qNW.st), qNW.c));
         } else {
-          const xm = (cbBox.x0 + cbBox.x1) / 2, zm = (cbBox.z0 + cbBox.z1) / 2;
-          addWallPart(st, boxPart({ ...cbBox, x1: xm, z1: zm }, cNW));
-          addWallPart(st, boxPart({ ...cbBox, x0: xm, z1: zm }, cNE));
-          addWallPart(st, boxPart({ ...cbBox, x1: xm, z0: zm }, cSW));
-          addWallPart(st, boxPart({ ...cbBox, x0: xm, z0: zm }, cSE));
+          const xm = (b.x0 + b.x1) / 2, zm = (b.z0 + b.z1) / 2;
+          addWallPart(qNW.st, boxPart(adjWallBox({ ...b, x1: xm, z1: zm }, qNW.st), qNW.c));
+          addWallPart(qNE.st, boxPart(adjWallBox({ ...b, x0: xm, z1: zm }, qNE.st), qNE.c));
+          addWallPart(qSW.st, boxPart(adjWallBox({ ...b, x1: xm, z0: zm }, qSW.st), qSW.c));
+          addWallPart(qSE.st, boxPart(adjWallBox({ ...b, x0: xm, z0: zm }, qSE.st), qSE.c));
         }
         continue;
       }

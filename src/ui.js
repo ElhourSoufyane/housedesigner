@@ -421,13 +421,9 @@ function roomUI() {
   const s = document.createElement('div');
   s.className = 'insp-section';
   $('#edit-title').textContent = 'Room Properties';
-  let curWallStyle = 'plaster';
-  for (const [x, y] of r.cells) {
-    const k1 = HP.wallKey('h', x, y), k2 = HP.wallKey('h', x, y + 1);
-    const k3 = HP.wallKey('v', x, y), k4 = HP.wallKey('v', x + 1, y);
-    const w = HP.cur().walls[k1] || HP.cur().walls[k2] || HP.cur().walls[k3] || HP.cur().walls[k4];
-    if (w && w.style) { curWallStyle = w.style; break; }
-  }
+  const curWallStyle = HP.roomWallStyle ? HP.roomWallStyle(r) : 'plaster';
+  HP.roomWallScope = HP.roomWallScope || 'inside';
+  const curWallScope = HP.roomWallScope;
   const curLvl = HP.cur();
   curLvl.ceilings = curLvl.ceilings || {};
   curLvl.roomCeilings = curLvl.roomCeilings || {};
@@ -442,6 +438,12 @@ function roomUI() {
       <input type="text" id="room-name-i" value="${curName.replace(/"/g, '&quot;')}" placeholder="e.g. Bedroom">
       <button class="ibtn primary" id="room-name-apply" style="display:none;margin-top:8px">Apply Name</button></div>
     <div class="field"><label>Flooring — click to apply</label><div class="fam-list" id="room-sw"></div></div>
+    <div class="field"><label>Apply Wall Changes To</label>
+      <div class="seg" id="room-wall-scope-seg">
+        <button class="seg-btn ${curWallScope === 'inside' ? 'on' : ''}" data-scope="inside">Only Inside</button>
+        <button class="seg-btn ${curWallScope === 'both' ? 'on' : ''}" data-scope="both">Inside &amp; Outside</button>
+      </div>
+    </div>
     <div class="field"><label>Wall Style / Material</label>
       <div class="seg wrap" id="room-wall-style-seg">
         <button class="seg-btn ${curWallStyle === 'plaster' ? 'on' : ''}" data-style="plaster">Plaster</button>
@@ -476,16 +478,28 @@ function roomUI() {
     <div class="stat-row"><span class="k">Windows</span><span class="v">${cnt.wins}</span></div>`;
   top.appendChild(s);
 
+  const roomScopeSeg = $('#room-wall-scope-seg');
+  if (roomScopeSeg) {
+    roomScopeSeg.querySelectorAll('.seg-btn').forEach(b => {
+      b.onclick = () => {
+        HP.roomWallScope = b.dataset.scope === 'both' ? 'both' : 'inside';
+        roomScopeSeg.querySelectorAll('.seg-btn').forEach(x => x.classList.toggle('on', x.dataset.scope === HP.roomWallScope));
+        HP.status(HP.roomWallScope === 'both' ? 'Wall edits will apply inside & outside' : 'Wall edits will apply only inside this room');
+      };
+    });
+  }
+
   const roomStyleSeg = $('#room-wall-style-seg');
   if (roomStyleSeg) {
     roomStyleSeg.querySelectorAll('.seg-btn').forEach(b => {
       b.onclick = () => {
         HP.pushUndo();
         const st = b.dataset.style;
-        HP.setRoomWallStyle(r, st);
+        const both = HP.roomWallScope === 'both';
+        HP.setRoomWallStyle(r, st, both);
         HP.invalidateRegions(); HP.saveState(); HP.markDirty();
         roomUI();
-        HP.status('Room walls set to ' + st);
+        HP.status('Room walls (' + (both ? 'inside & outside' : 'only inside') + ') set to ' + st);
       };
     });
   }
@@ -517,9 +531,12 @@ function roomUI() {
   });
   wallSwatches($('#room-wall-sw'), HP.roomWallColor(r), col => {
     HP.pushUndo();
-    HP.paintRoomWalls(r, col);
-    HP.invalidateRegions(); HP.saveState();
-    HP.status(col ? 'Room walls painted' : 'Room walls reset to default');
+    const both = HP.roomWallScope === 'both';
+    HP.paintRoomWalls(r, col, both);
+    HP.invalidateRegions(); HP.saveState(); HP.markDirty();
+    if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
+    roomUI();
+    HP.status((col ? 'Room walls painted' : 'Room walls reset to default') + ' (' + (both ? 'inside & outside' : 'only inside') + ')');
   });
   ceilingSwatches($('#room-ceil-sw'), curCeilColor, col => {
     HP.pushUndo();
@@ -1084,16 +1101,59 @@ function wallSelectedUI(selWall) {
   const top = $('#insp-top'); if (!top) return;
   top.innerHTML = '';
   const lvl = HP.cur();
-  const w = lvl && lvl.walls && lvl.walls[selWall.k];
+  const wk = typeof selWall === 'string' ? selWall : selWall.k;
+  const w = lvl && lvl.walls && lvl.walls[wk];
   if (!w) { HP.selectedWall = null; return; }
   $('#edit-title').textContent = 'Wall Properties';
 
-  const curStyle = w.style || 'plaster';
-  const curColor = w.ca || w.cb || w.c || '';
+  const seg = HP.parseWallKey(wk);
+  const isH = seg.d === 'h';
+  const rA = isH ? HP.regionAt(seg.x, seg.y - 1) : HP.regionAt(seg.x - 1, seg.y);
+  const rB = HP.regionAt(seg.x, seg.y);
+  const activeSide = (typeof selWall === 'object' && selWall.side)
+    || ((rA && !rB) ? 'a' : (!rA && rB) ? 'b' : 'a');
+  if (typeof selWall === 'object') selWall.side = activeSide;
+
+  let sideBtns;
+  if ((rA && !rB) || (!rA && rB)) {
+    const inSide = rA ? 'a' : 'b';
+    const outSide = rA ? 'b' : 'a';
+    sideBtns = [
+      { side: inSide, label: 'Only Inside' },
+      { side: outSide, label: 'Only Outside' },
+      { side: 'both', label: 'Both Sides' }
+    ];
+  } else if (rA && rB) {
+    sideBtns = [
+      { side: 'a', label: rA.name || (isH ? 'Top Room' : 'Left Room') },
+      { side: 'b', label: rB.name || (isH ? 'Bottom Room' : 'Right Room') },
+      { side: 'both', label: 'Both Sides' }
+    ];
+  } else {
+    sideBtns = [
+      { side: 'a', label: isH ? 'Top Side' : 'Left Side' },
+      { side: 'b', label: isH ? 'Bottom Side' : 'Right Side' },
+      { side: 'both', label: 'Both Sides' }
+    ];
+  }
+
+  const curStyle = activeSide === 'both'
+    ? (w.style || w.sa || w.sb || 'plaster')
+    : (HP.wallSideStyle ? HP.wallSideStyle(w, activeSide) : (w.style || 'plaster'));
+  const curColor = activeSide === 'both'
+    ? (w.ca || w.cb || w.c || '')
+    : (w[activeSide === 'a' ? 'ca' : 'cb'] || '');
+
   const s = document.createElement('div');
   s.className = 'insp-section';
   s.innerHTML = `
     <div class="field">
+      <label>Apply Wall Changes To</label>
+      <div class="seg" id="selwall-side-seg">
+        ${sideBtns.map(b => `<button class="seg-btn ${activeSide === b.side ? 'on' : ''}" data-side="${b.side}">${b.label}</button>`).join('')}
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px">
       <label>Wall Material / Style</label>
       <div id="selwall-style-picker-wrap"></div>
     </div>
@@ -1112,48 +1172,56 @@ function wallSelectedUI(selWall) {
   `;
   top.appendChild(s);
 
+  const sideSeg = $('#selwall-side-seg');
+  if (sideSeg) {
+    sideSeg.querySelectorAll('.seg-btn').forEach(b => {
+      b.onclick = () => {
+        if (typeof selWall === 'object') selWall.side = b.dataset.side;
+        HP.markDirty();
+        wallSelectedUI(selWall);
+        HP.status('Wall edit scope: ' + b.textContent);
+      };
+    });
+  }
+
   const pWrap = $('#selwall-style-picker-wrap');
   if (pWrap) {
     renderWallStylePicker(pWrap, curStyle, st => {
       HP.pushUndo();
-      w.style = st;
+      if (HP.setWallSideStyle) HP.setWallSideStyle(w, activeSide, st);
+      else w.style = st;
       HP.invalidateRegions();
       HP.saveState();
       HP.markDirty();
       if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
       wallSelectedUI(selWall);
-      HP.status('Wall style set to: ' + st);
+      HP.status('Wall style set to: ' + st + (activeSide === 'both' ? '' : ' (one side)'));
     });
   }
 
   wallSwatches($('#selwall-sw'), curColor, col => {
     HP.pushUndo();
-    w.c = col;
-    w.ca = col;
-    w.cb = col;
+    if (HP.setWallSideColor) HP.setWallSideColor(w, activeSide, col);
+    else { w.c = col; w.ca = col; w.cb = col; }
     HP.invalidateRegions();
     HP.saveState();
     HP.markDirty();
     if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
     wallSelectedUI(selWall);
-    HP.status('Wall painted: ' + col);
+    HP.status((col ? 'Wall painted: ' + col : 'Wall paint reset') + (activeSide === 'both' ? ' (both sides)' : ' (one side)'));
   });
 
   const roomBtn = $('#selwall-room-btn');
   if (roomBtn) {
     roomBtn.onclick = () => {
-      const seg = HP.parseWallKey(typeof selWall === 'string' ? selWall : selWall.k);
-      const isH = seg.d === 'h';
-      const rA = isH ? HP.regionAt(seg.x, seg.y - 1) : HP.regionAt(seg.x - 1, seg.y);
-      const rB = HP.regionAt(seg.x, seg.y);
-      const targetRoom = rA || rB;
+      const targetRoom = activeSide === 'a' ? (rA || rB) : activeSide === 'b' ? (rB || rA) : (rA || rB);
       if (targetRoom) {
         HP.pushUndo();
-        HP.setRoomWallStyle(targetRoom, w.style || 'plaster');
+        HP.setRoomWallStyle(targetRoom, curStyle, activeSide === 'both');
         HP.saveState();
         HP.markDirty();
         if (HP.in3D && HP.world3d && HP.world3d.buildLevel) HP.world3d.buildLevel();
-        HP.status('Applied ' + (w.style || 'plaster') + ' to all walls in ' + (targetRoom.name || 'room'));
+        HP.status('Applied ' + curStyle + ' to ' + (activeSide === 'both' ? 'both sides of ' : 'inside of ') + (targetRoom.name || 'room'));
       } else {
         HP.status('No adjacent room found to style.');
       }
@@ -1164,7 +1232,7 @@ function wallSelectedUI(selWall) {
   if (delBtn) {
     delBtn.onclick = () => {
       HP.pushUndo();
-      delete lvl.walls[selWall.k];
+      delete lvl.walls[wk];
       HP.selectedWall = null;
       HP.invalidateRegions();
       HP.saveState();
@@ -1380,29 +1448,6 @@ function setWindowStyle(k, style) {
   }
 }
 HP.setWindowStyle = setWindowStyle;
-
-HP.setRoomWallStyle = function (r, style) {
-  if (!r || !r.cells) return 0;
-  const walls = HP.cur().walls;
-  let n = 0;
-  const setStyle = k => {
-    const w = walls[k]; if (!w) return;
-    w.style = style;
-    n++;
-  };
-  for (const [x, y] of r.cells) {
-    setStyle(HP.wallKey('h', x, y));
-    setStyle(HP.wallKey('h', x, y + 1));
-    setStyle(HP.wallKey('v', x, y));
-    setStyle(HP.wallKey('v', x + 1, y));
-  }
-  if (HP.invalidateRegions) HP.invalidateRegions();
-  if (HP.markDirty) HP.markDirty();
-  if (HP.in3D && HP.world3d && HP.world3d.buildLevel) {
-    HP.world3d.buildLevel();
-  }
-  return n;
-};
 
 function doorUI() {
   const top = $('#door-panel'); if (!top) return;

@@ -9959,7 +9959,7 @@ F.builder = function (group) {
 
         if (vIdx === 0) {
           // Auto: match touching wall
-          const st = (neighborWall && neighborWall.style) || 'plaster';
+          const st = (neighborWall && (neighborWall.style || neighborWall.sa || neighborWall.sb)) || 'plaster';
           matKind = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'wood' || st === 'shiplap' || st === 'marble') ? st : 'plaster';
           const isExt = neighborWall && neighborWall.ext;
           const sDefC = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' || matKind === 'marble' || matKind === 'wood' || matKind === 'shiplap') ? '#ffffff' : (isExt ? '#e9e2d2' : '#f4efe4');

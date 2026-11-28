@@ -65,9 +65,16 @@ const selectTool = {
       }
       if (wRec) {
         HP.selected = null; HP.selectedSet = []; HP.selectedRoom = null; HP.selectedFeature = null;
-        HP.selectedWall = { k: wk, wall: wRec };
+        const ws = HP.parseWallKey(wk);
+        const clickedSide = ws.d === 'h' ? (p.wy < ws.y * HP.CELL ? 'a' : 'b')
+                                          : (p.wx < ws.x * HP.CELL ? 'a' : 'b');
+        const rA = ws.d === 'h' ? HP.regionAt(ws.x, ws.y - 1) : HP.regionAt(ws.x - 1, ws.y);
+        const rB = HP.regionAt(ws.x, ws.y);
+        const defSide = (rA && !rB) ? 'a' : (!rA && rB) ? 'b' : clickedSide;
+        HP.selectedWall = { k: wk, wall: wRec, side: defSide, rA, rB, clickedSide };
         drag = null;
-        HP.status('Wall selected — Style: ' + (wRec.style || 'plaster'));
+        const st = HP.wallSideStyle ? HP.wallSideStyle(wRec, defSide) : (wRec.style || 'plaster');
+        HP.status('Wall selected — Style: ' + st);
         HP.refreshContext(); HP.markDirty();
         return;
       }
