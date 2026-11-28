@@ -447,9 +447,9 @@ const H3D = [
   [/hottub/i, 20],
   [/acunit/i, 20],
   [/solarpanel/i, 18],
-  [/lounger/i, 16],
+  [/lounger/i, 22],
   [/wheelbarrow/i, 16],
-  [/diveboard/i, 14],
+  [/diveboard/i, 24],
   [/planter$/i, 14],
   [/gnome/i, 14],
   [/firepit/i, 12],
@@ -1201,7 +1201,7 @@ const WALL_DOOR_THEMES = DOOR_STYLE_THEMES;
 HP.WALL_DOOR_THEMES = DOOR_STYLE_THEMES;
 
 function resolveDoorWallStyle(lvl, a) {
-  if (!lvl || !lvl.walls) return { style: HP.wallStyle || 'plaster', ca: '#f4efe4', cb: '#f4efe4' };
+  if (!lvl || !lvl.walls) return { style: 'plaster', ca: '#f4efe4', cb: '#f4efe4' };
   const k = a ? a.k : null;
   const isH = a ? a.d === 'h' : false;
   const seg = k ? HP.parseWallKey(k) : null;
@@ -1226,6 +1226,7 @@ function resolveDoorWallStyle(lvl, a) {
     return isExt ? '#e9e2d2' : '#f4efe4';
   };
 
+  let selfPaint = null;
   if (k) {
     const keys = [k];
     if (a.dbl && seg) {
@@ -1233,53 +1234,65 @@ function resolveDoorWallStyle(lvl, a) {
     }
     for (const key of keys) {
       const w = lvl.walls[key];
-      if (w && (w.style || w._resolvedStyle || w.ca || w._resolvedCa || w.cb || w._resolvedCb)) {
-        const st = w.style || w._resolvedStyle || HP.wallStyle || 'plaster';
+      if (!w) continue;
+      if (w.style || w._resolvedStyle) {
+        const st = w.style || w._resolvedStyle;
         const defC = getDefColor(st);
         return { style: st, ca: w.ca || w._resolvedCa || defC, cb: w.cb || w._resolvedCb || defC };
+      }
+      if (!selfPaint && (w.ca || w._resolvedCa || w.cb || w._resolvedCb)) {
+        selfPaint = { ca: w.ca || w._resolvedCa, cb: w.cb || w._resolvedCb };
       }
     }
   }
 
-  // Walk along continuous collinear wall run in negative and positive directions
+  // Only inspect the immediately adjacent solid wall segments on the same unbroken run
+  // (stop at perpendicular wall junctions and never jump across plain plaster walls).
   if (seg) {
+    const hasPerpAt = (vx, vy) => isH
+      ? !!(lvl.walls[`v,${vx},${vy}`] || lvl.walls[`v,${vx},${vy - 1}`])
+      : !!(lvl.walls[`h,${vx},${vy}`] || lvl.walls[`h,${vx - 1},${vy}`]);
+
     for (const dir of [-1, 1]) {
-      for (let step = 1; step <= 25; step++) {
+      for (let step = 1; step <= 8; step++) {
+        const prevPos = (dir < 0)
+          ? (isH ? seg.x - step + 1 : seg.y - step + 1)
+          : (isH ? seg.x + leaves - 1 + step : seg.y + leaves - 1 + step);
+        const vx = isH ? prevPos : seg.x;
+        const vy = isH ? seg.y : prevPos;
+        if (hasPerpAt(vx, vy)) break;
+
         const offset = (dir < 0) ? -step : (leaves - 1 + step);
         const nx = isH ? seg.x + offset : seg.x;
         const ny = isH ? seg.y : seg.y + offset;
         const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
         const nw = lvl.walls[nk];
         if (!nw) break;
-        if (nw.style || nw._resolvedStyle || nw.ca || nw._resolvedCa || nw.cb || nw._resolvedCb) {
-          const st = nw.style || nw._resolvedStyle || HP.wallStyle || 'plaster';
-          const defC = getDefColor(st);
-          return { style: st, ca: nw.ca || nw._resolvedCa || defC, cb: nw.cb || nw._resolvedCb || defC };
-        }
-      }
-    }
 
-    // Check perpendicular corner connections
-    for (const endIdx of [0, leaves]) {
-      const vx = isH ? seg.x + endIdx : seg.x;
-      const vy = isH ? seg.y : seg.y + endIdx;
-      const perpKeys = isH
-        ? [`v,${vx},${vy}`, `v,${vx},${vy - 1}`]
-        : [`h,${vx},${vy}`, `h,${vx - 1},${vy}`];
-      for (const pk of perpKeys) {
-        const pw = lvl.walls[pk];
-        if (pw && (pw.style || pw._resolvedStyle || pw.ca || pw._resolvedCa || pw.cb || pw._resolvedCb)) {
-          const st = pw.style || pw._resolvedStyle || HP.wallStyle || 'plaster';
+        if (nw.style || nw._resolvedStyle) {
+          const st = nw.style || nw._resolvedStyle;
           const defC = getDefColor(st);
-          return { style: st, ca: pw.ca || pw._resolvedCa || defC, cb: pw.cb || pw._resolvedCb || defC };
+          return {
+            style: st,
+            ca: (selfPaint && selfPaint.ca) || nw.ca || nw._resolvedCa || defC,
+            cb: (selfPaint && selfPaint.cb) || nw.cb || nw._resolvedCb || defC
+          };
         }
+        if (nw.ca || nw._resolvedCa || nw.cb || nw._resolvedCb) {
+          if (!selfPaint) selfPaint = { ca: nw.ca || nw._resolvedCa, cb: nw.cb || nw._resolvedCb };
+        }
+        if (!nw.f) break; // reached a solid unstyled (plaster) wall — do not walk past it
       }
     }
   }
 
-  const defStyle = HP.wallStyle || 'plaster';
+  const defStyle = 'plaster';
   const defC = getDefColor(defStyle);
-  return { style: defStyle, ca: defC, cb: defC };
+  return {
+    style: defStyle,
+    ca: (selfPaint && selfPaint.ca) || defC,
+    cb: (selfPaint && selfPaint.cb) || defC
+  };
 }
 W3.resolveDoorWallStyle = resolveDoorWallStyle;
 
@@ -1300,17 +1313,6 @@ function setDoorWallStyle(k, style) {
       lvl.walls[ak].style = style;
     }
   }
-  for (const dir of [-1, 1]) {
-    for (let step = 1; step <= 25; step++) {
-      const nx = isH ? s.x + dir * step : s.x;
-      const ny = isH ? s.y : s.y + dir * step;
-      const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
-      const nw = lvl.walls[nk];
-      if (!nw) break;
-      nw.style = style;
-    }
-  }
-  HP.wallStyle = style;
   if (HP.world3d && HP.world3d.buildLevel) {
     HP.world3d.buildLevel();
   }

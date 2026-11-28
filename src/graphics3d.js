@@ -1272,8 +1272,9 @@ G.floorMaterial = function (id, opts) {
     marble: 168, flagstone: 160, grassE: 150, gravel: 140, dirt: 140, sand: 140,
     wood: 112, walnut: 112, concrete: 112, granite: 112, deck: 112, tatami: 112,
     laminate: 112, whitewash: 112, herring: 112, onyx: 112, carpet: 112, brick: 112,
+    slate: 112, checker: 96, checker2: 48, checker3: 448, checker4: 168,
     tile: 84, parquet: 84, pebble: 84, travertine: 84, vinyl: 84, lino: 84, mulch: 84,
-    terrazzo: 84, terracotta: 56, hextile: 112, cork: 56, gym: 56, bamboo: 56, mosaic: 42,
+    terrazzo: 84, terracotta: 56, hextile: 112, cork: 56, gym: 56, foam: 56, bamboo: 56, mosaic: 42,
   };
   const scale = floorScales[id] || floorScales[family] || (/wood|fabric/.test(kind) ? HP.CELL * 2 : HP.CELL);
   G.worldUV(m, scale);

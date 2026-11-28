@@ -1528,9 +1528,10 @@ const DP = {plank:dPlank,plankV:dPlankV,tiles:dTiles,check:dCheck,subway:dSubway
    Procedural painters stay as fallback until the image has loaded. */
 const TEX = Object.assign({}, HP.FLOOR_SCALES || {
   wood: 112, walnut: 112, tile: 84, carpet: 112, marble: 168, concrete: 112,
-  parquet: 84, terracotta: 56, mosaic: 42, brick: 112,
+  parquet: 84, checker: 96, checker2: 48, checker3: 448, checker4: 168,
+  terracotta: 56, slate: 112, mosaic: 42, brick: 112,
   hextile: 112, pebble: 84, travertine: 84, granite: 112, cork: 56,
-  deck: 112, gravel: 140, gym: 56, vinyl: 84, tatami: 112,
+  deck: 112, gravel: 140, gym: 56, foam: 56, vinyl: 84, tatami: 112,
   bamboo: 56, laminate: 112, whitewash: 112, herring: 112, lino: 84,
   sand: 140, dirt: 140, mulch: 84, flagstone: 160, onyx: 112, terrazzo: 84,
   grassE: 150,

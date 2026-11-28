@@ -1117,22 +1117,6 @@ function wallSelectedUI(selWall) {
     renderWallStylePicker(pWrap, curStyle, st => {
       HP.pushUndo();
       w.style = st;
-      HP.wallStyle = st;
-      const wk = typeof selWall === 'string' ? selWall : selWall.k;
-      const s = HP.parseWallKey(wk);
-      const isH = s.d === 'h';
-      for (const dir of [-1, 1]) {
-        for (let step = 1; step <= 25; step++) {
-          const nx = isH ? s.x + dir * step : s.x;
-          const ny = isH ? s.y : s.y + dir * step;
-          const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
-          const nw = HP.cur()?.walls?.[nk];
-          if (!nw) break;
-          if (nw.f === 'door' || nw.f === 'window') {
-            nw.style = st;
-          }
-        }
-      }
       HP.invalidateRegions();
       HP.saveState();
       HP.markDirty();
@@ -1358,17 +1342,6 @@ function setDoorWallStyle(k, style) {
       lvl.walls[ak].style = style;
     }
   }
-  for (const dir of [-1, 1]) {
-    for (let step = 1; step <= 25; step++) {
-      const nx = isH ? s.x + dir * step : s.x;
-      const ny = isH ? s.y : s.y + dir * step;
-      const nk = (isH ? 'h,' : 'v,') + nx + ',' + ny;
-      const nw = lvl.walls[nk];
-      if (!nw) break;
-      nw.style = style;
-    }
-  }
-  HP.wallStyle = style;
   if (HP.invalidateRegions) HP.invalidateRegions();
   if (HP.markDirty) HP.markDirty();
   if (HP.in3D && HP.world3d && HP.world3d.buildLevel) {
@@ -1613,7 +1586,7 @@ function featureSelectedUI(feat) {
 
   const wWrap = $('#feat-wallstyle-picker-wrap');
   if (wWrap) {
-    const curWallStyle = (w.style) || (HP.world3d && HP.world3d.resolveDoorWallStyle && HP.world3d.resolveDoorWallStyle(HP.cur(), { k: feat.k, d: feat.k.split(',')[0], dbl: false }).style) || HP.wallStyle || 'plaster';
+    const curWallStyle = (w.style) || (HP.world3d && HP.world3d.resolveDoorWallStyle && HP.world3d.resolveDoorWallStyle(HP.cur(), { k: feat.k, d: feat.k.split(',')[0], dbl: false }).style) || 'plaster';
     renderWallStylePicker(wWrap, curWallStyle, st => {
       HP.pushUndo();
       setDoorWallStyle(feat.k, st);

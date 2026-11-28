@@ -804,9 +804,9 @@ L.build = function (g, entries) {
         const unrotW = Math.max(3, ((it.w || (def && def.w) || 1)) * C() - 3);
         const unrotH = Math.max(3, ((it.h || (def && def.h) || 1)) * C() - 3);
         const isGrand = /^clock$|clkgrand|grandfather/i.test(t);
-        const dialRadius = isGrand ? Math.min(unrotW * 0.22, 4.4) : Math.min(unrotW, 26) * 0.42;
+        const dialRadius = isGrand ? Math.min(unrotW * 0.20, 4.2) : Math.min(unrotW, 26) * 0.42;
         const dialOffset = isGrand ? unrotH * 0.235 : unrotH * 0.275 + 0.3;
-        addClock(cx, cz, it.rot || 0, unrotW, dialOffset, false, dialRadius, bY, isGrand ? 41.3 : undefined);
+        addClock(cx, cz, it.rot || 0, unrotW, dialOffset, false, dialRadius, bY, isGrand ? 44.7 : undefined);
       }
     }
     else if (/walltv|sconce/.test(t)) {

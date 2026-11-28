@@ -345,11 +345,22 @@ function doUse() {
 HP.walkUseAt = function (u) { if (u) { curUse = u; doUse(); } };
 
 /* ---------- stairs: travel between floors ---------- */
-function stairsAt(cx, cy) {
-  for (const it of HP.cur().furniture) {
+function findStairsIn(lvl, cx, cy) {
+  if (!lvl || !lvl.furniture) return null;
+  for (const it of lvl.furniture) {
     if (it.type !== 'stairs') continue;
     const f = HP.footprint(it);
     if (cx >= f.x && cx < f.x + f.w && cy >= f.y && cy < f.y + f.h) return it;
+  }
+  return null;
+}
+
+function stairsAt(cx, cy) {
+  const hit = findStairsIn(HP.cur(), cx, cy);
+  if (hit) return hit;
+  // Upper floors often omit a duplicate stairs piece above the stairwell opening from the floor below
+  if (HP.state.level > 0) {
+    return findStairsIn(HP.state.levels[HP.state.level - 1], cx, cy);
   }
   return null;
 }
@@ -390,6 +401,15 @@ function stairsLanding(levelIdx, fallback) {
     const f = HP.footprint(it);
     return { x: (f.x + f.w / 2) * HP.CELL, y: (f.y + f.h / 2) * HP.CELL };
   }
+  if (levelIdx > 0) {
+    const below = HP.state.levels[levelIdx - 1];
+    for (const it of (below && below.furniture) || []) {
+      if (it.type !== 'stairs') continue;
+      const f = HP.footprint(it);
+      const pt = { x: (f.x + f.w / 2) * HP.CELL, y: (f.y + f.h / 2) * HP.CELL };
+      if (free(pt.x, pt.y)) return pt;
+    }
+  }
   return fallback;
 }
 
@@ -403,6 +423,8 @@ HP.travelFloor = function (dir) {
   if (!p) p = free(keep.x, keep.y) ? keep : spawnPoint();
   HP.player.x = p.x; HP.player.y = p.y;
   HP.camera.x = p.x; HP.camera.y = p.y;
+  stairsShown = '';
+  checkStairs();
   HP.status('Floor ' + (target + 1));
 };
 

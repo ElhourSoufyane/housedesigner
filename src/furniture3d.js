@@ -1282,7 +1282,8 @@ F.builder = function (group) {
         // 1. Stepped ogee molded plinth base (y=0 to 0.16)
         box('wood', 0, 0.04, 0, 0.88, 0.08, 0.52, color);                      // lower base
         box('wood', 0, 0.10, 0, 0.84, 0.04, 0.50, HP.shade(color, 1.08));     // ogee step molding
-        box('wood', 0, 0.14, 0.245, 0.76, 0.04, 0.02, HP.shade(color, 0.95));  // front base panel reveal
+        box('wood', 0, 0.14, -0.01, 0.80, 0.04, 0.46, color);                 // solid upper plinth core (zero waist gap)
+        box('wood', 0, 0.14, 0.228, 0.76, 0.036, 0.016, HP.shade(color, 0.95)); // front base panel reveal
 
         // 2. Central waist column with clear beveled glass pendulum door (y=0.16 to 0.72)
         box('wood', 0, 0.44, -0.04, 0.78, 0.56, 0.44, color);                  // waist carcass
@@ -1407,14 +1408,14 @@ F.builder = function (group) {
           const leafLen = Math.hypot(dx, dz) / width;
           const ang = -Math.atan2(dz, dx);
           // 1. Solid wood outer frame (top rail, bottom rail)
-          boxRot('wood', cx, 0.965, cz, leafLen - 0.010, 0.05, 0.032, ang, frameCol);
-          boxRot('wood', cx, 0.055, cz, leafLen - 0.010, 0.05, 0.032, ang, frameCol);
+          boxRot('wood', cx, 0.965, cz, leafLen, 0.05, 0.032, ang, frameCol);
+          boxRot('wood', cx, 0.055, cz, leafLen, 0.05, 0.032, ang, frameCol);
           // 2. Colored woven cane / fabric inset panel (variant color: cream, amber, or slate blue)
-          boxRot('ceramic', cx, 0.51, cz, leafLen - 0.012, 0.86, 0.010, ang, panelCol);
+          boxRot('ceramic', cx, 0.51, cz, leafLen, 0.86, 0.012, ang, panelCol);
           // 3. Delicate woven rattan accent ribs in coordinating tone
           for (let s = 0; s < 5; s++) {
             const sy = 0.20 + s * 0.15;
-            boxRot('wood', cx, sy, cz, leafLen - 0.016, 0.008, 0.016, ang, HP.shade(panelCol, 0.80));
+            boxRot('wood', cx, sy, cz, leafLen - 0.004, 0.008, 0.016, ang, HP.shade(panelCol, 0.80));
           }
           boxRot('wood', cx, 0.51, cz, 0.008, 0.86, 0.016, ang, HP.shade(panelCol, 0.80));
         }
@@ -1423,7 +1424,7 @@ F.builder = function (group) {
           if (i === 0 && sn.left) continue;  // share hinge with left neighbor
           if (i === numLeaves && sn.right) continue; // share hinge with right neighbor
           const j = joints[i];
-          box('wood', j.x, 0.50, j.z, 0.024, 0.98, 0.034, frameCol);
+          box('wood', j.x, 0.50, j.z, 0.030, 0.98, 0.036, frameCol);
           // Brass foot ferrule
           box('metal', j.x, 0.025, j.z, 0.028, 0.05, 0.038, '#c9a44e');
           // Cylindrical brass folding hinges
@@ -4011,37 +4012,68 @@ F.builder = function (group) {
 
       } else if (/^lounger$/i.test(t)) {
         // Modern Teak & Aluminum Outdoor Sun Lounger with Adjustable Reclining Backrest and Plush Cushion (1x2)
-        // 1. Splayed architectural aluminum runner frame with rear wheels
-        box('metal', -0.28, 0.10, 0, 0.04, 0.16, 0.88, '#1e293b', true);
-        box('metal', 0.28, 0.10, 0, 0.04, 0.16, 0.88, '#1e293b', true);
-        cylX('dark', -0.30, 0.10, -0.40, 0.04, 0.12, 0.12, '#0f172a');          // left transport wheel
-        cylX('dark',  0.30, 0.10, -0.40, 0.04, 0.12, 0.12, '#0f172a');          // right transport wheel
-        // Teak wood slatted lounger bed frame
-        for (let s = 0; s < 7; s++) {
-          box('wood', 0, 0.20, -0.36 + s * 0.12, 0.58, 0.03, 0.08, '#d97706');
+        const cushCol = color || '#f5f5f4';
+        const trimCush = HP.shade(cushCol, 0.88);
+        // 1. Architectural aluminum perimeter rails, 4 grounded legs & rear transport wheels
+        for (const sx of [-0.30, 0.30]) {
+          box('metal', sx, 0.34, 0.03, 0.045, 0.06, 0.88, '#1e293b', true);     // side rail
+          box('metal', sx, 0.17, 0.41, 0.045, 0.34, 0.045, '#1e293b', true);    // front leg
+          box('metal', sx, 0.20, -0.37, 0.045, 0.28, 0.045, '#1e293b', true);   // rear caster stanchion
+          wheelX('dark', sx + (sx > 0 ? 0.025 : -0.025), 0.08, -0.37, 0.035, 3.6, '#0f172a');
         }
-        // 2. Thick all-weather Sunbrella lounger cushion
-        box('fabric', 0, 0.25, 0.10, 0.54, 0.08, 0.58, color || '#f5f5f4');  // flat seat cushion
-        box('fabric', 0, 0.42, -0.28, 0.54, 0.08, 0.36, color || '#f5f5f4'); // inclined backrest cushion
-        // Striped headrest bolster pillow
-        cyl('fabric', 0, 0.56, -0.38, 0.12, 0.48, 0.12, HP.shade(color || '#f5f5f4', 0.88));
+        box('metal', 0, 0.32, 0.41, 0.60, 0.04, 0.04, '#1e293b', true);         // front spreader
+        box('metal', 0, 0.32, -0.37, 0.60, 0.04, 0.04, '#1e293b', true);        // rear spreader
+        // 2. Teak slatted seat deck (front flat half) + inclined teak backrest frame
+        for (let s = 0; s < 4; s++) {
+          box('wood', 0, 0.375, 0.03 + s * 0.125, 0.58, 0.03, 0.09, '#d97706');
+        }
+        boxSlopeYZ('wood', 0, 0.38, -0.02, 0.80, -0.43, 0.58, 0.03, '#d97706');
+        // Twin angled ratchet struts supporting raised backrest underneath
+        for (const sx of [-0.20, 0.20]) {
+          boxSlopeYZ('metal', sx, 0.34, -0.37, 0.59, -0.22, 0.03, 0.03, '#334155', true);
+        }
+        // 3. Contoured all-weather Sunbrella cushion (flat seat + hinged reclining backrest)
+        box('fabric', 0, 0.425, 0.21, 0.56, 0.07, 0.48, cushCol);               // seat cushion
+        wheelX('fabric', 0, 0.425, 0.45, 0.56, 1.54, HP.shade(cushCol, 0.96));  // bullnose front edge
+        boxSlopeYZ('fabric', 0, 0.43, -0.02, 0.85, -0.41, 0.56, 0.07, cushCol); // inclined backrest cushion
+        // 4. Horizontal cylindrical bolster headrest pillow resting flush on upper backrest
+        wheelX('fabric', 0, 0.77, -0.31, 0.50, 3.4, trimCush);
+        for (const px of [-0.16, 0.16]) {
+          wheelX('fabric', px, 0.77, -0.31, 0.035, 3.55, '#ffffff');
+        }
 
       } else if (/^patiotable$/i.test(t)) {
         // Circular Outdoor Patio Dining Set with 4 Woven Armchairs (3x3 footprint, center umbrella hole)
         // 1. Center circular pedestal table with umbrella hole
         cyl('metal', 0, 0.34, 0, 0.16, 0.68, 0.16, '#1e293b', true);
         box('metal', 0, 0.04, 0, 0.54, 0.06, 0.54, '#1e293b', true);          // base cross
-        cyl('ceramic', 0, 0.70, 0, 0.68, 0.04, 0.68, color || '#ffffff');     // honed tabletop
+        cyl('ceramic', 0, 0.70, 0, 0.66, 0.04, 0.66, color || '#ffffff');     // honed tabletop
         cyl('dark', 0, 0.70, 0, 0.06, 0.05, 0.06, '#0f172a');                 // umbrella hole
-        // 2. 4 Woven all-weather wicker patio chairs tucked around table
-        const chairPos = [[-0.36, 0], [0.36, 0], [0, -0.36], [0, 0.36]];
-        for (let c = 0; c < 4; c++) {
-          const [cx, cz] = chairPos[c];
-          // Splayed metal chair legs
-          cyl('metal', cx, 0.20, cz, 0.03, 0.40, 0.03, '#1e293b', true);
-          // Curved woven bucket seat & cushion
-          cyl('wood', cx, 0.44, cz, 0.28, 0.14, 0.28, '#78350f');              // wicker shell
-          cyl('fabric', cx, 0.48, cz, 0.24, 0.06, 0.24, '#f8fafc');            // white cushion
+        // 2. 4 Woven all-weather wicker armchairs tucked neatly around table
+        const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        for (const [nx, nz] of dirs) {
+          const cx = nx * 0.37, cz = nz * 0.37;
+          const tx = -nz, tz = nx;                                            // tangent vector along chair width
+          // Four slender metal legs grounded to patio
+          for (const sx of [-0.08, 0.08]) {
+            for (const sz of [-0.08, 0.08]) {
+              cyl('metal', cx + sx, 0.21, cz + sz, 0.022, 0.42, 0.022, '#1e293b', true);
+            }
+          }
+          // Woven wicker base & plush seat cushion
+          cyl('wood', cx, 0.43, cz, 0.22, 0.06, 0.22, '#78350f');
+          cyl('fabric', cx, 0.47, cz, 0.20, 0.04, 0.20, '#f8fafc');
+          // Curved outer wicker backrest + twin armrests (oriented radially outward)
+          const bx = cx + nx * 0.095, bz = cz + nz * 0.095;
+          const bw = nx !== 0 ? 0.035 : 0.22, bd = nz !== 0 ? 0.035 : 0.22;
+          box('wood', bx, 0.63, bz, bw, 0.34, bd, '#78350f');                 // wicker backrest
+          box('wood', bx, 0.80, bz, bw * (nx ? 1.1 : 0.96), 0.025, bd * (nz ? 1.1 : 0.96), '#92400e');
+          for (const side of [-1, 1]) {
+            const ax = cx + tx * side * 0.105 + nx * 0.02;
+            const az = cz + tz * side * 0.105 + nz * 0.02;
+            box('wood', ax, 0.56, az, nx ? 0.16 : 0.025, 0.025, nz ? 0.16 : 0.025, '#78350f');
+            box('wood', ax, 0.50, az, 0.024, 0.12, 0.024, '#78350f');
+          }
         }
 
       } else if (/^coatrack$/i.test(t)) {
@@ -4112,24 +4144,43 @@ F.builder = function (group) {
         round('fabric', 0.00, 1.12, -0.04, 0.12, 0.12, 0.12, '#f59e0b');  // golden marigold blossom
 
       } else if (/^flowerbed$/i.test(t)) {
-        // Interlocking Fieldstone & Timber Garden Flower Bed with Multi-Variety Perennials (2x1 footprint, height 22px)
-        // 1. Sturdy wooden timber border with corner lap joints
-        box('wood', 0, 0.28, 0, 0.96, 0.54, 0.88, color || '#78350f');
-        box('wood', 0, 0.56, 0, 0.98, 0.06, 0.90, HP.shade(color || '#78350f', 1.12));
-        box('soil', 0, 0.48, 0, 0.88, 0.18, 0.80, '#2d1a10');
-        // 2. 4 Distinct flowering plant clumps along length
+        // Interlocking Timber Garden Flower Bed with Open Loam Soil & Multi-Variety Perennials
+        const bedCol = color || '#78350f';
+        const rimCol = HP.shade(bedCol, 1.12);
+        // 1. Timber walls + 4-piece coping rim surrounding rich dark soil bed
+        box('wood', 0, 0.27, 0, 0.96, 0.54, 0.88, bedCol);
+        for (const sz of [-0.415, 0.415]) box('wood', 0, 0.56, sz, 0.98, 0.06, 0.07, rimCol);
+        for (const sx of [-0.46, 0.46]) box('wood', sx, 0.56, 0, 0.06, 0.06, 0.80, rimCol);
+        box('soil', 0, 0.54, 0, 0.86, 0.09, 0.76, '#2d1a10');
+        // 2. 4 Lush multi-stem flowering plant clumps along length
         const bedPlants = [
-          { x: -0.34, z:  0.04, folCol: '#15803d', flwCol: '#8b5cf6' }, // English lavender
-          { x: -0.12, z: -0.06, folCol: '#16a34a', flwCol: '#ef4444' }, // Red tea roses
-          { x:  0.12, z:  0.06, folCol: '#15803d', flwCol: '#f59e0b' }, // Golden black-eyed susans
-          { x:  0.34, z: -0.04, folCol: '#16a34a', flwCol: '#f8fafc' }  // White Shasta daisies
+          { x: -0.34, z:  0.04, folCol: '#15803d', flwCol: '#8b5cf6', kind: 'spike' }, // English lavender
+          { x: -0.11, z: -0.05, folCol: '#166534', flwCol: '#ef4444', kind: 'rose' },  // Red tea roses
+          { x:  0.12, z:  0.05, folCol: '#15803d', flwCol: '#f59e0b', kind: 'daisy' }, // Black-eyed susans
+          { x:  0.34, z: -0.04, folCol: '#16a34a', flwCol: '#f8fafc', kind: 'daisy' }  // White Shasta daisies
         ];
         for (const bp of bedPlants) {
-          round('foliage', bp.x, 0.74, bp.z, 0.24, 0.38, 0.32, bp.folCol);
-          cyl('foliage', bp.x, 0.92, bp.z, 0.02, 0.22, 0.02, bp.folCol);
-          round('fabric', bp.x, 1.04, bp.z, 0.13, 0.14, 0.13, bp.flwCol);
-          if (bp.flwCol === '#f8fafc') {
-            round('fabric', bp.x, 1.05, bp.z, 0.04, 0.04, 0.04, '#eab308'); // yellow daisy center
+          // Layered leafy rosette mound instead of single sphere
+          round('foliage', bp.x, 0.64, bp.z, 0.22, 0.22, 0.30, bp.folCol);
+          for (const [lx, lz] of [[-0.06, 0.12], [0.06, -0.12], [0.05, 0.10]]) {
+            round('foliage', bp.x + lx, 0.61, bp.z + lz, 0.13, 0.15, 0.16, HP.shade(bp.folCol, 1.1));
+          }
+          // 3 Staggered stems + multi-blossom cluster per clump
+          const offsets = [[-0.04, -0.06, 0.14], [0.03, 0.05, 0.20], [0.00, -0.01, 0.25]];
+          for (const [ox, oz, h] of offsets) {
+            const bx = bp.x + ox, bz = bp.z + oz;
+            cyl('foliage', bx, 0.68 + h / 2, bz, 0.014, h, 0.014, bp.folCol);
+            const topY = 0.68 + h;
+            if (bp.kind === 'spike') {
+              cyl('fabric', bx, topY + 0.03, bz, 0.045, 0.10, 0.045, bp.flwCol);
+              round('fabric', bx, topY + 0.08, bz, 0.04, 0.05, 0.04, HP.shade(bp.flwCol, 1.15));
+            } else if (bp.kind === 'rose') {
+              round('fabric', bx, topY, bz, 0.065, 0.055, 0.065, bp.flwCol);
+              round('fabric', bx, topY + 0.02, bz, 0.04, 0.035, 0.04, HP.shade(bp.flwCol, 0.85));
+            } else {
+              round('fabric', bx, topY, bz, 0.075, 0.025, 0.075, bp.flwCol);
+              round('fabric', bx, topY + 0.012, bz, 0.032, 0.02, 0.032, bp.flwCol === '#f8fafc' ? '#eab308' : '#3b2416');
+            }
           }
         }
 
@@ -4655,20 +4706,37 @@ F.builder = function (group) {
       } else if (/^solarpanel$/i.test(t)) {
         // Tilted High-Efficiency Monocrystalline Photovoltaic Array (3x2 footprint, height 18px)
         for (const rx of [-0.40, 0, 0.40]) {
-          boxSlope('metal', rx, 0.08, 0.40, rx, 0.38, -0.40, 0.04, 0.04, '#cbd5e1', true);
+          boxSlopeYZ('metal', rx, 0.08, 0.40, 0.38, -0.40, 0.04, 0.04, '#cbd5e1', true);
         }
         for (const c of [-0.32, 0, 0.32]) {
-          boxSlope('glass', c, 0.18, 0.40, c, 0.48, -0.40, 0.28, 0.03, color || '#1e2e4a');
-          boxSlope('metal', c, 0.19, 0.40, c, 0.49, -0.40, 0.005, 0.005, '#94a3b8', true);
+          boxSlopeYZ('glass', c, 0.18, 0.40, 0.48, -0.40, 0.28, 0.03, color || '#1e2e4a');
+          boxSlopeYZ('metal', c, 0.195, 0.40, 0.495, -0.40, 0.012, 0.008, '#94a3b8', true);
         }
 
       } else if (/^diveboard$/i.test(t)) {
-        // Residential Pool Springboard with Stainless Steel Base (1x2 footprint, height 18px)
-        box('metal', -0.22, 0.24, -0.40, 0.06, 0.48, 0.06, '#cbd5e1', true);
-        box('metal', 0.22, 0.24, -0.40, 0.06, 0.48, 0.06, '#cbd5e1', true);
-        cylX('metal', 0, 0.36, -0.05, 0.54, 0.08, 0.08, '#94a3b8', true);
-        boxSlope('ceramic', 0, 0.50, -0.42, 0, 0.40, 0.45, 0.48, 0.04, color || '#f8fafc');
-        boxSlope('dark', 0, 0.525, -0.40, 0, 0.425, 0.43, 0.42, 0.005, '#0ea5e9');
+        // Residential Pool Springboard (rot=0: rear stainless anchor stand at +z, tapered tip projecting over pool at -z)
+        // 1. Bolted rear stainless deck anchor plate & dual stanchions (+z = +0.36)
+        box('metal', 0, 0.025, 0.36, 0.60, 0.05, 0.24, '#cbd5e1', true);
+        for (const sx of [-0.21, 0.21]) {
+          box('metal', sx, 0.22, 0.36, 0.065, 0.36, 0.065, '#cbd5e1', true);
+        }
+        box('metal', 0, 0.36, 0.36, 0.46, 0.04, 0.06, '#94a3b8', true);
+        // 2. Grounded mid fulcrum A-frame & rubber-sleeved roller at z = +0.02 (touches board underside)
+        box('metal', 0, 0.025, 0.02, 0.62, 0.05, 0.18, '#cbd5e1', true);
+        for (const sx of [-0.22, 0.22]) {
+          box('metal', sx, 0.265, 0.02, 0.06, 0.47, 0.06, '#cbd5e1', true);
+          boxSlopeYZ('metal', sx, 0.06, 0.34, 0.47, 0.04, 0.04, 0.04, '#94a3b8', true);
+        }
+        cylX('dark', 0, 0.50, 0.02, 0.52, 0.085, 0.043, '#1e293b');
+        // 3. Textured fiberglass diving plank sloping cleanly upward toward the pool (-z = -0.48)
+        boxSlopeYZ('ceramic', 0, 0.40, 0.44, 0.72, -0.48, 0.56, 0.055, color || '#f8fafc');
+        boxSlopeYZ('dark', 0, 0.432, 0.38, 0.745, -0.46, 0.46, 0.015, '#0284c7');
+        // 4. Dual stainless side grab rails along rear boarding zone
+        for (const sx of [-0.30, 0.30]) {
+          box('metal', sx, 0.48, 0.36, 0.035, 0.88, 0.035, '#cbd5e1', true);
+          box('metal', sx, 0.48, 0.06, 0.035, 0.88, 0.035, '#cbd5e1', true);
+          box('metal', sx, 0.92, 0.21, 0.035, 0.04, 0.335, '#cbd5e1', true);
+        }
 
       } else if (/^outshower$/i.test(t)) {
         // Architectural Teak Deck Outdoor Privacy Rain Shower (1x1 footprint, height 48px)
@@ -5722,8 +5790,8 @@ F.builder = function (group) {
         // Center longitudinal ground spine beam
         box('wood', 0, 0.05, 0, 0.10, 0.07, 0.68, HP.shade(woodCol, 0.90));
         // Upward-sweeping curved wooden horns at front and rear rising to y=0.72
-        boxSlope('wood', 0, 0.05, -0.32, 0, 0.70, -0.44, 0.08, 0.09, woodCol);
-        boxSlope('wood', 0, 0.05, 0.32, 0, 0.70, 0.44, 0.08, 0.09, woodCol);
+        boxSlopeYZ('wood', 0, 0.05, -0.32, 0.70, -0.44, 0.08, 0.09, woodCol);
+        boxSlopeYZ('wood', 0, 0.05, 0.32, 0.70, 0.44, 0.08, 0.09, woodCol);
         // Heavy stainless steel eye-bolts and S-hooks at horn tips
         cyl('metal', 0, 0.71, -0.44, 0.04, 0.06, 0.04, '#cbd5e1');
         cyl('metal', 0, 0.71, 0.44, 0.04, 0.06, 0.04, '#cbd5e1');
@@ -5738,9 +5806,9 @@ F.builder = function (group) {
           }
         }
         // 3. Natural Catenary Sagging Woven Cotton Bed (3 smooth sloping segments)
-        boxSlope('fabric', 0, 0.54, -0.34, 0, 0.32, -0.14, 0.64, 0.035, bedCol); // head slope
-        box('fabric', 0, 0.30, 0, 0.66, 0.04, 0.28, bedCol);                      // center sag basin
-        boxSlope('fabric', 0, 0.32, 0.14, 0, 0.54, 0.34, 0.64, 0.035, bedCol);  // foot slope
+        boxSlopeYZ('fabric', 0, 0.54, -0.34, 0.32, -0.14, 0.64, 0.035, bedCol); // head slope
+        box('fabric', 0, 0.30, 0, 0.66, 0.04, 0.28, bedCol);                        // center sag basin
+        boxSlopeYZ('fabric', 0, 0.32, 0.14, 0.54, 0.34, 0.64, 0.035, bedCol);    // foot slope
         // 4. Horizontal Striped Bolster Pillow lying across the head of the hammock
         cylX('fabric', 0, 0.44, -0.22, 0.58, 0.14, 0.14, '#38bdf8');
         cylX('fabric', -0.14, 0.44, -0.22, 0.05, 0.145, 0.145, '#ffffff'); // white accent stripe
@@ -7145,16 +7213,17 @@ F.builder = function (group) {
       } else if (/^cornershelf$/i.test(t)) {
         // Scandinavian 5-Tier Quarter-Round Corner Etagere Shelving Unit (1x1 footprint, height 28px)
         const col = color || '#9a774f';
-        // 1. Back corner uprights & front outer stiles
-        cyl('wood', -0.42, 0.50, -0.42, 0.04, 0.96, 0.04, HP.shade(col, 0.8)); // back corner post
-        cyl('wood', 0.42, 0.50, -0.42, 0.03, 0.96, 0.03, HP.shade(col, 0.8));  // right wall post
-        cyl('wood', -0.42, 0.50, 0.42, 0.03, 0.96, 0.03, HP.shade(col, 0.8));  // left wall post
-        // 2. 5 Radial quarter-round tiered shelves
+        const postCol = HP.shade(col, 0.8);
+        // 1. Back corner & wall-side uprights aligned squarely with all 5 shelf wings
+        cyl('wood', -0.40, 0.50, -0.40, 0.04, 0.96, 0.04, postCol);            // back corner post
+        cyl('wood', 0.39, 0.50, -0.40, 0.035, 0.96, 0.035, postCol);           // right wall post
+        cyl('wood', -0.40, 0.50, 0.39, 0.035, 0.96, 0.035, postCol);           // left wall post
+        // 2. 5 Quarter-round tiered shelves connected flush to all 3 uprights
         for (let i = 0; i < 5; i++) {
           const sy = 0.08 + i * 0.21;
-          const sRad = 0.84 * (1 - i * 0.04);
-          box('wood', -0.42 + sRad * 0.35, sy, -0.42 + sRad * 0.35, sRad * 0.70, 0.025, sRad * 0.70, col);
-          cyl('wood', -0.42 + sRad * 0.45, sy, -0.42 + sRad * 0.45, sRad * 0.45, 0.028, sRad * 0.45, HP.shade(col, 1.1));
+          box('wood', -0.01, sy, -0.25, 0.86, 0.028, 0.36, col);               // right wing along north wall
+          box('wood', -0.25, sy, -0.01, 0.36, 0.028, 0.86, col);               // left wing along west wall
+          cyl('wood', -0.14, sy, -0.14, 0.56, 0.028, 0.56, HP.shade(col, 1.05)); // smooth quarter-round apron
         }
         // 3. Decor on shelves
         cyl('ceramic', -0.15, 0.33, -0.20, 0.10, 0.08, 0.10, '#f8fafc');
@@ -7213,14 +7282,21 @@ F.builder = function (group) {
 
       /* ---------------- DECORATIVE INDOOR BOTANICALS (8 ITEMS) ---------------- */
       } else if (/^plsnake$/i.test(t)) {
-        // Potted Sansevieria Snake Plant in Cylindrical Matte Ceramic Pot
-        cyl('ceramic', 0, 0.28, 0, 0.54, 0.54, 0.54, color || '#f8fafc');
-        cyl('soil', 0, 0.53, 0, 0.48, 0.06, 0.48, '#382218');
-        for (let b = 0; b < 6; b++) {
-          const bang = b * 1.05;
-          const bx = Math.cos(bang) * 0.11, bz = Math.sin(bang) * 0.11;
-          box('foliage', bx, 0.78, bz, 0.04, 0.48, 0.12, '#15803d');
-          box('glow', bx, 0.78, bz, 0.042, 0.48, 0.015, '#facc15');
+        // Potted Sansevieria Snake Plant with tapered, variegated sword blades in Matte Ceramic Pot
+        cyl('ceramic', 0, 0.26, 0, 0.54, 0.50, 0.54, color || '#f8fafc');
+        cyl('soil', 0, 0.49, 0, 0.48, 0.06, 0.48, '#382218');
+        for (let b = 0; b < 9; b++) {
+          const bang = b * 0.698;
+          const rad = (b % 2 === 0 ? 0.06 : 0.13);
+          const bx = Math.cos(bang) * rad, bz = Math.sin(bang) * rad;
+          const bh = 0.28 + (b % 3) * 0.09 + (b % 2) * 0.04;
+          const bladeW = 0.095 - (b % 3) * 0.012;
+          const pitch = -Math.sin(bang) * 0.10, roll = Math.cos(bang) * 0.10;
+          const cy = 0.48 + bh * 0.42;
+          const folCol = b % 2 === 0 ? '#15803d' : '#166534';
+          partRotEuler('box', 'foliage', bx, cy, bz, bladeW, bh, 0.022, pitch, bang, roll, folCol);
+          partRotEuler('box', 'foliage', bx * 1.15, cy + bh * 0.50, bz * 1.15, bladeW * 0.55, bh * 0.22, 0.016, pitch, bang, roll, '#22c55e');
+          partRotEuler('box', 'foliage', bx, cy, bz, bladeW + 0.008, bh * 0.94, 0.015, pitch, bang, roll, '#eab308');
         }
 
       } else if (/^plmonstera$/i.test(t)) {
@@ -7481,46 +7557,45 @@ F.builder = function (group) {
       } else if (/^mirarch$/i.test(t)) {
         // French Neoclassical Arched Top Floor Leaner Mirror with Gilded Crest (1x2 footprint)
         box('metal', 0, 0.48, 0, 0.64, 0.94, 0.06, '#c9a44e', true);           // gilt frame
-        box('glass', 0, 0.48, 0.025, 0.56, 0.86, 0.01, '#d8eef4');
+        box('metal', 0, 0.48, 0.022, 0.55, 0.85, 0.008, '#e2e8f0', true);       // silver reflector plate
+        box('glass', 0, 0.48, 0.028, 0.55, 0.85, 0.008, '#d8eef4');             // specular glazing
         part('cone', 'metal', 0, 0.98, 0, 0.22, 0.12, 0.06, '#c9a44e', true);   // carved top crest
 
       } else if (/^mirwavy$/i.test(t)) {
-        // Scandinavian Postmodern Curvy Wavy Full-Length Mirror (1x2 footprint, height 50px, undulating scalloped squiggles, pastel lacquer frame & floor kickstand)
-        const waveColor = color || '#f472b6'; // signature playful pastel pink / sage / lilac
-        const mirrorCol = '#d8eef4';
+        // Scandinavian Postmodern Curvy Wavy Full-Length Mirror (1x2 footprint, sculpted pastel frame & floor easel)
+        const waveColor = color || '#f472b6';
+        const mirrorCol = '#e0f2fe';
         const standCol = '#334155';
 
-        // 1. Stable Floor Anti-Slip Rubber Pads (Ground resting at y=0)
+        // 1. Floor Rubber Pads & Angled Rear Steel Kickstand Easel
         for (const sx of [-0.20, 0.20]) {
           box('dark', sx, 0.02, 0, 0.08, 0.04, 0.08, '#0f172a');
         }
-        // 2. Angled Rear Steel Kickstand Easel Leg
-        boxSlope('metal', 0, 0.60, -0.02, 0, 0.02, -0.28, 0.035, 0.035, standCol, true);
-        box('metal', 0, 0.02, -0.28, 0.12, 0.03, 0.06, standCol, true);
+        boxSlopeYZ('metal', 0, 0.62, -0.02, 0.02, -0.28, 0.04, 0.035, standCol, true);
+        box('metal', 0, 0.02, -0.28, 0.14, 0.03, 0.06, standCol, true);
 
-        // 3. Central High-Clarity Mirror Plate & Backing Board
-        box('dark', 0, 0.50, -0.01, 0.44, 0.88, 0.02, '#181b1f');
-        box('glass', 0, 0.50, 0.018, 0.36, 0.80, 0.015, mirrorCol);
+        // 2. Central Bright Silvered Mirror Plate + Soft Lacquered Backing Board
+        box('wood', 0, 0.50, -0.015, 0.46, 0.88, 0.025, HP.shade(waveColor, 0.85));
+        box('metal', 0, 0.50, 0.006, 0.37, 0.81, 0.010, '#e2e8f0', true);       // bright silver reflector plate
+        box('glass', 0, 0.50, 0.015, 0.37, 0.81, 0.010, mirrorCol);
 
-        // 4. Undulating Serpentine Scalloped Wave Frames along Left & Right Edges
-        const numWaves = 6;
+        // 3. Smooth Continuous Scalloped Wave Frame Along Left & Right Edges
+        const numWaves = 8;
         for (let w = 0; w < numWaves; w++) {
-          const wy = 0.14 + (w / (numWaves - 1)) * 0.72; // along mirror height
-          const peakOffset = (w % 2 === 0 ? 0.045 : -0.025);
+          const wy = 0.10 + (w / (numWaves - 1)) * 0.80;
+          const peakOffset = (w % 2 === 0 ? 0.028 : -0.012);
           for (const sx of [-1, 1]) {
-            const bx = sx * (0.23 + peakOffset);
-            round('fabric', bx, wy, 0.015, 0.11, 0.12, 0.06, waveColor);
-            box('fabric', sx * 0.20, wy, 0.012, 0.08, 0.13, 0.05, HP.shade(waveColor, 0.95));
+            cylZ('fabric', sx * (0.215 + peakOffset), wy, 0.010, 0.09, 0.115, 0.045, waveColor);
+            box('fabric', sx * 0.20, wy, 0.008, 0.065, 0.12, 0.042, HP.shade(waveColor, 0.96));
           }
         }
-
-        // 5. Wavy Horizontal Crests across Top and Bottom Borders
-        for (const crestY of [0.06, 0.94]) {
+        // 4. Sculpted Top & Bottom Wave Rails
+        for (const crestY of [0.075, 0.925]) {
+          box('fabric', 0, crestY, 0.008, 0.46, 0.06, 0.042, HP.shade(waveColor, 0.95));
           for (let tx = -2; tx <= 2; tx++) {
-            const cx = tx * 0.09;
-            const waveYOffset = (Math.abs(tx) % 2 === 1 ? 0.025 : -0.015) * (crestY > 0.5 ? 1 : -1);
-            round('fabric', cx, crestY + waveYOffset, 0.015, 0.10, 0.08, 0.06, waveColor);
-            box('fabric', cx, crestY, 0.012, 0.09, 0.06, 0.05, HP.shade(waveColor, 0.93));
+            const cx = tx * 0.085;
+            const waveYOffset = (Math.abs(tx) % 2 === 1 ? 0.018 : -0.008) * (crestY > 0.5 ? 1 : -1);
+            cylZ('fabric', cx, crestY + waveYOffset, 0.010, 0.095, 0.065, 0.045, waveColor);
           }
         }
 
@@ -7758,11 +7833,11 @@ F.builder = function (group) {
           // Flush outer stiles, top/bottom rails & translucent Japanese Washi paper panels
           boxRot('wood', cx, 0.965, cz, leafLen, 0.05, 0.026, ang, fCol);
           boxRot('wood', cx, 0.055, cz, leafLen, 0.05, 0.026, ang, fCol);
-          boxRot('wood', cx, 0.12, cz, leafLen - 0.008, 0.09, 0.020, ang, fCol);
-          boxRot('ceramic', cx, 0.54, cz, leafLen - 0.010, 0.80, 0.008, ang, '#fffdfa');
+          boxRot('wood', cx, 0.12, cz, leafLen, 0.09, 0.020, ang, fCol);
+          boxRot('ceramic', cx, 0.54, cz, leafLen, 0.80, 0.010, ang, '#fffdfa');
           for (let gy = 0; gy < 6; gy++) {
             const ly = 0.24 + gy * 0.115;
-            boxRot('wood', cx, ly, cz, leafLen - 0.010, 0.009, 0.016, ang, fCol);
+            boxRot('wood', cx, ly, cz, leafLen - 0.004, 0.009, 0.016, ang, fCol);
           }
           boxRot('wood', cx, 0.54, cz, 0.009, 0.78, 0.016, ang, fCol);
         }
@@ -9742,8 +9817,13 @@ F.builder = function (group) {
           const ty = (j + 1) * 0.118;
           const tz = -0.42 + j * 0.118;
           box('wood', 0, ty, tz + 0.01, 0.88, 0.032, 0.135, woodCol);
-          box('ceramic', 0, ty - 0.055, tz - 0.045, 0.88, 0.086, 0.018, '#f8fafc');
-          box('wood', 0, (ty - 0.06) / 2, tz, 0.84, ty - 0.06, 0.105, HP.shade(woodCol, 0.75));
+          if (j === 0) {
+            box('ceramic', 0, 0.055, tz - 0.045, 0.88, 0.110, 0.018, '#f8fafc'); // flush to floor y=0
+            box('wood', 0, 0.048, tz, 0.84, 0.096, 0.105, HP.shade(woodCol, 0.75));
+          } else {
+            box('ceramic', 0, ty - 0.055, tz - 0.045, 0.88, 0.086, 0.018, '#f8fafc');
+            box('wood', 0, (ty - 0.06) / 2, tz, 0.84, ty - 0.06, 0.105, HP.shade(woodCol, 0.75));
+          }
         }
         // 3. Modern architectural black iron balustrade & continuous oak handrail (along right edge)
         boxSlope('wood', 0.46, 0.46, -0.45, 0.46, 1.35, 0.44, 0.04, 0.05, woodCol); // smooth handrail
@@ -9802,9 +9882,9 @@ F.builder = function (group) {
       } else if (/awning_metal/.test(t)) {
         // Architectural Industrial Corrugated Metal Awning with Wall Brackets
         const metalCol = color || '#475569';
-        boxSlope('metal', 0, 0.95, -0.46, 0, 0.82, 0.46, 0.96, 0.03, metalCol);
+        boxSlopeYZ('metal', 0, 0.95, -0.46, 0.82, 0.46, 0.96, 0.03, metalCol);
         for (const sx of [-0.44, 0.44]) {
-          boxSlope('metal', sx, 0.65, -0.44, sx, 0.85, 0.42, 0.02, 0.02, '#1e293b');
+          boxSlopeYZ('metal', sx, 0.65, -0.44, 0.85, 0.42, 0.02, 0.02, '#1e293b');
         }
       } else if (/^archway/.test(t)) {
         // Architectural Cased Walkthrough Archway (Matches the connecting wall's material & color: plaster, brick, tile, stone, concrete, etc.)
@@ -9879,7 +9959,7 @@ F.builder = function (group) {
 
         if (vIdx === 0) {
           // Auto: match touching wall
-          const st = (neighborWall && neighborWall.style) || HP.wallStyle || 'plaster';
+          const st = (neighborWall && neighborWall.style) || 'plaster';
           matKind = (st === 'brick' || st === 'brick_white' || st === 'stone' || st === 'tile' || st === 'concrete' || st === 'wood' || st === 'shiplap' || st === 'marble') ? st : 'plaster';
           const isExt = neighborWall && neighborWall.ext;
           const sDefC = (matKind === 'brick' || matKind === 'brick_white' || matKind === 'stone' || matKind === 'tile' || matKind === 'concrete' || matKind === 'marble' || matKind === 'wood' || matKind === 'shiplap') ? '#ffffff' : (isExt ? '#e9e2d2' : '#f4efe4');
@@ -9990,7 +10070,7 @@ F.builder = function (group) {
           cyl('metal', sx, my / 2, sz, 0.02, my, 0.02, '#94a3b8', true);
           box('metal', sx, 0.015, sz, 0.06, 0.03, 0.06, '#64748b', true);
         }
-        boxSlope('fabric', 0, 0.92, -0.38, 0, 0.84, 0.38, 0.86, 0.015, fabricCol);
+        boxSlopeYZ('fabric', 0, 0.92, -0.38, 0.84, 0.38, 0.86, 0.015, fabricCol);
       } else if (/aquarium/.test(t)) {
         // Luxury Rimless Glass Living Aquarium (zero overlapping coplanar faces / z-fighting)
         // 1. Minimalist matte black cabinet credenza with recessed shadow plinth + proud front wood doors

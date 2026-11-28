@@ -667,5 +667,61 @@ t('Escape resume also preserves position', pos().x === beforePause.x && pos().z 
   t('open double sliding door does not block walk-through passage', !blocked);
 }
 
+// Wall style isolation: changing one room or door must not leak brick onto other rooms' doors/windows
+{
+  const savedWallStyle = HP.wallStyle;
+  HP.wallStyle = 'brick_white';
+  const isoLvl = {
+    walls: {
+      // Room A (x=2..4, y=2..4) styled brick
+      'h,2,2': { f: null, style: 'brick' }, 'h,3,2': { f: null, style: 'brick' },
+      'h,2,4': { f: null, style: 'brick' }, 'h,3,4': { f: null, style: 'brick' },
+      'v,2,2': { f: null, style: 'brick' }, 'v,2,3': { f: null, style: 'brick' },
+      'v,4,2': { f: null, style: 'brick' }, 'v,4,3': { f: null, style: 'brick' },
+      // Adjacent Room B (x=2..4, y=4..8) along same vertical line v,2,* (plaster, unstyled)
+      'v,2,4': { f: 'window' },
+      'v,2,5': { f: null },
+      'v,2,6': { f: 'window' },
+      'v,2,7': { f: null },
+      'h,2,8': { f: null }, 'h,3,8': { f: null },
+      'v,4,4': { f: null }, 'v,4,5': { f: 'door' }, 'v,4,6': { f: null }, 'v,4,7': { f: null },
+      // Separate unstyled doorway
+      'h,10,10': { f: null }, 'h,11,10': { f: 'door' }, 'h,12,10': { f: null }
+    },
+    floors: {}, furniture: []
+  };
+  const winAdjacent = W3.resolveDoorWallStyle(isoLvl, { k: 'v,2,4', d: 'v', dbl: false, ext: true });
+  t('window across perpendicular room wall stays plaster, not brick', winAdjacent.style === 'plaster', winAdjacent.style);
+  const winMid = W3.resolveDoorWallStyle(isoLvl, { k: 'v,2,6', d: 'v', dbl: false, ext: true });
+  t('window down same wall past plaster segments stays plaster', winMid.style === 'plaster', winMid.style);
+  const doorOther = W3.resolveDoorWallStyle(isoLvl, { k: 'v,4,5', d: 'v', dbl: false, ext: true });
+  t('door in adjacent room stays plaster despite HP.wallStyle', doorOther.style === 'plaster', doorOther.style);
+  const doorFar = W3.resolveDoorWallStyle(isoLvl, { k: 'h,11,10', d: 'h', dbl: false, ext: true });
+  t('unstyled doorway does not inherit global HP.wallStyle', doorFar.style === 'plaster', doorFar.style);
+
+  // Unbroken same-run brick wall SHOULD still style an unstyled door inside it
+  const sameRunLvl = {
+    walls: {
+      'h,2,2': { f: null, style: 'brick' },
+      'h,3,2': { f: 'door' },
+      'h,4,2': { f: null, style: 'brick' }
+    }
+  };
+  const sameRunDoor = W3.resolveDoorWallStyle(sameRunLvl, { k: 'h,3,2', d: 'h', dbl: false, ext: true });
+  t('door inside unbroken same-room brick wall matches brick', sameRunDoor.style === 'brick', sameRunDoor.style);
+
+  // setDoorWallStyle must only update the door, not overwrite neighboring walls/windows or HP.wallStyle
+  const prevCur = HP.cur;
+  HP.cur = () => isoLvl;
+  HP.wallStyle = 'plaster';
+  W3.setDoorWallStyle('h,11,10', 'stone');
+  t('setDoorWallStyle styles the target door', isoLvl.walls['h,11,10'].style === 'stone');
+  t('setDoorWallStyle does not overwrite neighbor wall h,10,10', !isoLvl.walls['h,10,10'].style);
+  t('setDoorWallStyle does not overwrite neighbor wall h,12,10', !isoLvl.walls['h,12,10'].style);
+  t('setDoorWallStyle does not mutate global HP.wallStyle', HP.wallStyle === 'plaster');
+  HP.cur = prevCur;
+  HP.wallStyle = savedWallStyle;
+}
+
 console.log(`\n${fail ? 'FAILURES: ' + fail : 'ALL PASS'} (${pass} checks)`);
 process.exit(fail ? 1 : 0);
